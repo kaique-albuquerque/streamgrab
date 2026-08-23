@@ -138,12 +138,37 @@ test('validateAnalyzePayload aceita payload válido', () => {
   const out = validateAnalyzePayload({
     url: 'https://example.com/playlist.m3u8',
     headers: { 'user-agent': 'test' },
-    auth: { cookiesFile: 'c:/cookies.txt' },
+    auth: { cookiesFile: 'C:\\cookies.txt', cookiesFromBrowser: 'chrome' },
   });
   assert.ok(out);
   assert.equal(out.url, 'https://example.com/playlist.m3u8');
   assert.equal(out.headers['user-agent'], 'test');
-  assert.equal(out.auth.cookiesFile, 'c:/cookies.txt');
+  assert.equal(out.auth.cookiesFile, 'C:\\cookies.txt');
+  assert.equal(out.auth.cookiesFromBrowser, 'chrome');
+});
+
+test('validateAnalyzePayload rejeita cookiesFile relativo ou cookiesFromBrowser malicioso', () => {
+  assert.equal(
+    validateAnalyzePayload({
+      url: 'https://example.com/playlist.m3u8',
+      auth: { cookiesFile: 'relative/cookies.txt' },
+    }),
+    null
+  );
+  assert.equal(
+    validateAnalyzePayload({
+      url: 'https://example.com/playlist.m3u8',
+      auth: { cookiesFile: 'C:\\Users\\..\\cookies.txt' },
+    }),
+    null
+  );
+  assert.equal(
+    validateAnalyzePayload({
+      url: 'https://example.com/playlist.m3u8',
+      auth: { cookiesFromBrowser: 'chrome; rm -rf /' },
+    }),
+    null
+  );
 });
 
 test('validateAnalyzePayload rejeita URL inválida e normaliza campos ausentes', () => {
@@ -205,6 +230,24 @@ test('validateDownloadPayload rejeita payload inválido', () => {
       url: 'https://example.com',
       filename: 'video',
       qualityChoice: 'abc',
+    }),
+    null
+  );
+  assert.equal(
+    validateDownloadPayload({
+      taskId: 'tab-1',
+      url: 'https://example.com',
+      filename: 'video',
+      cookiesFile: 'relative/cookies.txt',
+    }),
+    null
+  );
+  assert.equal(
+    validateDownloadPayload({
+      taskId: 'tab-1',
+      url: 'https://example.com',
+      filename: 'video',
+      cookiesFromBrowser: 'chrome; echo bad',
     }),
     null
   );
