@@ -45,7 +45,13 @@ import { prepareDashSegmentDownloadToLocal } from '../transports/backends/dash-s
 import { isMdstrmUrl } from '../mdstrm.js';
 import { parsePlaylistText } from '../hls.js';
 import { resolveTransportWithAutoInstall } from './mdstrm-routing.js';
-import { defaultStatePath, clearState } from './resume.js';
+import {
+  defaultStatePath,
+  clearState,
+  createSegmentCheckpointState,
+  loadSegmentCheckpointState,
+  saveSegmentCheckpointState,
+} from './resume.js';
 import { createRequestContext, mergeRequestContext } from './request-context.js';
 import { isValidDownloadPlan } from './download-plan.js';
 import { selectStrategyDecision } from '../strategy/selector.js';
@@ -174,7 +180,10 @@ export function createDefaultExecutor({
               ffmpegStartDownload,
               checkpoint: currentCheckpoint,
               tmpDir: currentCheckpoint?.diagnostics?.workDir || null,
-              onCheckpoint: (checkpoint) => setJobCheckpoint(job, checkpoint),
+              onCheckpoint: (checkpoint) => {
+                setJobCheckpoint(job, checkpoint);
+                job._persistCheckpoint?.(checkpoint);
+              },
               adaptive:
                 featureFlags?.adaptiveSegments || featureFlags?.hlsSegments
                   ? {
@@ -195,7 +204,10 @@ export function createDefaultExecutor({
             ffmpegStartMuxDownload,
             checkpoint: currentCheckpoint,
             tmpDir: currentCheckpoint?.diagnostics?.workDir || null,
-            onCheckpoint: (checkpoint) => setJobCheckpoint(job, checkpoint),
+            onCheckpoint: (checkpoint) => {
+              setJobCheckpoint(job, checkpoint);
+              job._persistCheckpoint?.(checkpoint);
+            },
             adaptive:
               featureFlags?.adaptiveSegments || featureFlags?.dashSegments
                 ? {
@@ -991,10 +1003,11 @@ export class DownloadEngine {
       });
       const outputPath = this._resolveOutput(job, prepared, destination);
       job.meta.output = outputPath;
+      this._hydrateSegmentCheckpoint(job);
       await this._downloadLoop(job, adapter, prepared, { headers, mode });
-      this._complete(job);
+      await this._complete(job);
     } catch (err) {
-      this._handleFailure(job, err);
+      await this._handleFailure(job, err);
     } finally {
       this._active.delete(job.id);
     }
@@ -1081,10 +1094,39 @@ export class DownloadEngine {
     return output;
   }
 
+  _hydrateSegmentCheckpoint(job) {
+    const sourceType = String(job._sourceType || job.meta?.sourceType || '').toLowerCase();
+    if (sourceType !== 'hls' && sourceType !== 'dash') return;
+    if (job.meta?.checkpoint?.backend) return;
+    const output = String(job.meta?.output || '');
+    if (!output) return;
+    const persisted = loadSegmentCheckpointState(defaultStatePath(output));
+    if (!persisted?.checkpoint) return;
+    if (persisted.url && persisted.url !== job.url) return;
+    if (persisted.backend && persisted.backend !== `${sourceType}-segments`) return;
+    job.meta.checkpoint = persisted.checkpoint;
+    job.meta.taskState = persisted.checkpoint.taskState || job.meta.taskState;
+  }
+
+  _persistSegmentCheckpoint(job, checkpoint) {
+    const output = String(job.meta?.output || '');
+    if (!output || !checkpoint?.backend) return;
+    const state = createSegmentCheckpointState({
+      url: job.url,
+      destination: output,
+      backend: checkpoint.backend,
+      checkpoint,
+    });
+    job._checkpointWriteChain = (job._checkpointWriteChain || Promise.resolve())
+      .then(() => saveSegmentCheckpointState(defaultStatePath(output), state))
+      .catch(() => {});
+  }
+
   /** Fase 3: loop de download com pausa/retomada. */
   async _downloadLoop(job, adapter, preparedInitial, { headers, mode }) {
     transitionJob(job, 'downloading');
     setJobTaskState(job, 'downloading');
+    job._persistCheckpoint = (checkpoint) => this._persistSegmentCheckpoint(job, checkpoint);
     job._startedAt = Date.now();
     const onProgress = this._makeProgress(job);
     let prepared = preparedInitial;
@@ -1163,16 +1205,18 @@ export class DownloadEngine {
       }
       break;
     }
+    delete job._persistCheckpoint;
   }
 
   /** Fase 4: transicao para completed + historico + evento. */
-  _complete(job) {
+  async _complete(job) {
+    await job._checkpointWriteChain;
     setJobTaskState(job, 'completed');
     transitionJob(job, 'completed');
     job._downloadedAt = Date.now();
     // P6.1: remove sidecar de resume apos download bem-sucedido.
     if (job.meta?.output) {
-      clearState(defaultStatePath(job.meta.output)).catch(() => {});
+      await clearState(defaultStatePath(job.meta.output)).catch(() => {});
     }
     this._recordHistory(job, { status: 'completed' });
     this._emit('complete', {
@@ -1185,7 +1229,8 @@ export class DownloadEngine {
   }
 
   /** Tratamento centralizado de falhas (cancelado vs erro classificado). */
-  _handleFailure(job, err) {
+  async _handleFailure(job, err) {
+    await job._checkpointWriteChain;
     const classified = classifyError(err);
     if (classified instanceof CancelledError) {
       transitionJob(job, 'cancelled', { error: classified });
@@ -1195,7 +1240,7 @@ export class DownloadEngine {
       return;
     }
     transitionJob(job, 'failed', { error: classified });
-    this._cleanupPartial(job.meta.output);
+    this._cleanupPartial(job.meta.output, { preserveState: Boolean(job.meta?.checkpoint?.backend) });
     this._recordHistory(job, { status: 'failed' });
     this._emit('error', {
       jobId: job.id,
@@ -1281,14 +1326,14 @@ export class DownloadEngine {
     };
   }
 
-  _cleanupPartial(output) {
+  _cleanupPartial(output, { preserveState = false } = {}) {
     try {
       if (output && fs.existsSync(output)) fs.unlinkSync(output);
     } catch {
       /* ignora */
     }
     // P6.1: remove sidecar de resume (se existir) junto com o parcial.
-    if (output) {
+    if (output && !preserveState) {
       clearState(defaultStatePath(output)).catch(() => {});
     }
   }

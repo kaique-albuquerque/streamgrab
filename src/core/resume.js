@@ -27,6 +27,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const RESUME_STATE_VERSION = 1;
+export const SEGMENT_CHECKPOINT_STATE_VERSION = 1;
+export const SEGMENT_CHECKPOINT_STATE_TYPE = 'segmented-checkpoint';
 
 /** Caminho padrao do sidecar de resume (`<destino>.resume.json`). */
 export function defaultStatePath(destination) {
@@ -54,6 +56,25 @@ export function createState({ url, destination, totalSize, etag = null, lastModi
   };
 }
 
+export function createSegmentCheckpointState({
+  url,
+  destination,
+  backend,
+  checkpoint,
+} = {}) {
+  const now = new Date().toISOString();
+  return {
+    version: SEGMENT_CHECKPOINT_STATE_VERSION,
+    type: SEGMENT_CHECKPOINT_STATE_TYPE,
+    url: String(url || ''),
+    destination: String(destination || ''),
+    backend: String(backend || checkpoint?.backend || ''),
+    checkpoint: checkpoint && typeof checkpoint === 'object' ? JSON.parse(JSON.stringify(checkpoint)) : null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 /**
  * Carrega o estado persistido. Arquivo ausente, JSON invalido ou versao
  * desconhecida retornam `null` (o download recomeca do zero — seguro).
@@ -76,11 +97,44 @@ export function loadState(statePath, { fsImpl = fs } = {}) {
   }
 }
 
+export function loadSegmentCheckpointState(statePath, { fsImpl = fs } = {}) {
+  if (!statePath) return null;
+  let raw;
+  try {
+    raw = fsImpl.readFileSync(statePath, 'utf8');
+  } catch {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.version !== SEGMENT_CHECKPOINT_STATE_VERSION) return null;
+    if (parsed.type !== SEGMENT_CHECKPOINT_STATE_TYPE) return null;
+    if (!parsed.checkpoint || typeof parsed.checkpoint !== 'object') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Salva o estado de forma atomica: escreve `<statePath>.tmp` e renomeia.
  * Falhas de escrita nao lancam para o chamador (resume e best-effort).
  */
 export async function saveState(statePath, state, { fsImpl = fs } = {}) {
+  if (!statePath || !state) return false;
+  state.updatedAt = new Date().toISOString();
+  const tmpPath = `${statePath}.tmp`;
+  try {
+    await fsImpl.promises.mkdir(path.dirname(statePath), { recursive: true });
+    await fsImpl.promises.writeFile(tmpPath, JSON.stringify(state, null, 2), 'utf8');
+    await fsImpl.promises.rename(tmpPath, statePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function saveSegmentCheckpointState(statePath, state, { fsImpl = fs } = {}) {
   if (!statePath || !state) return false;
   state.updatedAt = new Date().toISOString();
   const tmpPath = `${statePath}.tmp`;
@@ -147,4 +201,19 @@ export function describeState(state) {
   return `url=${state.url} total=${total} baixado=${done} (${total > 0 ? Math.round((done / total) * 100) : 0}%)`;
 }
 
-export default { defaultStatePath, createState, loadState, saveState, clearState, validateState, completedBytes, describeState, RESUME_STATE_VERSION };
+export default {
+  defaultStatePath,
+  createState,
+  createSegmentCheckpointState,
+  loadState,
+  loadSegmentCheckpointState,
+  saveState,
+  saveSegmentCheckpointState,
+  clearState,
+  validateState,
+  completedBytes,
+  describeState,
+  RESUME_STATE_VERSION,
+  SEGMENT_CHECKPOINT_STATE_VERSION,
+  SEGMENT_CHECKPOINT_STATE_TYPE,
+};

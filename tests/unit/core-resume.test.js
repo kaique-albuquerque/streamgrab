@@ -16,12 +16,16 @@ import path from 'node:path';
 import {
   defaultStatePath,
   createState,
+  createSegmentCheckpointState,
   loadState,
+  loadSegmentCheckpointState,
   saveState,
+  saveSegmentCheckpointState,
   clearState,
   validateState,
   completedBytes,
   RESUME_STATE_VERSION,
+  SEGMENT_CHECKPOINT_STATE_TYPE,
 } from '../../src/core/resume.js';
 
 function tmpState(prefix = 'vd-resume-') {
@@ -74,6 +78,27 @@ test('saveState/loadState round-trip: escrita atomica + leitura fiel', async () 
   assert.ok(loaded.updatedAt, 'saveState deve atualizar updatedAt');
 });
 
+test('saveSegmentCheckpointState/loadSegmentCheckpointState: round-trip do sidecar segmentado', async () => {
+  const sp = tmpState('vd-segmented-resume-');
+  const state = createSegmentCheckpointState({
+    url: 'http://x/master.m3u8',
+    destination: 'out.mp4',
+    backend: 'hls-segments',
+    checkpoint: {
+      backend: 'hls-segments',
+      taskState: 'downloaded',
+      completedSegmentIds: ['video:main:seg:0'],
+    },
+  });
+  const ok = await saveSegmentCheckpointState(sp, state);
+  assert.equal(ok, true);
+  const loaded = loadSegmentCheckpointState(sp);
+  assert.equal(loaded.type, SEGMENT_CHECKPOINT_STATE_TYPE);
+  assert.equal(loaded.backend, 'hls-segments');
+  assert.equal(loaded.checkpoint.taskState, 'downloaded');
+  assert.deepEqual(loaded.checkpoint.completedSegmentIds, ['video:main:seg:0']);
+});
+
 test('loadState: arquivo ausente -> null', () => {
   assert.equal(loadState(tmpState()), null);
 });
@@ -88,6 +113,12 @@ test('loadState: versao desconhecida -> null', async () => {
   const sp = tmpState();
   fs.writeFileSync(sp, JSON.stringify({ version: 999, chunks: [], totalSize: 1 }), 'utf8');
   assert.equal(loadState(sp), null);
+});
+
+test('loadSegmentCheckpointState: arquivo de range nao e confundido com checkpoint segmentado', async () => {
+  const sp = tmpState('vd-segmented-type-');
+  await saveState(sp, createState({ url: 'u', destination: 'd', totalSize: 1 }));
+  assert.equal(loadSegmentCheckpointState(sp), null);
 });
 
 test('validateState: validators coincidem -> ok', () => {

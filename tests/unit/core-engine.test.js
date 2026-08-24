@@ -721,6 +721,205 @@ test('core-engine: default executor reapassa checkpoint HLS e tmpDir anterior ao
   }
 });
 
+test('core-engine: carrega checkpoint segmentado persistido do sidecar entre execucoes', async () => {
+  const tmp = makeTempDir();
+  const outputPath = path.join(tmp, 'Persisted Resume.mp4');
+  const sidecarPath = `${outputPath}.resume.json`;
+  const resumeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sg-hls-segments-persisted-'));
+  const calls = { checkpoints: [] };
+  const executor = createDefaultExecutor({
+    prepareHlsSegments: async ({ checkpoint }) => {
+      calls.checkpoints.push(checkpoint);
+      const localPlaylist = path.join(resumeDir, 'local.m3u8');
+      fs.writeFileSync(localPlaylist, '#EXTM3U\n#EXTINF:4,\nseg.ts\n#EXT-X-ENDLIST\n', 'utf8');
+      fs.writeFileSync(path.join(resumeDir, 'seg.ts'), 'segment-data', 'utf8');
+      return {
+        ok: true,
+        localPlaylist,
+        extraArgs: [],
+        diagnostics: { workDir: resumeDir },
+        cleanup: () => {},
+      };
+    },
+    ffmpegStartDownload: ({ output }) => {
+      fs.writeFileSync(output, 'fake-mp4');
+      return { promise: Promise.resolve({ ok: true }), stop: () => {} };
+    },
+  });
+  const engine = new DownloadEngine({
+    progressThrottleMs: 0,
+    executor,
+    resolveAdapter: fakeResolver({
+      adapter: {
+        id: 'hls',
+        async analyze() {
+          return { kind: 'media', title: 'Persisted Resume', variants: [], baseUrl: 'https://cdn.example/' };
+        },
+        async prepareDownloadPlan() {
+          return {
+            contractVersion: 2,
+            kind: 'hls',
+            source: { manifestUrl: 'https://cdn.example/media.m3u8' },
+            requestContext: { headers: {}, cookies: null, referer: '', origin: '', userAgent: '', profile: 'default' },
+            capabilities: { segmentedDownload: true, refreshAccess: false },
+            strategyHints: { preferredTransport: 'segments' },
+          };
+        },
+      },
+    }),
+    settings: {
+      get(key) {
+        if (key === 'features') return { hlsSegments: true };
+        return null;
+      },
+    },
+  });
+
+  fs.writeFileSync(
+    sidecarPath,
+    JSON.stringify({
+      version: 1,
+      type: 'segmented-checkpoint',
+      url: 'https://cdn.example/media.m3u8',
+      destination: outputPath,
+      backend: 'hls-segments',
+      checkpoint: {
+        backend: 'hls-segments',
+        taskState: 'downloading',
+        diagnostics: { workDir: resumeDir },
+        completedSegmentIds: ['video:/media.m3u8:seg:0'],
+      },
+    }),
+    'utf8'
+  );
+
+  try {
+    const job = await engine.run('https://cdn.example/media.m3u8', { destination: tmp });
+    assert.equal(job.state, 'completed');
+    assert.equal(calls.checkpoints.length, 1);
+    assert.equal(calls.checkpoints[0].backend, 'hls-segments');
+    assert.deepEqual(calls.checkpoints[0].completedSegmentIds, ['video:/media.m3u8:seg:0']);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(resumeDir, { recursive: true, force: true });
+  }
+});
+
+test('core-engine: HLS segmentado persiste sidecar apos falha e retoma na execucao seguinte', async () => {
+  const tmp = makeTempDir();
+  const resumeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sg-hls-segments-recovery-'));
+  const firstCalls = { checkpoints: [] };
+  const secondCalls = { checkpoints: [] };
+
+  const firstExecutor = createDefaultExecutor({
+    prepareHlsSegments: async ({ url, onCheckpoint }) => {
+      const checkpoint = {
+        backend: 'hls-segments',
+        manifestUrl: url,
+        outputMode: 'single',
+        taskState: 'downloading',
+        diagnostics: { workDir: resumeDir },
+        completedSegmentIds: ['video:/media.m3u8:seg:0'],
+      };
+      onCheckpoint?.(checkpoint);
+      firstCalls.checkpoints.push(checkpoint);
+      const localPlaylist = path.join(resumeDir, 'local.m3u8');
+      fs.writeFileSync(localPlaylist, '#EXTM3U\n#EXTINF:4,\nseg.ts\n#EXT-X-ENDLIST\n', 'utf8');
+      fs.writeFileSync(path.join(resumeDir, 'seg.ts'), 'segment-data', 'utf8');
+      return {
+        ok: true,
+        localPlaylist,
+        extraArgs: [],
+        diagnostics: { workDir: resumeDir },
+        cleanup: () => {},
+      };
+    },
+    ffmpegStartDownload: () => ({
+      promise: Promise.resolve({ ok: false, code: 1, stderr: 'Falha simulada apos checkpoint' }),
+      stop: () => {},
+    }),
+  });
+
+  const baseEngineOptions = {
+    progressThrottleMs: 0,
+    resolveAdapter: fakeResolver({
+      adapter: {
+        id: 'hls',
+        async analyze() {
+          return { kind: 'media', title: 'Recovered Stream', variants: [], baseUrl: 'https://cdn.example/' };
+        },
+        async prepareDownloadPlan() {
+          return {
+            contractVersion: 2,
+            kind: 'hls',
+            source: { manifestUrl: 'https://cdn.example/media.m3u8' },
+            requestContext: { headers: {}, cookies: null, referer: '', origin: '', userAgent: '', profile: 'default' },
+            capabilities: { segmentedDownload: true, refreshAccess: false },
+            strategyHints: { preferredTransport: 'segments' },
+          };
+        },
+      },
+    }),
+    settings: {
+      get(key) {
+        if (key === 'features') return { hlsSegments: true };
+        return null;
+      },
+    },
+  };
+
+  const firstEngine = new DownloadEngine({
+    ...baseEngineOptions,
+    executor: firstExecutor,
+  });
+
+  await assert.rejects(
+    () => firstEngine.run('https://cdn.example/media.m3u8', { destination: tmp }),
+    /ffmpeg saiu com codigo 1/
+  );
+  assert.equal(firstCalls.checkpoints.length, 1);
+  const failedJob = firstEngine.getHistory()[0];
+  const sidecarPath = `${failedJob.meta.output}.resume.json`;
+  assert.equal(fs.existsSync(sidecarPath), true, 'sidecar segmentado deve permanecer apos falha');
+
+  const secondExecutor = createDefaultExecutor({
+    prepareHlsSegments: async ({ checkpoint }) => {
+      secondCalls.checkpoints.push(checkpoint);
+      const localPlaylist = path.join(resumeDir, 'local.m3u8');
+      fs.writeFileSync(localPlaylist, '#EXTM3U\n#EXTINF:4,\nseg.ts\n#EXT-X-ENDLIST\n', 'utf8');
+      fs.writeFileSync(path.join(resumeDir, 'seg.ts'), 'segment-data', 'utf8');
+      return {
+        ok: true,
+        localPlaylist,
+        extraArgs: [],
+        diagnostics: { workDir: resumeDir },
+        cleanup: () => {},
+      };
+    },
+    ffmpegStartDownload: ({ output }) => {
+      fs.writeFileSync(output, 'final-data');
+      return { promise: Promise.resolve({ ok: true }), stop: () => {} };
+    },
+  });
+
+  const secondEngine = new DownloadEngine({
+    ...baseEngineOptions,
+    executor: secondExecutor,
+  });
+
+  try {
+    const job = await secondEngine.run('https://cdn.example/media.m3u8', { destination: tmp });
+    assert.equal(job.state, 'completed');
+    assert.equal(secondCalls.checkpoints.length, 1);
+    assert.equal(secondCalls.checkpoints[0].backend, 'hls-segments');
+    assert.deepEqual(secondCalls.checkpoints[0].completedSegmentIds, ['video:/media.m3u8:seg:0']);
+    assert.equal(fs.existsSync(sidecarPath), false, 'sidecar deve ser removido apos sucesso');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(resumeDir, { recursive: true, force: true });
+  }
+});
+
 test('core-engine: default executor faz fallback para ffmpeg remoto quando hls-segments retorna manifesto nao suportado', async () => {
   const tmp = makeTempDir();
   const calls = { segmentUrls: [], ffmpegUrls: [] };
@@ -937,6 +1136,129 @@ test('core-engine: default executor reapassa checkpoint DASH e tmpDir anterior a
     assert.equal(calls.checkpoints.length, 1);
     assert.equal(calls.checkpoints[0].backend, 'dash-segments');
     assert.equal(calls.tmpDirs[0], resumeDir);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(resumeDir, { recursive: true, force: true });
+  }
+});
+
+test('core-engine: DASH segmentado persiste sidecar apos falha e retoma na execucao seguinte', async () => {
+  const tmp = makeTempDir();
+  const resumeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sg-dash-segments-recovery-'));
+  const firstCalls = { checkpoints: [] };
+  const secondCalls = { checkpoints: [] };
+
+  const firstExecutor = createDefaultExecutor({
+    prepareDashSegments: async ({ url, onCheckpoint }) => {
+      const checkpoint = {
+        backend: 'dash-segments',
+        manifestUrl: url,
+        outputMode: 'mux',
+        taskState: 'downloading',
+        diagnostics: { workDir: resumeDir },
+        completedSegmentIds: ['video:video-720:init:0'],
+      };
+      onCheckpoint?.(checkpoint);
+      firstCalls.checkpoints.push(checkpoint);
+      const video = path.join(resumeDir, 'video.mp4');
+      const audio = path.join(resumeDir, 'audio.m4a');
+      fs.writeFileSync(video, 'video-data');
+      fs.writeFileSync(audio, 'audio-data');
+      return {
+        ok: true,
+        mode: 'mux',
+        videoPath: video,
+        audioPath: audio,
+        diagnostics: { workDir: resumeDir },
+        cleanup: () => {},
+      };
+    },
+    ffmpegStartMuxDownload: () => ({
+      promise: Promise.resolve({ ok: false, code: 1 }),
+      stop: () => {},
+    }),
+  });
+
+  const baseEngineOptions = {
+    progressThrottleMs: 0,
+    resolveAdapter: fakeResolver({
+      adapter: {
+        id: 'dash',
+        async analyze() {
+          return {
+            kind: 'dash',
+            title: 'Recovered Dash Stream',
+            representations: [],
+            videoRepresentations: [],
+            audioRepresentations: [],
+            baseUrl: 'https://cdn.example/',
+          };
+        },
+        async prepareDownloadPlan() {
+          return {
+            contractVersion: 2,
+            kind: 'dash',
+            source: { manifestUrl: 'https://cdn.example/manifest.mpd' },
+            requestContext: { headers: {}, cookies: null, referer: '', origin: '', userAgent: '', profile: 'default' },
+            capabilities: { segmentedDownload: true, refreshAccess: false },
+            strategyHints: { preferredTransport: 'segments' },
+          };
+        },
+      },
+    }),
+    settings: {
+      get(key) {
+        if (key === 'features') return { dashSegments: true };
+        return null;
+      },
+    },
+  };
+
+  const firstEngine = new DownloadEngine({
+    ...baseEngineOptions,
+    executor: firstExecutor,
+  });
+
+  await assert.rejects(() => firstEngine.run('https://cdn.example/manifest.mpd', { destination: tmp }));
+  assert.equal(firstCalls.checkpoints.length, 1);
+  const failedJob = firstEngine.getHistory()[0];
+  const sidecarPath = `${failedJob.meta.output}.resume.json`;
+  assert.equal(fs.existsSync(sidecarPath), true, 'sidecar segmentado DASH deve permanecer apos falha');
+
+  const secondExecutor = createDefaultExecutor({
+    prepareDashSegments: async ({ checkpoint }) => {
+      secondCalls.checkpoints.push(checkpoint);
+      const video = path.join(resumeDir, 'video.mp4');
+      const audio = path.join(resumeDir, 'audio.m4a');
+      fs.writeFileSync(video, 'video-data');
+      fs.writeFileSync(audio, 'audio-data');
+      return {
+        ok: true,
+        mode: 'mux',
+        videoPath: video,
+        audioPath: audio,
+        diagnostics: { workDir: resumeDir },
+        cleanup: () => {},
+      };
+    },
+    ffmpegStartMuxDownload: ({ output }) => {
+      fs.writeFileSync(output, 'muxed-data');
+      return { promise: Promise.resolve({ ok: true }), stop: () => {} };
+    },
+  });
+
+  const secondEngine = new DownloadEngine({
+    ...baseEngineOptions,
+    executor: secondExecutor,
+  });
+
+  try {
+    const job = await secondEngine.run('https://cdn.example/manifest.mpd', { destination: tmp });
+    assert.equal(job.state, 'completed');
+    assert.equal(secondCalls.checkpoints.length, 1);
+    assert.equal(secondCalls.checkpoints[0].backend, 'dash-segments');
+    assert.deepEqual(secondCalls.checkpoints[0].completedSegmentIds, ['video:video-720:init:0']);
+    assert.equal(fs.existsSync(sidecarPath), false, 'sidecar DASH deve ser removido apos sucesso');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
     fs.rmSync(resumeDir, { recursive: true, force: true });
