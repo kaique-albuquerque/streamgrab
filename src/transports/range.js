@@ -44,6 +44,7 @@ import {
 } from '../core/resume.js';
 import { resolveResumeSession } from '../core/session.js';
 import { createSmartTurbo, normalizeSmartTurbo, isRetryableChunkError } from '../core/smart-turbo.js';
+import { parseRetryAfter } from '../core/retry.js';
 
 export const DEFAULT_RANGE_CHUNKS = 8;
 export const DEFAULT_RANGE_BLOCK_MULTIPLIER = 8;
@@ -360,6 +361,11 @@ export async function downloadParallelRanges({
     let running = 0;
     let windowBytes = 0;
     let windowErrors = 0;
+    let windowRateLimitedErrors = 0;
+    let windowTimeoutErrors = 0;
+    let windowRetryAfterMs = 0;
+    let windowLatencyMs = 0;
+    let windowRequests = 0;
     let windowStart = Date.now();
     const workers = new Set();
 
@@ -371,9 +377,24 @@ export async function downloadParallelRanges({
         elapsedMs: elapsed,
         errors: windowErrors,
         concurrency: running,
+        latencyMs: windowLatencyMs,
+        requests: windowRequests,
+        rateLimitedErrors: windowRateLimitedErrors,
+        timeoutErrors: windowTimeoutErrors,
+        retryAfterMs: windowRetryAfterMs,
+        schedulerLimits: {
+          downloadLimit: hardLimit,
+          hostLimit: hardLimit,
+          globalLimit: null,
+        },
       });
       windowBytes = 0;
       windowErrors = 0;
+      windowRateLimitedErrors = 0;
+      windowTimeoutErrors = 0;
+      windowRetryAfterMs = 0;
+      windowLatencyMs = 0;
+      windowRequests = 0;
       windowStart = Date.now();
       onTurboDecision?.(decision);
     };
@@ -397,11 +418,21 @@ export async function downloadParallelRanges({
           // cancelamento no meio do stream — nao induz 403/429).
           while (id < desired && next < ranges.length) {
             const range = ranges[next++];
+            const chunkStartedAt = Date.now();
             try {
               await fetchChunk(range);
               windowBytes += range.end - range.start + 1;
+              windowLatencyMs += Date.now() - chunkStartedAt;
+              windowRequests++;
             } catch (err) {
-              if (isRetryableChunkError(err)) windowErrors++;
+              if (err?.code === 'RATE_LIMIT_ERROR') {
+                windowRateLimitedErrors++;
+                windowRetryAfterMs = Math.max(windowRetryAfterMs, parseRetryAfter(err.retryAfter) || 0);
+              } else if (err?.code === 'NETWORK_ERROR' && /timeout/i.test(err?.message || '')) {
+                windowTimeoutErrors++;
+              } else if (isRetryableChunkError(err)) {
+                windowErrors++;
+              }
               throw err;
             }
           }

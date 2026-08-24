@@ -14,15 +14,38 @@ function parseAttributes(tag) {
   return attrs;
 }
 
+function resolveContentType(adaptationAttrs, mimeType = '') {
+  const contentType = adaptationAttrs.contentType || '';
+  if (contentType) return contentType;
+  if (mimeType.startsWith('audio/')) return 'audio';
+  if (mimeType.startsWith('video/')) return 'video';
+  return 'unknown';
+}
+
+function parseSegmentBase(repBlock) {
+  const segmentBaseTag = repBlock.match(/<SegmentBase\b([^>]*)>/i);
+  if (!segmentBaseTag) return null;
+  const attrs = parseAttributes(segmentBaseTag[0]);
+  const initTag = repBlock.match(/<Initialization\b([^>]*)\/>/i);
+  const initAttrs = initTag ? parseAttributes(initTag[0]) : {};
+  return {
+    indexRange: attrs.indexRange || '',
+    initializationRange: initAttrs.range || '',
+  };
+}
+
 export function parseDashManifest(text, baseUrl = '') {
   const representations = [];
   const adaptationBlocks = String(text || '').match(/<AdaptationSet\b[\s\S]*?<\/AdaptationSet>/gi) || [];
+  const mpdTag = String(text || '').match(/<MPD\b[^>]*>/i)?.[0] || '';
+  const mpdAttrs = parseAttributes(mpdTag);
 
   for (const block of adaptationBlocks) {
     const adaptationTag = block.match(/<AdaptationSet\b[^>]*>/i)?.[0] || '';
     const adaptationAttrs = parseAttributes(adaptationTag);
     const mimeType = adaptationAttrs.mimeType || '';
-    const contentType = adaptationAttrs.contentType || (mimeType.startsWith('audio/') ? 'audio' : 'video');
+    const contentType = resolveContentType(adaptationAttrs, mimeType);
+    const adaptationBase = stripTag(block.match(/<AdaptationSet\b[\s\S]*?<BaseURL\b[^>]*>([\s\S]*?)<\/BaseURL>/i)?.[1] || '');
     const repBlocks = block.match(/<Representation\b[\s\S]*?<\/Representation>/gi) || [];
 
     for (const repBlock of repBlocks) {
@@ -33,6 +56,7 @@ export function parseDashManifest(text, baseUrl = '') {
       const height = Number(repAttrs.height) || 0;
       const codecs = repAttrs.codecs || adaptationAttrs.codecs || '';
       const localBase = stripTag(repBlock.match(/<BaseURL\b[^>]*>([\s\S]*?)<\/BaseURL>/i)?.[1] || '');
+      const segmentBase = parseSegmentBase(repBlock);
 
       representations.push({
         id: repAttrs.id || '',
@@ -43,7 +67,8 @@ export function parseDashManifest(text, baseUrl = '') {
         width,
         height,
         resolution: width && height ? `${width}x${height}` : '',
-        baseUrl: localBase,
+        baseUrl: localBase || adaptationBase,
+        segmentBase,
       });
     }
   }
@@ -51,12 +76,18 @@ export function parseDashManifest(text, baseUrl = '') {
   const videoRepresentations = representations
     .filter((rep) => rep.contentType === 'video')
     .sort((a, b) => b.height - a.height || b.bandwidth - a.bandwidth);
+  const audioRepresentations = representations
+    .filter((rep) => rep.contentType === 'audio')
+    .sort((a, b) => b.bandwidth - a.bandwidth);
 
   return {
     kind: 'dash',
     baseUrl,
+    type: String(mpdAttrs.type || '').toLowerCase(),
+    profiles: String(mpdAttrs.profiles || ''),
     representations,
     videoRepresentations,
+    audioRepresentations,
   };
 }
 

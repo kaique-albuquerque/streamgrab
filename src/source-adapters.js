@@ -16,6 +16,7 @@
 
 import { isYouTubeUrl } from './utils.js';
 import { createDefaultProviderRegistry } from './providers/registry.js';
+import { prepareProviderDownload, resolveProvider } from './providers/base.js';
 
 const registry = createDefaultProviderRegistry();
 
@@ -59,8 +60,18 @@ function toAdapter(provider, url) {
     id,
     label: LEGACY_LABELS[id] || provider.label,
     supportsQualitySelection: provider.supportsQualitySelection ?? false,
+    resolve: (params, context) => (
+      typeof provider.resolve === 'function'
+        ? provider.resolve(params, context)
+        : resolveProvider(provider, params, context)
+    ),
     analyze: (params) => provider.analyze(params),
-    prepareDownload: (params) => provider.prepareDownload(params),
+    prepareDownload: (params, context) => provider.prepareDownload(params, context),
+    prepareDownloadPlan: (params, context) => (
+      typeof provider.prepareDownloadPlan === 'function'
+        ? provider.prepareDownloadPlan(params, context)
+        : prepareProviderDownload(provider, params, context)
+    ),
   };
 }
 

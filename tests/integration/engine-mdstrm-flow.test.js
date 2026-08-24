@@ -29,7 +29,12 @@ const FFMPEG_URL = pathToFileURL(path.join(ROOT, 'src', 'ffmpeg.js')).href;
 // isMdstrmUrl sempre true: as URLs locais do teste entram no roteamento
 // mdstrm do engine (o CDN real nunca é alcançado).
 mock.module(MDSTRM_URL, {
-  namedExports: { isMdstrmUrl: () => true },
+  namedExports: {
+    isMdstrmUrl: () => true,
+    needsMdstrmRefresh: () => false,
+    extractMdstrmVideoId: () => null,
+    refreshMdstrmUrl: async (url) => url,
+  },
 });
 
 let transportAvailable = true;

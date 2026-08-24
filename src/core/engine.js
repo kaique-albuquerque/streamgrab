@@ -26,6 +26,8 @@ import path from 'node:path';
 import { createEventBus, createProgressPayload } from './events.js';
 import {
   createDownloadJob,
+  setJobCheckpoint,
+  setJobTaskState,
   transitionJob,
   serializeJob,
   isTerminalJobState,
@@ -38,10 +40,15 @@ import { resolveSourceAdapter, resolveSourceAdapterAsync } from '../source-adapt
 import { startDownload, startMuxDownload } from '../ffmpeg.js';
 import { ffmpegService } from '../ffmpeg/service.js';
 import { CurlImpersonateTransport } from '../transports/curl.js';
+import { prepareHlsSegmentDownloadToLocal } from '../transports/backends/hls-segments.js';
+import { prepareDashSegmentDownloadToLocal } from '../transports/backends/dash-segments.js';
 import { isMdstrmUrl } from '../mdstrm.js';
 import { parsePlaylistText } from '../hls.js';
 import { resolveTransportWithAutoInstall } from './mdstrm-routing.js';
 import { defaultStatePath, clearState } from './resume.js';
+import { createRequestContext, mergeRequestContext } from './request-context.js';
+import { isValidDownloadPlan } from './download-plan.js';
+import { selectStrategyDecision } from '../strategy/selector.js';
 
 const FALLBACK_TITLE = 'video';
 
@@ -114,17 +121,26 @@ export async function defaultResolveAdapter(url, { headers = {}, forceYouTube = 
  *      { ok: true } | { ok: false, code, error, status, detail } |
  *      { paused: true } | { cancelled: true }
  */
-export function createDefaultExecutor() {
+export function createDefaultExecutor({
+  prepareHlsSegments = prepareHlsSegmentDownloadToLocal,
+  prepareDashSegments = prepareDashSegmentDownloadToLocal,
+  ffmpegStartDownload = startDownload,
+  ffmpegStartMuxDownload = startMuxDownload,
+  curlTransportResolver = (headers) => CurlImpersonateTransport.resolve({ headers }),
+} = {}) {
   return {
     async analyze(adapter, { url, headers, auth }) {
       return adapter.analyze({ url, headers, auth });
     },
 
     async prepare(adapter, { url, analysis, selectedUrl, headers, auth }) {
+      if (typeof adapter.prepareDownloadPlan === 'function') {
+        return adapter.prepareDownloadPlan({ url, analysis, selectedUrl, headers, auth });
+      }
       return adapter.prepareDownload({ url, analysis, selectedUrl, headers, auth });
     },
 
-    async run({ job, prepared, output, headers, mode, signal, onProgress, atomic, onLog = () => {} }) {
+    async run({ job, prepared, output, headers, mode, signal, onProgress, atomic, onLog = () => {}, featureFlags = {} }) {
       const sourceType = job._sourceType || job.meta?.sourceType || '';
       if (prepared.strategy === 'mux') {
         return runMuxDownload(prepared, output, headers, signal, onProgress);
@@ -138,12 +154,67 @@ export function createDefaultExecutor() {
         return { ok: false, code: 'DOWNLOAD_FAILED', error: 'Nenhuma URL de download preparada.' };
       }
       if (sourceType === 'hls' || sourceType === 'dash') {
+        const plan = prepared._downloadPlan || null;
+        const strategyDecision = selectStrategyDecision({
+          downloadPlan: plan,
+          runtimeCapabilities: {
+            ffmpeg: true,
+            curl: true,
+            hlsSegments: true,
+            dashSegments: true,
+          },
+          featureFlags: featureFlags || job.meta?.featureFlags || {},
+        });
+        if (sourceType === 'hls' && strategyDecision.backendId === 'hls-segments' && !isMdstrmUrl(url) && !isMdstrmUrl(job.url)) {
+          const currentCheckpoint = job.meta?.checkpoint?.backend === 'hls-segments' ? job.meta.checkpoint : null;
+          const segmented = await runHlsSegmentedDownload(url, output, headers, signal, onProgress, {
+            preferredVariantPath: safePathname(url),
+            }, {
+              prepareHlsSegments,
+              ffmpegStartDownload,
+              checkpoint: currentCheckpoint,
+              tmpDir: currentCheckpoint?.diagnostics?.workDir || null,
+              onCheckpoint: (checkpoint) => setJobCheckpoint(job, checkpoint),
+              adaptive:
+                featureFlags?.adaptiveSegments || featureFlags?.hlsSegments
+                  ? {
+                      min: 1,
+                      max: 6,
+                      initial: 2,
+                      windowMs: 250,
+                    }
+                  : null,
+            });
+            if (segmented?.ok) return segmented;
+          }
+        if (sourceType === 'dash' && strategyDecision.backendId === 'dash-segments') {
+          const currentCheckpoint = job.meta?.checkpoint?.backend === 'dash-segments' ? job.meta.checkpoint : null;
+          const segmented = await runDashSegmentedDownload(url, output, headers, signal, onProgress, {
+            prepareDashSegments,
+            ffmpegStartDownload,
+            ffmpegStartMuxDownload,
+            checkpoint: currentCheckpoint,
+            tmpDir: currentCheckpoint?.diagnostics?.workDir || null,
+            onCheckpoint: (checkpoint) => setJobCheckpoint(job, checkpoint),
+            adaptive:
+              featureFlags?.adaptiveSegments || featureFlags?.dashSegments
+                ? {
+                    min: 1,
+                    max: 4,
+                    initial: 2,
+                    windowMs: 250,
+                  }
+                : null,
+          });
+          if (segmented?.ok) return segmented;
+        }
         if (isMdstrmUrl(url) || isMdstrmUrl(job.url)) {
           // mdstrm: curl-impersonate quando instalado (CDNs que bloqueiam
           // TLS de navegador); FFmpeg direto caso contrario.
           const transport = await resolveTransportWithAutoInstall({
             headers,
             onLog,
+            transportResolver: curlTransportResolver,
           });
           if (transport) {
             const preferredVariantPath = safePathname(url);
@@ -161,11 +232,66 @@ export function createDefaultExecutor() {
             if (curlResult) return curlResult;
           }
         }
-        return runFfmpegDownload(url, output, headers, signal, onProgress, sourceType, mode, Number(job.meta?.durationMs || 0));
+        return runFfmpegDownload(url, output, headers, signal, onProgress, sourceType, mode, Number(job.meta?.durationMs || 0), ffmpegStartDownload);
       }
       return runStreamDownload(url, output, headers, signal, onProgress, atomic);
     },
   };
+}
+
+function planSourceUrl(source = {}) {
+  return String(source.manifestUrl || source.url || '');
+}
+
+function toLegacyPrepared(plan) {
+  const kind = String(plan?.kind || '');
+  const source = plan?.source || {};
+
+  if (kind === 'mux') {
+    return {
+      strategy: 'mux',
+      videoUrl: String(source.videoUrl || ''),
+      audioUrl: String(source.audioUrl || ''),
+      formatId: String(source.formatId || ''),
+      chosenFormat: plan.selectedFormat || null,
+      totalBytes: Number(source.totalBytes || 0) || 0,
+      durationMs: Number(source.durationMs || 0) || 0,
+      _requestContext: plan.requestContext,
+      _downloadPlan: plan,
+    };
+  }
+
+  return {
+    strategy: 'single',
+    downloadUrl: planSourceUrl(source),
+    formatId: String(source.formatId || ''),
+    chosenFormat: plan.selectedFormat || null,
+    totalBytes: Number(source.totalBytes || 0) || 0,
+    durationMs: Number(source.durationMs || 0) || 0,
+    _requestContext: plan.requestContext,
+    _downloadPlan: plan,
+  };
+}
+
+function normalizePreparedDownload(prepared) {
+  if (isValidDownloadPlan(prepared)) {
+    return toLegacyPrepared(prepared);
+  }
+  return prepared;
+}
+
+function headersFromRequestContext(requestContext = {}) {
+  const context = createRequestContext(requestContext);
+  const headers = { ...context.headers };
+  if (context.referer && !Object.hasOwn(headers, 'Referer')) headers.Referer = context.referer;
+  if (context.origin && !Object.hasOwn(headers, 'Origin')) headers.Origin = context.origin;
+  if (context.userAgent && !Object.hasOwn(headers, 'User-Agent')) headers['User-Agent'] = context.userAgent;
+  return headers;
+}
+
+function isRefreshableFailure(error) {
+  const code = String(error?.code || '');
+  return code === 'FORBIDDEN_ERROR' || code === 'EXPIRED_URL' || code === 'EXPIRED_URL_ERROR';
 }
 
 // ---------------------------------------------------------------------------
@@ -302,9 +428,9 @@ function makeFfmpegProgress(onProgress, durationMs) {
 }
 
 /** Baixa via FFmpeg (HLS/DASH). `durationMs` usado para percentual aproximado. */
-async function runFfmpegDownload(url, output, headers, signal, onProgress, sourceType, modeIndex = 0, durationMs = 0) {
+async function runFfmpegDownload(url, output, headers, signal, onProgress, sourceType, modeIndex = 0, durationMs = 0, ffmpegDownload = startDownload) {
   const extraArgs = sourceType === 'hls' ? ['-allowed_extensions', 'ALL'] : [];
-  const { promise, stop } = startDownload({
+  const { promise, stop } = ffmpegDownload({
     url,
     output,
     headers,
@@ -446,6 +572,148 @@ async function runCurlHlsDownload(
     } catch {
       /* ignora */
     }
+  }
+}
+
+async function runHlsSegmentedDownload(
+  url,
+  output,
+  headers,
+  signal,
+  onProgress,
+  { preferredVariantPath = '' } = {},
+  {
+    prepareHlsSegments = prepareHlsSegmentDownloadToLocal,
+    ffmpegStartDownload = startDownload,
+    checkpoint = null,
+    tmpDir = null,
+    onCheckpoint,
+    adaptive = null,
+  } = {}
+) {
+  const segmentStartedAtMs = Date.now();
+  const prepared = await prepareHlsSegments({
+    url,
+    headers,
+    signal,
+    tmpDir: tmpDir || undefined,
+    checkpoint,
+    preferredVariantPath,
+    adaptive,
+    onCheckpoint,
+    onProgress: (p) => onProgress?.(segmentProgressToEngine(p, segmentStartedAtMs)),
+  });
+  if (!prepared?.ok) {
+    if (prepared.code === 'MANIFEST_UNSUPPORTED') return null;
+    if (prepared.code === 'CANCELLED') return abortOutcome(signal);
+    return {
+      ok: false,
+      code: prepared.code || 'HLS_SEGMENTS_FAILED',
+      error: prepared.error || 'Falha no backend segmentado HLS.',
+      status: prepared.status || 0,
+    };
+  }
+
+  onProgress?.({ stage: 'merging', percent: 90, message: 'Juntando segmentos HLS com FFmpeg' });
+  const { promise, stop } = ffmpegStartDownload({
+    url: prepared.localPlaylist,
+    output,
+    headers: {},
+    modeIndex: 0,
+    extraArgs: prepared.extraArgs,
+    onProgress: makeFfmpegProgress((u) => onProgress?.({ ...u, stage: 'merging' }), 0),
+  });
+  const onAbort = () => stop();
+  signal?.addEventListener('abort', onAbort, { once: true });
+  try {
+    const result = await promise;
+    if (signal?.aborted) return abortOutcome(signal);
+    if (result.ok) {
+      onProgress?.({ ...progressUpdate(0, 0, Date.now()), percent: 100, stage: 'merging' });
+      return { ok: true };
+    }
+    return {
+      ok: false,
+      code: 'FFMPEG_FAILED',
+      error: `ffmpeg saiu com codigo ${result.code ?? 'desconhecido'}`,
+      detail: String(result.stderr || '').slice(-2000),
+    };
+  } finally {
+    signal?.removeEventListener('abort', onAbort);
+    prepared.cleanup?.();
+  }
+}
+
+async function runDashSegmentedDownload(
+  url,
+  output,
+  headers,
+  signal,
+  onProgress,
+  {
+    prepareDashSegments = prepareDashSegmentDownloadToLocal,
+    ffmpegStartDownload = startDownload,
+    ffmpegStartMuxDownload = startMuxDownload,
+    checkpoint = null,
+    tmpDir = null,
+    onCheckpoint,
+    adaptive = null,
+  } = {}
+) {
+  const prepared = await prepareDashSegments({
+    url,
+    headers,
+    signal,
+    tmpDir: tmpDir || undefined,
+    checkpoint,
+    adaptive,
+    onCheckpoint,
+    onProgress: (p) => onProgress?.(segmentProgressToEngine(p, Date.now())),
+  });
+  if (!prepared?.ok) {
+    if (prepared.code === 'MANIFEST_UNSUPPORTED') return null;
+    if (prepared.code === 'CANCELLED') return abortOutcome(signal);
+    return {
+      ok: false,
+      code: prepared.code || 'DASH_SEGMENTS_FAILED',
+      error: prepared.error || 'Falha no backend segmentado DASH.',
+      status: prepared.status || 0,
+    };
+  }
+
+  try {
+    if (prepared.mode === 'mux' && prepared.videoPath && prepared.audioPath) {
+      onProgress?.({ stage: 'merging', percent: 90, message: 'Juntando trilhas DASH com FFmpeg' });
+      const { promise, stop } = ffmpegStartMuxDownload({
+        videoInput: prepared.videoPath,
+        audioInput: prepared.audioPath,
+        output,
+        onProgress: makeFfmpegProgress((u) => onProgress?.({ ...u, stage: 'merging' }), 0),
+      });
+      const onAbort = () => stop();
+      signal?.addEventListener('abort', onAbort, { once: true });
+      try {
+        const result = await promise;
+        if (signal?.aborted) return abortOutcome(signal);
+        if (result.ok) return { ok: true };
+        return {
+          ok: false,
+          code: 'MUX_FAILED',
+          error: `ffmpeg mux saiu com codigo ${result.code ?? 'desconhecido'}`,
+        };
+      } finally {
+        signal?.removeEventListener('abort', onAbort);
+      }
+    }
+
+    if (prepared.mode === 'single' && prepared.videoPath) {
+      await fs.promises.copyFile(prepared.videoPath, output);
+      return { ok: true };
+    }
+
+    return null;
+  } finally {
+    prepared.cleanup?.();
   }
 }
 
@@ -711,11 +979,19 @@ export class DownloadEngine {
 
   async _runJob(job, { selectedUrl, destination, headers = {}, auth = {}, forceYouTube = false, mode, audioLanguage, allAudio } = {}) {
     try {
-      const { adapter, raw } = await this._analyze(job, { selectedUrl, headers, auth, forceYouTube });
-      const { prepared } = await this._prepare(job, adapter, raw, { selectedUrl, destination, headers, auth, audioLanguage, allAudio });
+      const analyzed = await this._analyze(job, { selectedUrl, headers, auth, forceYouTube });
+      const { adapter, raw } = analyzed;
+      const { prepared } = await this._prepare(job, adapter, raw, {
+        selectedUrl: analyzed.selectedUrl,
+        destination,
+        headers,
+        auth,
+        audioLanguage,
+        allAudio,
+      });
       const outputPath = this._resolveOutput(job, prepared, destination);
       job.meta.output = outputPath;
-      await this._downloadLoop(job, prepared, { headers, mode });
+      await this._downloadLoop(job, adapter, prepared, { headers, mode });
       this._complete(job);
     } catch (err) {
       this._handleFailure(job, err);
@@ -767,7 +1043,7 @@ export class DownloadEngine {
       }
     }
 
-    return { adapter, raw };
+    return { adapter, raw, selectedUrl };
   }
 
   /** Fase 2: preparar download + checar disco + resolver destino. */
@@ -775,9 +1051,11 @@ export class DownloadEngine {
     transitionJob(job, 'preparing');
     this._emit('progress', { jobId: job.id, stage: 'preparing', message: 'Preparando download' });
 
-    const prepared = await this.executor.prepare(adapter, { url: job.url, analysis: raw, selectedUrl, headers, auth, audioLanguage, allAudio });
+    const preparedRaw = await this.executor.prepare(adapter, { url: job.url, analysis: raw, selectedUrl, headers, auth, audioLanguage, allAudio });
+    const prepared = normalizePreparedDownload(preparedRaw);
     if (this._isAborted(job)) throw new CancelledError('Download cancelado.');
     job._prepared = prepared;
+    job._downloadPlan = prepared?._downloadPlan || null;
     job.meta.totalBytes = Number(prepared.totalBytes || 0);
     job.meta.durationMs = Number(prepared.durationMs || 0);
 
@@ -804,12 +1082,20 @@ export class DownloadEngine {
   }
 
   /** Fase 3: loop de download com pausa/retomada. */
-  async _downloadLoop(job, prepared, { headers, mode }) {
+  async _downloadLoop(job, adapter, preparedInitial, { headers, mode }) {
     transitionJob(job, 'downloading');
+    setJobTaskState(job, 'downloading');
     job._startedAt = Date.now();
     const onProgress = this._makeProgress(job);
+    let prepared = preparedInitial;
+    let refreshCount = 0;
 
     for (;;) {
+      const effectiveContext = mergeRequestContext({}, prepared?._requestContext || {});
+      const effectiveHeaders = {
+        ...headersFromRequestContext(effectiveContext),
+        ...normalizeHeaders(headers),
+      };
       if (job._cancelRequested) throw new CancelledError('Download cancelado.');
       if (job.state === 'paused') {
         transitionJob(job, 'downloading');
@@ -822,12 +1108,13 @@ export class DownloadEngine {
         job,
         prepared,
         output: job.meta.output,
-        headers,
+        headers: effectiveHeaders,
         mode,
         signal: attempt.signal,
         onProgress,
         atomic: this.atomic,
         onLog: (message) => this._emit('log', { jobId: job.id, message }),
+        featureFlags: job.meta?.featureFlags || this.settings?.get?.('features') || {},
       });
 
       if (result?.paused) {
@@ -845,6 +1132,33 @@ export class DownloadEngine {
         err.code = result?.code || 'DOWNLOAD_FAILED';
         err.status = result?.status || 0;
         err.detail = result?.detail || '';
+        if (
+          typeof adapter?.refresh === 'function' &&
+          prepared?._downloadPlan?.capabilities?.refreshAccess &&
+          refreshCount < 1 &&
+          isRefreshableFailure(err)
+        ) {
+          const refreshedPlan = await adapter.refresh({
+            reason: err.code === 'FORBIDDEN_ERROR' ? 'expired-url' : 'session-refresh',
+            statusCode: err.status || 0,
+            currentPlan: prepared._downloadPlan,
+            progress: { refreshCount },
+            refreshAttempt: refreshCount + 1,
+          });
+          if (refreshedPlan) {
+            prepared = normalizePreparedDownload(refreshedPlan);
+            job._prepared = prepared;
+            job._downloadPlan = prepared?._downloadPlan || null;
+            job.meta.totalBytes = Number(prepared.totalBytes || job.meta.totalBytes || 0);
+            job.meta.durationMs = Number(prepared.durationMs || job.meta.durationMs || 0);
+            refreshCount += 1;
+            this._emit('log', {
+              jobId: job.id,
+              message: `[refresh] plano renovado pelo provider ${adapter.id} (tentativa ${refreshCount})`,
+            });
+            continue;
+          }
+        }
         throw err;
       }
       break;
@@ -853,6 +1167,7 @@ export class DownloadEngine {
 
   /** Fase 4: transicao para completed + historico + evento. */
   _complete(job) {
+    setJobTaskState(job, 'completed');
     transitionJob(job, 'completed');
     job._downloadedAt = Date.now();
     // P6.1: remove sidecar de resume apos download bem-sucedido.
@@ -950,6 +1265,14 @@ export class DownloadEngine {
       const clean = {};
       for (const [k, v] of Object.entries(update)) {
         if (v !== undefined) clean[k] = v;
+      }
+      if (clean.stage === 'merging') {
+        if (!job.meta.downloadedAt) {
+          job.meta.downloadedAt = new Date(now).toISOString();
+        }
+        if (job.meta.taskState !== 'processing' && job.meta.taskState !== 'completed') {
+          setJobTaskState(job, 'processing');
+        }
       }
       const payload = createProgressPayload({ ...clean, jobId: job.id, stage: clean.stage || 'downloading' });
       this._emit('progress', payload);

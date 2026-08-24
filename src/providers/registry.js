@@ -14,11 +14,12 @@
  */
 
 import { probeMediaContentType, isDirectMediaContentType } from '../utils.js';
+import { defineProvider } from './base.js';
 import { ytdlpProvider } from './ytdlp/index.js';
 import { hlsProvider } from './hls/index.js';
 import { dashProvider } from './dash/index.js';
 import { directProvider } from './direct/index.js';
-import { mercadoPlayProvider } from './mercadoplay/index.js';
+import { genericProvider } from './generic/index.js';
 
 export class ProviderRegistry {
   constructor() {
@@ -31,6 +32,7 @@ export class ProviderRegistry {
    * Lança se já existir um provider com o mesmo id.
    */
   register(provider) {
+    defineProvider(provider);
     if (this.get(provider.id)) {
       throw new Error(`Provider duplicado: ${provider.id}`);
     }
@@ -80,6 +82,9 @@ export class ProviderRegistry {
     if (contentType && isDirectMediaContentType(contentType)) {
       return { provider: this.get('direct'), detectedContentType: contentType };
     }
+    if (opts.genericProvider && /text\/html|application\/xhtml\+xml/i.test(String(contentType || ''))) {
+      return { provider: this.get('generic'), detectedContentType: contentType };
+    }
     return { provider: null, detectedContentType: contentType || '' };
   }
 }
@@ -88,11 +93,12 @@ export class ProviderRegistry {
  * Registry padrão do StreamGrab com os providers embutidos.
  * A ordem de registro é irrelevante — a prioridade define a resolução.
  */
-export function createDefaultProviderRegistry() {
-  return new ProviderRegistry()
+export function createDefaultProviderRegistry({ genericProvider: enableGenericProvider = false } = {}) {
+  const registry = new ProviderRegistry()
     .register(ytdlpProvider)
-    .register(mercadoPlayProvider)
     .register(hlsProvider)
     .register(dashProvider)
     .register(directProvider);
+  if (enableGenericProvider) registry.register(genericProvider);
+  return registry;
 }

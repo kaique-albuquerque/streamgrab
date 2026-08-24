@@ -5,14 +5,21 @@ import {
   JOB_STATES,
   JOB_TRANSITIONS,
   TERMINAL_JOB_STATES,
+  CHECKPOINT_TASK_STATES,
   isValidJobState,
   isTerminalJobState,
+  isValidCheckpointTaskState,
   canTransition,
   createFormat,
   isValidFormat,
   createMediaInfo,
   isValidMediaInfo,
   createDownloadJob,
+  createSegmentTaskId,
+  createSegmentCheckpoint,
+  getJobCheckpoint,
+  setJobCheckpoint,
+  setJobTaskState,
   transitionJob,
   serializeJob,
   toJson,
@@ -41,6 +48,20 @@ test('core-models TERMINAL_JOB_STATES: estados finais nao transicionam', () => {
     assert.equal(isTerminalJobState(terminal), true);
     assert.deepEqual(JOB_TRANSITIONS[terminal], []);
   }
+});
+
+test('core-models CHECKPOINT_TASK_STATES: distinguem downloaded, processing e completed', () => {
+  assert.deepEqual(CHECKPOINT_TASK_STATES, [
+    'pending',
+    'downloading',
+    'downloaded',
+    'processing',
+    'completed',
+  ]);
+  for (const state of CHECKPOINT_TASK_STATES) {
+    assert.equal(isValidCheckpointTaskState(state), true);
+  }
+  assert.equal(isValidCheckpointTaskState('failed'), false);
 });
 
 test('core-models isValidJobState: reconhece estados validos e rejeita invalidos', () => {
@@ -220,6 +241,7 @@ test('core-models createDownloadJob: estado inicial queued e shape', () => {
   assert.equal(job.url, 'https://example.com/v.mp4');
   assert.equal(job.title, '');
   assert.equal(job.error, null);
+  assert.equal(job.meta.taskState, 'pending');
   assert.match(job.id, /^job-/, 'ID comeca com job-');
   assert.ok(job.id.length > 5, 'ID tem comprimento razoavel (timestamp+random)');
   assert.equal(job.createdAt, job.updatedAt);
@@ -236,6 +258,78 @@ test('core-models createDownloadJob: url obrigatoria e meta copiada', () => {
   const job = createDownloadJob({ url: 'https://example.com/v.m3u8', meta });
   meta.sourceType = 'mutated';
   assert.equal(job.meta.sourceType, 'hls', 'meta deve ser copiado (nao referencia)');
+});
+
+test('core-models createSegmentTaskId: gera identidade estavel para segmentos', () => {
+  const id = createSegmentTaskId({
+    stream: 'audio',
+    representationId: 'aac-128',
+    segmentIndex: 7,
+  });
+  assert.equal(id, 'audio:aac-128:seg:7');
+  assert.equal(
+    createSegmentTaskId({ stream: 'video', representationId: '1080p', segmentIndex: 0, init: true }),
+    'video:1080p:init:0'
+  );
+});
+
+test('core-models createSegmentCheckpoint: normaliza snapshot serializavel', () => {
+  const checkpoint = createSegmentCheckpoint({
+    backend: 'dash-segments',
+    manifestUrl: 'https://example.com/manifest.mpd',
+    outputMode: 'mux',
+    taskState: 'downloaded',
+    selected: {
+      videoRepresentationId: 'v1080',
+      audioRepresentationId: 'a128',
+    },
+    segments: [
+      { stream: 'video', representationId: 'v1080', index: 0, init: true, status: 'completed' },
+      { stream: 'audio', representationId: 'a128', index: 2, status: 'pending' },
+    ],
+    completedSegmentIds: ['video:v1080:init:0'],
+    diagnostics: {
+      finalConcurrency: 3,
+    },
+  });
+
+  assert.equal(checkpoint.backend, 'dash-segments');
+  assert.equal(checkpoint.outputMode, 'mux');
+  assert.equal(checkpoint.taskState, 'downloaded');
+  assert.equal(checkpoint.selected.videoRepresentationId, 'v1080');
+  assert.equal(checkpoint.segments[0].id, 'video:v1080:init:0');
+  assert.equal(checkpoint.segments[1].id, 'audio:a128:seg:2');
+  assert.deepEqual(checkpoint.completedSegmentIds, ['video:v1080:init:0']);
+  assert.equal(checkpoint.diagnostics.finalConcurrency, 3);
+});
+
+test('core-models checkpoint helpers: persistem downloaded e processing sem mexer no estado principal', () => {
+  const job = createDownloadJob({ url: 'https://example.com/master.m3u8', meta: { sourceType: 'hls' } });
+  const checkpoint = setJobCheckpoint(job, {
+    backend: 'hls-segments',
+    manifestUrl: 'https://example.com/master.m3u8',
+    taskState: 'downloaded',
+    segments: [{ stream: 'video', representationId: 'main', index: 4, status: 'completed' }],
+    completedSegmentIds: ['video:main:seg:4'],
+  });
+
+  assert.equal(job.state, 'queued');
+  assert.equal(job.meta.taskState, 'downloaded');
+  assert.equal(checkpoint.taskState, 'downloaded');
+  assert.equal(getJobCheckpoint(job).segments[0].id, 'video:main:seg:4');
+
+  setJobTaskState(job, 'processing');
+  assert.equal(job.state, 'queued');
+  assert.equal(job.meta.taskState, 'processing');
+  assert.equal(job.meta.checkpoint.taskState, 'processing');
+});
+
+test('core-models setJobTaskState: rejeita estado interno invalido', () => {
+  const job = createDownloadJob({ url: 'https://example.com/v.mp4' });
+  assert.throws(
+    () => setJobTaskState(job, 'failed-again'),
+    (err) => err.code === 'INVALID_CHECKPOINT_TASK_STATE'
+  );
 });
 
 test('core-models transitionJob: cadeia completa valida e historico gravado', () => {
@@ -310,12 +404,19 @@ test('core-models transitionJob: estados terminais nao aceitam novas transicoes'
 test('core-models serializeJob: JSON sem campos circulares e sem funcoes', () => {
   const job = createDownloadJob({ url: 'https://example.com/v.mp4', meta: { sourceType: 'hls' } });
   transitionJob(job, 'analyzing');
+  setJobCheckpoint(job, {
+    backend: 'hls-segments',
+    taskState: 'processing',
+    segments: [{ stream: 'video', representationId: 'main', index: 1 }],
+  });
   const json = JSON.stringify(serializeJob(job));
   const parsed = JSON.parse(json);
   assert.equal(parsed.id, job.id);
   assert.equal(parsed.url, job.url);
   assert.equal(parsed.state, 'analyzing');
   assert.equal(parsed.meta.sourceType, 'hls');
+  assert.equal(parsed.meta.taskState, 'processing');
+  assert.equal(parsed.meta.checkpoint.segments[0].id, 'video:main:seg:1');
   assert.equal(parsed.history.length, 2);
   assert.ok(!json.includes('function'), 'serializacao nao deve conter funcoes');
   assert.ok(!json.includes('[object'), 'serializacao nao deve conter objetos nao serializados');
