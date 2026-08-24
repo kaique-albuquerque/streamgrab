@@ -19,6 +19,7 @@
 const URL_PROTOCOL_RE = /^https?:\/\//i;
 const INTERNAL_MEDIA_SELECTION_RE = /^(ytdlp-format:[A-Za-z0-9._-]+)$/;
 const TASK_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const BROWSER_SPEC_RE = /^[A-Za-z0-9_.:-]{1,64}$/;
 const FILENAME_BAD_RE = /[\\/]|\.\./;
 const ABSOLUTE_WIN_RE = /^[A-Za-z]:[\\/]/;
 const ABSOLUTE_POSIX_RE = /^\//;
@@ -46,6 +47,11 @@ export function isSafeMediaSelection(value) {
 /** Valida o identificador de tarefa (formato restrito). */
 export function isValidTaskId(value) {
   return typeof value === 'string' && TASK_ID_RE.test(value);
+}
+
+/** Valida a especificação do navegador para cookies-from-browser (ex.: chrome, firefox:default). */
+export function isValidBrowserSpec(value) {
+  return typeof value === 'string' && BROWSER_SPEC_RE.test(value);
 }
 
 /** Normaliza/valida um nome de arquivo: sem separadores nem traversal. */
@@ -84,10 +90,11 @@ export function validateAnalyzePayload(payload = {}) {
     ? payload.headers
     : {};
   const rawAuth = payload?.auth && typeof payload.auth === 'object' && !Array.isArray(payload.auth) ? payload.auth : {};
-  const auth = {
-    cookiesFile: typeof rawAuth.cookiesFile === 'string' ? rawAuth.cookiesFile : '',
-    cookiesFromBrowser: typeof rawAuth.cookiesFromBrowser === 'string' ? rawAuth.cookiesFromBrowser : '',
-  };
+  const cookiesFile = typeof rawAuth.cookiesFile === 'string' ? rawAuth.cookiesFile.trim() : '';
+  if (cookiesFile && !isSafeAbsolutePath(cookiesFile)) return null;
+  const cookiesFromBrowser = typeof rawAuth.cookiesFromBrowser === 'string' ? rawAuth.cookiesFromBrowser.trim() : '';
+  if (cookiesFromBrowser && !isValidBrowserSpec(cookiesFromBrowser)) return null;
+  const auth = { cookiesFile, cookiesFromBrowser };
   return { url, headers, auth };
 }
 
@@ -119,8 +126,10 @@ export function validateDownloadPayload(payload = {}) {
   const forceCurl = payload?.forceCurl === true;
   const turbo = payload?.turbo === true;
 
-  const cookiesFile = typeof payload?.cookiesFile === 'string' ? payload.cookiesFile : '';
-  const cookiesFromBrowser = typeof payload?.cookiesFromBrowser === 'string' ? payload.cookiesFromBrowser : '';
+  const cookiesFile = typeof payload?.cookiesFile === 'string' ? payload.cookiesFile.trim() : '';
+  if (cookiesFile && !isSafeAbsolutePath(cookiesFile)) return null;
+  const cookiesFromBrowser = typeof payload?.cookiesFromBrowser === 'string' ? payload.cookiesFromBrowser.trim() : '';
+  if (cookiesFromBrowser && !isValidBrowserSpec(cookiesFromBrowser)) return null;
 
   return {
     taskId: String(payload.taskId),
@@ -188,8 +197,10 @@ export function validateQueueEnqueuePayload(payload = {}) {
   const qualityChoice = typeof payload?.qualityChoice === 'string' ? payload.qualityChoice : '';
   if (qualityChoice && !/^\d+$/.test(qualityChoice)) return null;
 
-  const cookiesFile = typeof payload?.cookiesFile === 'string' ? payload.cookiesFile : '';
-  const cookiesFromBrowser = typeof payload?.cookiesFromBrowser === 'string' ? payload.cookiesFromBrowser : '';
+  const cookiesFile = typeof payload?.cookiesFile === 'string' ? payload.cookiesFile.trim() : '';
+  if (cookiesFile && !isSafeAbsolutePath(cookiesFile)) return null;
+  const cookiesFromBrowser = typeof payload?.cookiesFromBrowser === 'string' ? payload.cookiesFromBrowser.trim() : '';
+  if (cookiesFromBrowser && !isValidBrowserSpec(cookiesFromBrowser)) return null;
 
   // P12.1: audio/subtitle selections
   const audioLanguage = typeof payload?.audioLanguage === 'string' ? payload.audioLanguage.trim() : '';
