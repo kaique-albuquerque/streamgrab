@@ -11,6 +11,10 @@ import {
   parseCliAuth,
   isGoogleVideoPlaybackUrl,
   collectDevtoolsHeaders,
+  isHotmartUrl,
+  hasHotmartFlag,
+  getHotmartEmbedHeaders,
+  applyProviderHeaders,
 } from '../../src/cli/config.js';
 
 function tempDir() {
@@ -112,6 +116,42 @@ test('config parseCliHeaders: mapeia flags para headers canonicos', () => {
 test('config parseCliHeaders: flag sem valor e ignorada', () => {
   const headers = parseCliHeaders(['node', 'index.js', '--referer']);
   assert.deepEqual(headers, {});
+});
+
+test('config isHotmartUrl: reconhece hosts da Hotmart', () => {
+  assert.equal(isHotmartUrl('https://vod-akm.play.hotmart.com/video/x/hls/master.m3u8'), true);
+  assert.equal(isHotmartUrl('https://contentplayer.hotmart.com/video/x/mp4/key/file.key'), true);
+  assert.equal(isHotmartUrl('https://example.com/video.m3u8'), false);
+});
+
+test('config hasHotmartFlag: detecta --hotmart', () => {
+  assert.equal(hasHotmartFlag(['download', '--hotmart']), true);
+  assert.equal(hasHotmartFlag(['download']), false);
+});
+
+test('config getHotmartEmbedHeaders: retorna headers canonicos do embed', () => {
+  const headers = getHotmartEmbedHeaders();
+  assert.equal(headers.Origin, 'https://cf-embed.play.hotmart.com');
+  assert.equal(headers.Referer, 'https://cf-embed.play.hotmart.com/');
+  assert.match(headers['User-Agent'], /Chrome\/148/);
+  assert.equal(headers['Sec-Fetch-Site'], 'same-site');
+});
+
+test('config applyProviderHeaders: --hotmart injeta headers especificos sem afetar outros providers', () => {
+  const hotmartHeaders = applyProviderHeaders({
+    url: 'https://vod-akm.play.hotmart.com/video/id/hls/master.m3u8',
+    headers: {},
+    argv: ['download', '--hotmart'],
+  });
+  assert.equal(hotmartHeaders.Origin, 'https://cf-embed.play.hotmart.com');
+  assert.equal(hotmartHeaders.Referer, 'https://cf-embed.play.hotmart.com/');
+
+  const genericHeaders = applyProviderHeaders({
+    url: 'https://example.com/video.m3u8',
+    headers: { Referer: 'https://example.com/' },
+    argv: ['download', '--hotmart'],
+  });
+  assert.deepEqual(genericHeaders, { Referer: 'https://example.com/' });
 });
 
 // ---- parseCliAuth ----

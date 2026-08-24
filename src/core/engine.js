@@ -41,6 +41,7 @@ import { CurlImpersonateTransport } from '../transports/curl.js';
 import { isMdstrmUrl } from '../mdstrm.js';
 import { parsePlaylistText } from '../hls.js';
 import { resolveTransportWithAutoInstall } from './mdstrm-routing.js';
+import { defaultStatePath, clearState } from './resume.js';
 
 const FALLBACK_TITLE = 'video';
 
@@ -253,18 +254,49 @@ function makeFfmpegProgress(onProgress, durationMs) {
   let outMs = 0;
   let totalSize = 0;
   let startedAtMs = 0;
+  let lastSize = 0;
+  let lastSpeedMs = 0;
+  let estimatedTotal = 0;
   return ({ key, value }) => {
     if (!startedAtMs) startedAtMs = Date.now();
     if (key === 'out_time_us') outMs = Number(value) / 1000;
     else if (key === 'out_time_ms') outMs = Number(value);
     else if (key === 'total_size') totalSize = Number(value);
-    const percent = durationMs > 0 ? Math.min(100, Math.round((outMs / durationMs) * 1000) / 10) : 0;
-    const elapsedSec = startedAtMs > 0 ? (Date.now() - startedAtMs) / 1000 : 0;
+
+    const elapsedSec = (Date.now() - startedAtMs) / 1000;
     const speed = elapsedSec > 0 ? totalSize / elapsedSec : 0;
-    const etaSeconds =
-      durationMs > 0 && outMs > 0
-        ? Math.max(0, (durationMs - outMs) / 1000)
-        : estimateEtaFromPercent(percent, startedAtMs);
+
+    let percent = 0;
+    let etaSeconds = null;
+
+    if (durationMs > 0) {
+      // Caso ideal: duração conhecida (YouTube, sociais, etc.)
+      percent = Math.min(100, Math.round((outMs / durationMs) * 1000) / 10);
+      etaSeconds = outMs > 0 ? Math.max(0, (durationMs - outMs) / 1000) : null;
+    } else if (totalSize > 0 && elapsedSec > 3) {
+      // Sem duração (HLS via FFmpeg): estimar progresso pela velocidade.
+      // A cada 3s, recalcula a estimativa de tamanho total baseado na
+      // velocidade média — converge ao longo do download.
+      const windowMs = Date.now() - lastSpeedMs;
+      if (windowMs > 2500 && lastSize > 0) {
+        const windowSpeed = (totalSize - lastSize) / (windowMs / 1000);
+        // Suaviza com a velocidade média global para evitar oscilação.
+        const blended = speed * 0.3 + windowSpeed * 0.7;
+        if (blended > 0) {
+          // Estima o total剩余 com base na velocidade e tempo restante.
+          const estimatedRemaining = blended * Math.max(5, elapsedSec * 0.5);
+          estimatedTotal = Math.max(estimatedTotal, totalSize + estimatedRemaining);
+        }
+        lastSize = totalSize;
+        lastSpeedMs = Date.now();
+      }
+      if (estimatedTotal > 0) {
+        percent = Math.min(99, Math.round((totalSize / estimatedTotal) * 1000) / 10);
+        const remaining = estimatedTotal - totalSize;
+        etaSeconds = speed > 0 ? remaining / speed : null;
+      }
+    }
+
     onProgress({ bytesDownloaded: totalSize, totalBytes: 0, percent, speed, etaSeconds });
   };
 }
@@ -765,7 +797,7 @@ export class DownloadEngine {
     // espaco em disco: checagem async feita no _prepare (mantida aqui por
     // compatibilidade com o fluxo antigo; o disk.check e chamado antes).
     const base = job.meta?.filename || job.title || FALLBACK_TITLE;
-    const ext = this._extensionFor(prepared);
+    const ext = this._extensionFor(prepared, job._sourceType || job.meta?.sourceType);
     let output = resolveSafeFilename(base, { dir, ext });
     output = nextAvailableName(output);
     return output;
@@ -823,6 +855,10 @@ export class DownloadEngine {
   _complete(job) {
     transitionJob(job, 'completed');
     job._downloadedAt = Date.now();
+    // P6.1: remove sidecar de resume apos download bem-sucedido.
+    if (job.meta?.output) {
+      clearState(defaultStatePath(job.meta.output)).catch(() => {});
+    }
     this._recordHistory(job, { status: 'completed' });
     this._emit('complete', {
       jobId: job.id,
@@ -890,8 +926,11 @@ export class DownloadEngine {
     return Boolean(this._active.get(job.id)?.attempt?.signal.aborted);
   }
 
-  _extensionFor(prepared) {
-    if (prepared.strategy === 'mux') return '.mp4';
+  _extensionFor(prepared, sourceType) {
+    if (prepared.strategy === 'mux' || prepared.strategy === 'mux-multi') return '.mp4';
+    // HLS e DASH sempre resultam em video muxado — extensao .mp4.
+    const st = String(sourceType || '').toLowerCase();
+    if (st === 'hls' || st === 'dash') return '.mp4';
     const url = String(prepared.downloadUrl || prepared.url || '');
     try {
       const pathname = new URL(url).pathname || '';
@@ -924,6 +963,10 @@ export class DownloadEngine {
       if (output && fs.existsSync(output)) fs.unlinkSync(output);
     } catch {
       /* ignora */
+    }
+    // P6.1: remove sidecar de resume (se existir) junto com o parcial.
+    if (output) {
+      clearState(defaultStatePath(output)).catch(() => {});
     }
   }
 
