@@ -5,6 +5,7 @@ import {
   isSafeHttpUrl,
   isSafeMediaSelection,
   isValidTaskId,
+  isValidBrowserSpec,
   sanitizeDownloadFilename,
   isAbsolutePath,
   isSafeAbsolutePath,
@@ -409,4 +410,61 @@ test('validateSettingsPayload rejeita payloads inválidos', () => {
   assert.equal(validateSettingsPayload({ defaultDir: 'relative' }), null);
   // payload vazio é válido (nada a atualizar)
   assert.deepEqual(validateSettingsPayload({}), {});
+});
+
+// ---------------------------------------------------------------------------
+// isValidBrowserSpec & validação de cookiesFile / cookiesFromBrowser
+// ---------------------------------------------------------------------------
+
+test('isValidBrowserSpec aceita navegadores e perfis válidos', () => {
+  assert.equal(isValidBrowserSpec('chrome'), true);
+  assert.equal(isValidBrowserSpec('firefox:default'), true);
+  assert.equal(isValidBrowserSpec('edge:profile1:keyring'), true);
+  assert.equal(isValidBrowserSpec('brave'), true);
+});
+
+test('isValidBrowserSpec rejeita caracteres inválidos, espaços ou tamanho excessivo', () => {
+  assert.equal(isValidBrowserSpec('chrome; rm -rf /'), false);
+  assert.equal(isValidBrowserSpec('chrome --exec calc'), false);
+  assert.equal(isValidBrowserSpec('chrome\n'), false);
+  assert.equal(isValidBrowserSpec('a'.repeat(65)), false);
+  assert.equal(isValidBrowserSpec(''), false);
+  assert.equal(isValidBrowserSpec(null), false);
+});
+
+test('validação IPC de cookiesFile rejeita caminhos relativos ou com traversal', () => {
+  // Analyze
+  assert.equal(
+    validateAnalyzePayload({ url: 'https://example.com', auth: { cookiesFile: '../cookies.txt' } }),
+    null
+  );
+  assert.equal(
+    validateAnalyzePayload({ url: 'https://example.com', auth: { cookiesFile: 'C:\\Users\\..\\secret.txt' } }),
+    null
+  );
+  // Download
+  assert.equal(
+    validateDownloadPayload({ taskId: 'tab-1', url: 'https://example.com', filename: 'v', cookiesFile: 'relative.txt' }),
+    null
+  );
+  // Queue Enqueue
+  assert.equal(
+    validateQueueEnqueuePayload({ url: 'https://example.com', cookiesFile: '../../etc/passwd' }),
+    null
+  );
+});
+
+test('validação IPC de cookiesFromBrowser rejeita especificações inválidas', () => {
+  assert.equal(
+    validateAnalyzePayload({ url: 'https://example.com', auth: { cookiesFromBrowser: 'chrome; malicious' } }),
+    null
+  );
+  assert.equal(
+    validateDownloadPayload({ taskId: 'tab-1', url: 'https://example.com', filename: 'v', cookiesFromBrowser: 'browser with spaces' }),
+    null
+  );
+  assert.equal(
+    validateQueueEnqueuePayload({ url: 'https://example.com', cookiesFromBrowser: 'chrome; malicious' }),
+    null
+  );
 });
