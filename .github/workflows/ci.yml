@@ -22,6 +22,8 @@ jobs:
 
       - name: Instalar dependências (postinstall baixa FFmpeg/Electron/yt-dlp)
         run: npm ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Lint
         run: npm run lint
