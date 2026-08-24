@@ -38,6 +38,17 @@ win:
         - x64
   artifactName: StreamGrab-Setup-${version}.exe
 
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  artifactName: StreamGrab-${version}-${arch}.${ext}
+  category: AudioVideo
+
 nsis:
   oneClick: false
   perMachine: false

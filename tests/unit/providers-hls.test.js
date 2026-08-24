@@ -211,6 +211,30 @@ test('hls provider: analyze envia User-Agent padrao no fetch', async () => {
   assert.equal(seenUA, DEFAULT_USER_AGENT);
 });
 
+test('hls provider: resolve retorna ProviderResolution nativo V2', async () => {
+  const resolution = await withServer((req, res) => {
+    res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl' });
+    res.end(MASTER_PLAYLIST);
+  }, async (base) => hlsProvider.resolve({
+    url: `${base}/master.m3u8`,
+    headers: { Referer: 'https://page.example/watch' },
+  }));
+
+  assert.equal(resolution.contractVersion, 2);
+  assert.equal(resolution.providerId, 'hls');
+  assert.equal(resolution.kind, 'hls');
+  assert.equal(resolution.matchedBy, 'url');
+  assert.equal(resolution.confidence, 'high');
+  assert.ok(resolution.manifestUrl.endsWith('/master.m3u8'));
+  assert.equal(resolution.formats.length, 2);
+  assert.equal(resolution.requestContext.headers['User-Agent'], DEFAULT_USER_AGENT);
+  assert.equal(resolution.requestContext.headers.Referer, 'https://page.example/watch');
+  assert.equal(resolution.capabilities.qualitySelection, true);
+  assert.equal(resolution.capabilities.segmentedDownload, true);
+  assert.equal(resolution.strategyHints.preferredTransport, 'segments');
+  assert.equal(resolution.strategyHints.preserveSelectedVariant, true);
+});
+
 test('hls provider: prepareDownload usa selectedUrl quando presente', async () => {
   const master = `${MASTER_PLAYLIST}`;
   const withSel = await hlsProvider.prepareDownload({ url: 'master.m3u8', selectedUrl: '720p.m3u8' });
@@ -219,6 +243,86 @@ test('hls provider: prepareDownload usa selectedUrl quando presente', async () =
   const withoutSel = await hlsProvider.prepareDownload({ url: 'media.m3u8' });
   assert.equal(withoutSel.downloadUrl, 'media.m3u8');
   assert.ok(master); // apenas para referenciar a constante
+});
+
+test('hls provider: prepareDownloadPlan retorna DownloadPlan nativo V2', async () => {
+  const withSel = await hlsProvider.prepareDownloadPlan({
+    url: 'https://cdn.example.com/master.m3u8',
+    selectedUrl: 'https://cdn.example.com/720p.m3u8',
+    headers: { Referer: 'https://page.example/watch' },
+  });
+  assert.equal(withSel.contractVersion, 2);
+  assert.equal(withSel.kind, 'hls');
+  assert.deepEqual(withSel.source, { manifestUrl: 'https://cdn.example.com/720p.m3u8' });
+  assert.equal(withSel.selectedFormat.url, 'https://cdn.example.com/720p.m3u8');
+  assert.equal(withSel.requestContext.headers['User-Agent'], DEFAULT_USER_AGENT);
+  assert.equal(withSel.requestContext.headers.Referer, 'https://page.example/watch');
+  assert.equal(withSel.capabilities.segmentedDownload, true);
+  assert.equal(withSel.strategyHints.preferredTransport, 'segments');
+  assert.equal(withSel.strategyHints.preserveSelectedVariant, true);
+
+  const withoutSel = await hlsProvider.prepareDownloadPlan({
+    url: 'https://cdn.example.com/media.m3u8',
+  });
+  assert.deepEqual(withoutSel.source, { manifestUrl: 'https://cdn.example.com/media.m3u8' });
+  assert.equal(withoutSel.selectedFormat, null);
+});
+
+test('hls provider: prepareDownloadPlan marca refreshAccess para mdstrm', async () => {
+  const plan = await hlsProvider.prepareDownloadPlan({
+    url: 'https://mdstrm.com/video/abcdef0123456789.m3u8',
+    selectedUrl: 'https://us-b4-p-e.cdn.mdstrm.com/video/h/test/abcdef0123456789_variant.mp4/index-v1-a1.m3u8?tok=old',
+  });
+  assert.equal(plan.capabilities.refreshAccess, true);
+  assert.equal(plan.refreshState.entryUrl, 'https://mdstrm.com/video/abcdef0123456789.m3u8');
+  assert.equal(plan.refreshState.selectedUrl.includes('tok=old'), true);
+});
+
+test('hls provider: refresh mdstrm preserva a variante selecionada por pathname', async () => {
+  const staleVariant = 'https://127.0.0.1.invalid/video/h/test/abcdef0123456789_variant.mp4/index-v1-a1.m3u8?tok=old';
+  const freshMaster = [
+    '#EXTM3U',
+    '#EXT-X-STREAM-INF:BANDWIDTH=2000000,RESOLUTION=1280x720',
+    '/video/h/test/abcdef0123456789_variant.mp4/index-v1-a1.m3u8?tok=fresh',
+    '',
+  ].join('\n');
+  const embedHtml = `
+    <script>
+      window.MDSTRMUID = 'u';
+      window.MDSTRMSID = 's';
+      window.MDSTRMPID = 'p';
+      window.VERSION = 'v9';
+    </script>
+  `;
+
+  const refreshed = await withServer((req, res) => {
+    if (req.url.startsWith('/embed/abcdef0123456789')) {
+      res.writeHead(200, { 'content-type': 'text/html' });
+      res.end(embedHtml);
+      return;
+    }
+    if (req.url.startsWith('/video/abcdef0123456789.m3u8')) {
+      res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl' });
+      res.end(freshMaster);
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  }, async (base) => {
+    const currentPlan = {
+      source: { manifestUrl: staleVariant },
+      requestContext: { headers: {}, cookies: null, referer: '', origin: '', userAgent: '', profile: 'default' },
+      refreshState: {
+        entryUrl: `${base}/video/abcdef0123456789.m3u8`,
+        selectedUrl: staleVariant,
+      },
+    };
+    return hlsProvider.refresh({ currentPlan, refreshAttempt: 1 });
+  });
+
+  assert.equal(refreshed.kind, 'hls');
+  assert.ok(refreshed.source.manifestUrl.includes('tok=fresh'));
+  assert.ok(refreshed.source.manifestUrl.includes('abcdef0123456789_variant.mp4'));
 });
 
 test('hls provider: analyze com DRM lanca UnsupportedDrmError', async () => {

@@ -10,7 +10,7 @@ import {
   createDefaultExecutor,
   defaultResolveAdapter,
 } from '../../src/core/engine.js';
-import { NetworkError, UnsupportedSourceError } from '../../src/core/errors.js';
+import { ForbiddenError, NetworkError, UnsupportedSourceError } from '../../src/core/errors.js';
 import { EVENT_NAMES } from '../../src/core/events.js';
 
 // ---------------------------------------------------------------------------
@@ -233,6 +233,26 @@ test('core-engine: estado consistente em cada transicao (historico valido)', asy
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 
+test('core-engine: taskState interno acompanha downloading -> processing -> completed', async () => {
+  const tmp = makeTempDir();
+  const executor = createFakeExecutor({
+    async run({ onProgress, output }) {
+      onProgress({ bytesDownloaded: 400, totalBytes: 1000, percent: 40, stage: 'downloading' });
+      onProgress({ percent: 95, stage: 'merging', message: 'Processando arquivo final' });
+      await fs.promises.writeFile(output, 'final');
+      return { ok: true };
+    },
+  });
+  const engine = makeEngine({ executor });
+
+  const job = await engine.run('https://example.com/video.mp4', { destination: tmp });
+
+  assert.equal(job.state, 'completed');
+  assert.equal(job.meta.taskState, 'completed');
+  assert.ok(job.meta.downloadedAt, 'downloadedAt deve ser marcado ao entrar em merging');
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
 test('core-engine: pause/resume reexecuta o download e emite pause/resume', async () => {
   const tmp = makeTempDir();
   let attempts = 0;
@@ -355,6 +375,141 @@ test('core-engine: download por id repassa selectedUrl ao prepare', async () => 
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 
+test('core-engine: aceita DownloadPlan no prepare e converte para o shape executavel atual', async () => {
+  const tmp = makeTempDir();
+  let seenPrepared = null;
+  const executor = createFakeExecutor({
+    async prepare() {
+      return {
+        contractVersion: 2,
+        kind: 'direct',
+        source: { url: 'https://cdn.example.com/video.mp4', totalBytes: 1234, durationMs: 45000 },
+        requestContext: { headers: {}, cookies: null, referer: '', origin: '', userAgent: '', profile: 'default' },
+        selectedFormat: { formatId: '18', url: 'https://cdn.example.com/video.mp4' },
+        capabilities: { rangeDownload: true },
+        strategyHints: { preferredTransport: 'http' },
+      };
+    },
+    async run({ prepared, output }) {
+      seenPrepared = prepared;
+      await fs.promises.writeFile(output, 'conteudo-do-arquivo');
+      return { ok: true };
+    },
+  });
+
+  const engine = makeEngine({ executor });
+  const job = await engine.run('https://example.com/video.mp4', { destination: tmp });
+
+  assert.equal(job.state, 'completed');
+  assert.equal(seenPrepared.strategy, 'single');
+  assert.equal(seenPrepared.downloadUrl, 'https://cdn.example.com/video.mp4');
+  assert.equal(seenPrepared.totalBytes, 1234);
+  assert.equal(seenPrepared.durationMs, 45000);
+  assert.equal(seenPrepared.chosenFormat.formatId, '18');
+  assert.ok(seenPrepared._downloadPlan, 'DownloadPlan original preservado internamente');
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('core-engine: RequestContext do DownloadPlan e fundido aos headers do download', async () => {
+  const tmp = makeTempDir();
+  let seenHeaders = null;
+  const executor = createFakeExecutor({
+    async prepare() {
+      return {
+        contractVersion: 2,
+        kind: 'direct',
+        source: { url: 'https://cdn.example.com/video.mp4' },
+        requestContext: {
+          headers: { 'X-Provider': 'abc' },
+          cookies: null,
+          referer: 'https://page.example/watch',
+          origin: 'https://page.example',
+          userAgent: 'ProviderAgent/1.0',
+          profile: 'browser',
+        },
+        capabilities: {},
+        strategyHints: {},
+      };
+    },
+    async run({ headers, output }) {
+      seenHeaders = headers;
+      await fs.promises.writeFile(output, 'conteudo-do-arquivo');
+      return { ok: true };
+    },
+  });
+
+  const engine = makeEngine({ executor });
+  const job = await engine.run('https://example.com/video.mp4', {
+    destination: tmp,
+    headers: { Authorization: 'Bearer xyz', Referer: 'https://caller.example/override' },
+  });
+
+  assert.equal(job.state, 'completed');
+  assert.equal(seenHeaders.Authorization, 'Bearer xyz');
+  assert.equal(seenHeaders['X-Provider'], 'abc');
+  assert.equal(seenHeaders.Referer, 'https://caller.example/override');
+  assert.equal(seenHeaders.Origin, 'https://page.example');
+  assert.equal(seenHeaders['User-Agent'], 'ProviderAgent/1.0');
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('core-engine: provider.refresh renova o plano uma unica vez apos 403 refreshable', async () => {
+  const tmp = makeTempDir();
+  let runCalls = 0;
+  let refreshCalls = 0;
+  let lastPrepared = null;
+  const refreshableAdapter = {
+    id: 'hls',
+    async refresh() {
+      refreshCalls += 1;
+      return {
+        contractVersion: 2,
+        kind: 'hls',
+        source: { manifestUrl: 'https://cdn.example.com/fresh.m3u8' },
+        requestContext: { headers: {}, cookies: null, referer: '', origin: '', userAgent: '', profile: 'default' },
+        capabilities: { refreshAccess: true },
+        strategyHints: { preferredTransport: 'ffmpeg' },
+      };
+    },
+  };
+  const executor = createFakeExecutor({
+    async prepare() {
+      return {
+        contractVersion: 2,
+        kind: 'hls',
+        source: { manifestUrl: 'https://cdn.example.com/stale.m3u8' },
+        requestContext: { headers: {}, cookies: null, referer: '', origin: '', userAgent: '', profile: 'default' },
+        capabilities: { refreshAccess: true },
+        strategyHints: { preferredTransport: 'ffmpeg' },
+      };
+    },
+    async run({ prepared, output }) {
+      runCalls += 1;
+      lastPrepared = prepared;
+      if (runCalls === 1) {
+        return { ok: false, code: 'FORBIDDEN_ERROR', error: 'HTTP 403', status: 403 };
+      }
+      await fs.promises.writeFile(output, 'conteudo-do-arquivo');
+      return { ok: true };
+    },
+  });
+
+  const engine = makeEngine({
+    executor,
+    resolveAdapter: fakeResolver({ adapter: refreshableAdapter }),
+  });
+  const logs = [];
+  engine.on('log', (payload) => logs.push(payload.message));
+
+  const job = await engine.run('https://example.com/video.m3u8', { destination: tmp });
+  assert.equal(job.state, 'completed');
+  assert.equal(runCalls, 2);
+  assert.equal(refreshCalls, 1);
+  assert.equal(lastPrepared.downloadUrl, 'https://cdn.example.com/fresh.m3u8');
+  assert.ok(logs.some((message) => message.includes('plano renovado pelo provider hls')));
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
 test('core-engine: resolveAdapter injetado e usado (spy)', async () => {
   const tmp = makeTempDir();
   const calls = [];
@@ -410,4 +565,380 @@ test('core-engine: erro em handler de evento nao derruba o engine', async () => 
   const job = await engine.run('https://example.com/video.mp4', { destination: tmp });
   assert.equal(job.state, 'completed');
   fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('core-engine: default executor usa hls-segments com playlist local quando feature flag esta ativa', async () => {
+  const tmp = makeTempDir();
+  const calls = { segmentUrls: [], ffmpegUrls: [], adaptive: [], checkpoints: [] };
+  const executor = createDefaultExecutor({
+    prepareHlsSegments: async ({ url, adaptive, onCheckpoint }) => {
+      calls.segmentUrls.push(url);
+      calls.adaptive.push(adaptive);
+      onCheckpoint?.({
+        backend: 'hls-segments',
+        manifestUrl: url,
+        outputMode: 'single',
+        taskState: 'downloaded',
+        segments: [{ id: 'video:main:seg:0', stream: 'video', representationId: 'main', index: 0, status: 'completed' }],
+        completedSegmentIds: ['video:main:seg:0'],
+      });
+      calls.checkpoints.push('emitted');
+      const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sg-hls-segments-engine-'));
+      const localPlaylist = path.join(workDir, 'local.m3u8');
+      fs.writeFileSync(localPlaylist, '#EXTM3U\n#EXTINF:4,\nseg.ts\n#EXT-X-ENDLIST\n', 'utf8');
+      fs.writeFileSync(path.join(workDir, 'seg.ts'), 'segment-data', 'utf8');
+      return {
+        ok: true,
+        localPlaylist,
+        extraArgs: [],
+        cleanup: () => fs.rmSync(workDir, { recursive: true, force: true }),
+      };
+    },
+    ffmpegStartDownload: ({ url, output }) => {
+      calls.ffmpegUrls.push(url);
+      fs.writeFileSync(output, 'fake-mp4');
+      return { promise: Promise.resolve({ ok: true }), stop: () => {} };
+    },
+  });
+  const engine = new DownloadEngine({
+    progressThrottleMs: 0,
+    executor,
+    resolveAdapter: fakeResolver({
+      adapter: {
+        id: 'hls',
+        async analyze() {
+          return { kind: 'media', title: 'HLS test', variants: [], baseUrl: 'https://cdn.example/' };
+        },
+        async prepareDownloadPlan() {
+          return {
+            contractVersion: 2,
+            kind: 'hls',
+            source: { manifestUrl: 'https://cdn.example/media.m3u8' },
+            requestContext: { headers: {}, cookies: null, referer: '', origin: '', userAgent: '', profile: 'default' },
+            capabilities: { segmentedDownload: true, refreshAccess: false },
+            strategyHints: { preferredTransport: 'segments' },
+          };
+        },
+      },
+    }),
+    settings: {
+      get(key) {
+        if (key === 'features') return { hlsSegments: true };
+        return null;
+      },
+    },
+  });
+
+  const job = await engine.run('https://cdn.example/media.m3u8', { destination: tmp });
+  assert.equal(job.state, 'completed');
+  assert.equal(calls.segmentUrls.length, 1);
+  assert.equal(typeof calls.adaptive[0], 'object');
+  assert.equal(calls.ffmpegUrls.length, 1);
+  assert.equal(calls.checkpoints.length, 1);
+  assert.ok(!/^https?:/.test(calls.ffmpegUrls[0]), 'FFmpeg deve receber playlist local');
+  assert.equal(job.meta.checkpoint.backend, 'hls-segments');
+  assert.equal(job.meta.checkpoint.taskState, 'completed');
+  assert.deepEqual(job.meta.checkpoint.completedSegmentIds, ['video:main:seg:0']);
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('core-engine: default executor reapassa checkpoint HLS e tmpDir anterior ao backend segmentado', async () => {
+  const tmp = makeTempDir();
+  const resumeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sg-hls-segments-resume-engine-'));
+  const calls = { checkpoints: [], tmpDirs: [] };
+  const executor = createDefaultExecutor({
+    prepareHlsSegments: async ({ url, checkpoint, tmpDir }) => {
+      calls.checkpoints.push(checkpoint);
+      calls.tmpDirs.push(tmpDir);
+      const localPlaylist = path.join(resumeDir, 'local.m3u8');
+      fs.writeFileSync(localPlaylist, '#EXTM3U\n#EXTINF:4,\nseg.ts\n#EXT-X-ENDLIST\n', 'utf8');
+      fs.writeFileSync(path.join(resumeDir, 'seg.ts'), 'segment-data', 'utf8');
+      return {
+        ok: true,
+        localPlaylist,
+        extraArgs: [],
+        diagnostics: { workDir: resumeDir },
+        cleanup: () => {},
+      };
+    },
+    ffmpegStartDownload: ({ output }) => {
+      fs.writeFileSync(output, 'fake-mp4');
+      return { promise: Promise.resolve({ ok: true }), stop: () => {} };
+    },
+  });
+  const engine = new DownloadEngine({
+    progressThrottleMs: 0,
+    executor,
+    resolveAdapter: fakeResolver({
+      adapter: {
+        id: 'hls',
+        async analyze() {
+          return { kind: 'media', title: 'HLS resume test', variants: [], baseUrl: 'https://cdn.example/' };
+        },
+        async prepareDownloadPlan() {
+          return {
+            contractVersion: 2,
+            kind: 'hls',
+            source: { manifestUrl: 'https://cdn.example/media.m3u8' },
+            requestContext: { headers: {}, cookies: null, referer: '', origin: '', userAgent: '', profile: 'default' },
+            capabilities: { segmentedDownload: true, refreshAccess: false },
+            strategyHints: { preferredTransport: 'segments' },
+          };
+        },
+      },
+    }),
+    settings: {
+      get(key) {
+        if (key === 'features') return { hlsSegments: true };
+        return null;
+      },
+    },
+  });
+
+  const queued = engine.enqueue('https://cdn.example/media.m3u8', {
+    meta: {
+      sourceType: 'hls',
+      checkpoint: {
+        backend: 'hls-segments',
+        manifestUrl: 'https://cdn.example/media.m3u8',
+        outputMode: 'single',
+        taskState: 'downloading',
+        diagnostics: { workDir: resumeDir },
+        completedSegmentIds: ['video:/media.m3u8:seg:0'],
+      },
+    },
+  });
+
+  try {
+    const job = await engine.run(queued.id, { destination: tmp });
+    assert.equal(job.state, 'completed');
+    assert.equal(calls.checkpoints.length, 1);
+    assert.equal(calls.checkpoints[0].backend, 'hls-segments');
+    assert.equal(calls.tmpDirs[0], resumeDir);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(resumeDir, { recursive: true, force: true });
+  }
+});
+
+test('core-engine: default executor faz fallback para ffmpeg remoto quando hls-segments retorna manifesto nao suportado', async () => {
+  const tmp = makeTempDir();
+  const calls = { segmentUrls: [], ffmpegUrls: [] };
+  const executor = createDefaultExecutor({
+    prepareHlsSegments: async ({ url }) => {
+      calls.segmentUrls.push(url);
+      return {
+        ok: false,
+        code: 'MANIFEST_UNSUPPORTED',
+        reasonCode: 'hls-byterange-unsupported',
+        error: 'BYTERANGE unsupported',
+        fallback: 'ffmpeg',
+      };
+    },
+    ffmpegStartDownload: ({ url, output }) => {
+      calls.ffmpegUrls.push(url);
+      fs.writeFileSync(output, 'fake-mp4');
+      return { promise: Promise.resolve({ ok: true }), stop: () => {} };
+    },
+  });
+  const engine = new DownloadEngine({
+    progressThrottleMs: 0,
+    executor,
+    resolveAdapter: fakeResolver({
+      adapter: {
+        id: 'hls',
+        async analyze() {
+          return { kind: 'media', title: 'HLS test', variants: [], baseUrl: 'https://cdn.example/' };
+        },
+        async prepareDownloadPlan() {
+          return {
+            contractVersion: 2,
+            kind: 'hls',
+            source: { manifestUrl: 'https://cdn.example/media.m3u8' },
+            requestContext: { headers: {}, cookies: null, referer: '', origin: '', userAgent: '', profile: 'default' },
+            capabilities: { segmentedDownload: true, refreshAccess: false },
+            strategyHints: { preferredTransport: 'segments' },
+          };
+        },
+      },
+    }),
+    settings: {
+      get(key) {
+        if (key === 'features') return { hlsSegments: true };
+        return null;
+      },
+    },
+  });
+
+  const job = await engine.run('https://cdn.example/media.m3u8', { destination: tmp });
+  assert.equal(job.state, 'completed');
+  assert.equal(calls.segmentUrls.length, 1);
+  assert.deepEqual(calls.ffmpegUrls, ['https://cdn.example/media.m3u8']);
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('core-engine: default executor usa dash-segments com mux local quando feature flag esta ativa', async () => {
+  const tmp = makeTempDir();
+  const calls = { dashUrls: [], muxInputs: [], adaptive: [], checkpoints: [] };
+  const executor = createDefaultExecutor({
+    prepareDashSegments: async ({ url, adaptive, onCheckpoint }) => {
+      calls.dashUrls.push(url);
+      calls.adaptive.push(adaptive);
+      onCheckpoint?.({
+        backend: 'dash-segments',
+        manifestUrl: url,
+        outputMode: 'mux',
+        taskState: 'downloaded',
+        selected: { videoRepresentationId: 'video-720', audioRepresentationId: 'audio-128' },
+        segments: [
+          { id: 'video:video-720:init:0', stream: 'video', representationId: 'video-720', index: 0, init: true, status: 'completed' },
+          { id: 'audio:audio-128:init:0', stream: 'audio', representationId: 'audio-128', index: 0, init: true, status: 'completed' },
+        ],
+        completedSegmentIds: ['video:video-720:init:0', 'audio:audio-128:init:0'],
+      });
+      calls.checkpoints.push('emitted');
+      const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sg-dash-segments-engine-'));
+      const video = path.join(workDir, 'video.mp4');
+      const audio = path.join(workDir, 'audio.m4a');
+      fs.writeFileSync(video, 'video-data');
+      fs.writeFileSync(audio, 'audio-data');
+      return {
+        ok: true,
+        mode: 'mux',
+        videoPath: video,
+        audioPath: audio,
+        cleanup: () => fs.rmSync(workDir, { recursive: true, force: true }),
+      };
+    },
+    ffmpegStartMuxDownload: ({ videoInput, audioInput, output }) => {
+      calls.muxInputs.push({ videoInput, audioInput });
+      fs.writeFileSync(output, 'muxed-data');
+      return { promise: Promise.resolve({ ok: true }), stop: () => {} };
+    },
+  });
+  const engine = new DownloadEngine({
+    progressThrottleMs: 0,
+    executor,
+    resolveAdapter: fakeResolver({
+      adapter: {
+        id: 'dash',
+        async analyze() {
+          return { kind: 'dash', title: 'DASH test', representations: [], videoRepresentations: [], audioRepresentations: [], baseUrl: 'https://cdn.example/' };
+        },
+        async prepareDownloadPlan() {
+          return {
+            contractVersion: 2,
+            kind: 'dash',
+            source: { manifestUrl: 'https://cdn.example/manifest.mpd' },
+            requestContext: { headers: {}, cookies: null, referer: '', origin: '', userAgent: '', profile: 'default' },
+            capabilities: { segmentedDownload: true, refreshAccess: false },
+            strategyHints: { preferredTransport: 'segments' },
+          };
+        },
+      },
+    }),
+    settings: {
+      get(key) {
+        if (key === 'features') return { dashSegments: true };
+        return null;
+      },
+    },
+  });
+  try {
+    const job = await engine.run('https://cdn.example/manifest.mpd', { destination: tmp });
+    assert.equal(job.state, 'completed');
+    assert.equal(calls.dashUrls.length, 1);
+    assert.equal(typeof calls.adaptive[0], 'object');
+    assert.equal(calls.muxInputs.length, 1);
+    assert.equal(calls.checkpoints.length, 1);
+    assert.equal(job.meta.checkpoint.backend, 'dash-segments');
+    assert.equal(job.meta.checkpoint.taskState, 'completed');
+    assert.deepEqual(
+      job.meta.checkpoint.completedSegmentIds.sort(),
+      ['audio:audio-128:init:0', 'video:video-720:init:0'].sort()
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('core-engine: default executor reapassa checkpoint DASH e tmpDir anterior ao backend segmentado', async () => {
+  const tmp = makeTempDir();
+  const resumeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sg-dash-segments-resume-engine-'));
+  const calls = { checkpoints: [], tmpDirs: [] };
+  const executor = createDefaultExecutor({
+    prepareDashSegments: async ({ url, checkpoint, tmpDir }) => {
+      calls.checkpoints.push(checkpoint);
+      calls.tmpDirs.push(tmpDir);
+      const video = path.join(resumeDir, 'video.mp4');
+      const audio = path.join(resumeDir, 'audio.m4a');
+      fs.writeFileSync(video, 'video-data');
+      fs.writeFileSync(audio, 'audio-data');
+      return {
+        ok: true,
+        mode: 'mux',
+        videoPath: video,
+        audioPath: audio,
+        diagnostics: { workDir: resumeDir },
+        cleanup: () => {},
+      };
+    },
+    ffmpegStartMuxDownload: ({ output }) => {
+      fs.writeFileSync(output, 'muxed-data');
+      return { promise: Promise.resolve({ ok: true }), stop: () => {} };
+    },
+  });
+  const engine = new DownloadEngine({
+    progressThrottleMs: 0,
+    executor,
+    resolveAdapter: fakeResolver({
+      adapter: {
+        id: 'dash',
+        async analyze() {
+          return { kind: 'dash', title: 'DASH resume test', representations: [], videoRepresentations: [], audioRepresentations: [], baseUrl: 'https://cdn.example/' };
+        },
+        async prepareDownloadPlan() {
+          return {
+            contractVersion: 2,
+            kind: 'dash',
+            source: { manifestUrl: 'https://cdn.example/manifest.mpd' },
+            requestContext: { headers: {}, cookies: null, referer: '', origin: '', userAgent: '', profile: 'default' },
+            capabilities: { segmentedDownload: true, refreshAccess: false },
+            strategyHints: { preferredTransport: 'segments' },
+          };
+        },
+      },
+    }),
+    settings: {
+      get(key) {
+        if (key === 'features') return { dashSegments: true };
+        return null;
+      },
+    },
+  });
+
+  const queued = engine.enqueue('https://cdn.example/manifest.mpd', {
+    meta: {
+      sourceType: 'dash',
+      checkpoint: {
+        backend: 'dash-segments',
+        manifestUrl: 'https://cdn.example/manifest.mpd',
+        outputMode: 'mux',
+        taskState: 'downloading',
+        diagnostics: { workDir: resumeDir },
+        completedSegmentIds: ['video:video-720:init:0'],
+      },
+    },
+  });
+
+  try {
+    const job = await engine.run(queued.id, { destination: tmp });
+    assert.equal(job.state, 'completed');
+    assert.equal(calls.checkpoints.length, 1);
+    assert.equal(calls.checkpoints[0].backend, 'dash-segments');
+    assert.equal(calls.tmpDirs[0], resumeDir);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(resumeDir, { recursive: true, force: true });
+  }
 });

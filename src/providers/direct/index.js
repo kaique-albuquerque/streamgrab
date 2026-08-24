@@ -1,15 +1,27 @@
 /**
- * P3 — Provider de mídia direta (src/providers/direct/index.js)
+ * P3/P5 - Provider de midia direta (src/providers/direct/index.js)
  *
- * Arquivos de mídia servidos por URL direta (extensões conhecidas, URLs de
- * playback do Google, ou Content-Type de mídia detectado por probe).
+ * Arquivos de midia servidos por URL direta (extensoes conhecidas, URLs de
+ * playback do Google, ou Content-Type de midia detectado por probe).
  *
- * Analyze não toca a rede: qualquer URL direta é analisável por definição.
- * O download segue pelo mecanismo atual (stream direto / turbo).
+ * Este provider e o primeiro migrado para o contrato V2 nativo, mas mantem
+ * analyze() e prepareDownload() legados para compatibilidade.
  */
 
 import { detectSourceType } from '../../utils.js';
 import { createMediaInfo } from '../../core/models.js';
+import { createProviderResolution, createDownloadPlan } from '../../core/download-plan.js';
+import { createRequestContext } from '../../core/request-context.js';
+
+function createDirectMediaInfo() {
+  return createMediaInfo({
+    kind: 'direct',
+    sourceType: 'direct',
+    provider: 'direct',
+    title: '',
+    variants: [],
+  });
+}
 
 export const directProvider = {
   id: 'direct',
@@ -17,25 +29,56 @@ export const directProvider = {
   priority: 70,
   supportsQualitySelection: false,
 
-  /** Detecta URLs de mídia direta (extensão/URL de playback conhecida). */
   detect(url) {
     return detectSourceType(url) === 'direct';
   },
 
-  /** Mídia direta não exige análise prévia. */
-  async analyze() {
-    return createMediaInfo({
+  async resolve({ url, headers }) {
+    return createProviderResolution({
+      contractVersion: 2,
+      providerId: 'direct',
       kind: 'direct',
-      sourceType: 'direct',
-      provider: 'direct',
-      title: '',
-      variants: [],
+      sourceUrl: String(url || ''),
+      matchedBy: 'url',
+      confidence: 'high',
+      pageUrl: String(url || ''),
+      canonicalUrl: String(url || ''),
+      mediaUrl: String(url || ''),
+      mediaInfo: createDirectMediaInfo(),
+      requestContext: createRequestContext({ headers }),
+      capabilities: {
+        qualitySelection: false,
+        rangeDownload: true,
+      },
+      strategyHints: {
+        preferredTransport: 'http',
+      },
+      diagnostics: {},
     });
   },
 
-  /** Sem formatos selecionáveis — o download usa a própria URL. */
+  async analyze() {
+    return createDirectMediaInfo();
+  },
+
   getFormats() {
     return [];
+  },
+
+  async prepareDownloadPlan({ url, headers, options }) {
+    return createDownloadPlan({
+      contractVersion: 2,
+      kind: 'direct',
+      source: { url: String(url || '') },
+      requestContext: createRequestContext({ headers }),
+      capabilities: {
+        qualitySelection: false,
+        rangeDownload: true,
+      },
+      strategyHints: {
+        preferredTransport: options?.turbo ? 'range' : 'http',
+      },
+    });
   },
 
   async prepareDownload({ url }) {

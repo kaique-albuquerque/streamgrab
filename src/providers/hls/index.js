@@ -1,23 +1,67 @@
 /**
- * P3 — Provider HLS normalizado (src/providers/hls/index.js)
+ * P3/P5 - Provider HLS normalizado (src/providers/hls/index.js)
  *
  * Envolve src/hls.js (fetch + parse de playlists) e reconhece URLs da Media
- * Stream/mdstrm como HLS (a renovação da URL do player continua sendo
- * estratégia de download do curl-flow — fora do escopo desta parte).
+ * Stream/mdstrm como HLS.
  *
- * Regra crítica da P3: NÃO reinventa o download HLS. Analyze → MediaInfo →
- * Formats → PreparedDownload { downloadUrl } → mecanismo atual (FFmpeg).
- *
- * O `kind` do parse é preservado (master/media/unknown) porque consumidores
- * legados (Electron) dependem dele; o MediaInfo também carrega `baseUrl`
- * para resolução de URIs relativas.
+ * Mantem analyze()/prepareDownload() legados e adiciona resolve()/
+ * prepareDownloadPlan() nativos do contrato V2.
  */
 
-import { detectSourceType } from '../../utils.js';
-import { isMdstrmUrl } from '../../mdstrm.js';
+import { detectSourceType, DEFAULT_USER_AGENT } from '../../utils.js';
+import { isMdstrmUrl, extractMdstrmVideoId, refreshMdstrmUrl } from '../../mdstrm.js';
 import { fetchPlaylistText, parsePlaylistText } from '../../hls.js';
 import { createMediaInfo, createFormat } from '../../core/models.js';
+import { createProviderResolution, createDownloadPlan } from '../../core/download-plan.js';
+import { createRequestContext } from '../../core/request-context.js';
 import { checkHlsDrm } from './drm.js';
+
+function createHlsRequestContext(headers = {}) {
+  return createRequestContext({
+    headers: {
+      'User-Agent': DEFAULT_USER_AGENT,
+      ...(headers || {}),
+    },
+  });
+}
+
+function createHlsMediaInfo(parsed) {
+  return {
+    ...createMediaInfo({
+      kind: parsed.kind,
+      sourceType: 'hls',
+      provider: 'hls',
+      title: '',
+      variants: parsed.variants,
+    }),
+    baseUrl: parsed.baseUrl || '',
+  };
+}
+
+function supportsMdstrmRefresh(url) {
+  return Boolean(extractMdstrmVideoId(url));
+}
+
+function resolveFreshVariantByPath(selectedUrl, variants = [], baseUrl = '') {
+  let selectedPath = '';
+  try {
+    selectedPath = new URL(selectedUrl).pathname;
+  } catch {
+    return null;
+  }
+
+  for (const variant of variants) {
+    const uri = variant?.uri || variant?.url;
+    if (!uri) continue;
+    try {
+      const absolute = new URL(uri, baseUrl || selectedUrl).toString();
+      if (new URL(absolute).pathname === selectedPath) return absolute;
+    } catch {
+      // ignora variante invalida
+    }
+  }
+  return null;
+}
 
 export const hlsProvider = {
   id: 'hls',
@@ -25,34 +69,49 @@ export const hlsProvider = {
   priority: 90,
   supportsQualitySelection: true,
 
-  /** Detecta URLs HLS (.m3u8) e URLs da Media Stream (mdstrm). */
   detect(url) {
     return detectSourceType(url) === 'hls' || isMdstrmUrl(url);
   },
 
-  /**
-   * Analisa a playlist (master ou media): busca o texto, verifica DRM e
-   * normaliza em MediaInfo. Para master, `variants` preserva o shape legado
-   * ({ uri, resolution, width, height, bandwidth, codecs }).
-   */
+  async resolve({ url, headers }) {
+    const { text, url: finalUrl } = await fetchPlaylistText(url, headers);
+    checkHlsDrm(text);
+    const parsed = parsePlaylistText(text, finalUrl || url);
+    const mediaInfo = createHlsMediaInfo(parsed);
+
+    return createProviderResolution({
+      contractVersion: 2,
+      providerId: 'hls',
+      kind: 'hls',
+      sourceUrl: String(url || ''),
+      matchedBy: 'url',
+      confidence: 'high',
+      pageUrl: String(url || ''),
+      canonicalUrl: String(finalUrl || url || ''),
+      manifestUrl: String(finalUrl || url || ''),
+      formats: this.getFormats(mediaInfo),
+      mediaInfo,
+      requestContext: createHlsRequestContext(headers),
+      capabilities: {
+        qualitySelection: true,
+        segmentedDownload: true,
+        refreshAccess: supportsMdstrmRefresh(url),
+      },
+      strategyHints: {
+        preferredTransport: 'segments',
+        preserveSelectedVariant: true,
+      },
+      diagnostics: {},
+    });
+  },
+
   async analyze({ url, headers }) {
     const { text, url: finalUrl } = await fetchPlaylistText(url, headers);
     checkHlsDrm(text);
     const parsed = parsePlaylistText(text, finalUrl || url);
-    return {
-      ...createMediaInfo({
-        kind: parsed.kind,
-        sourceType: 'hls',
-        provider: 'hls',
-        title: '',
-        variants: parsed.variants,
-      }),
-      // Compatibilidade legada (Electron/cli): base para URIs relativas.
-      baseUrl: parsed.baseUrl || '',
-    };
+    return createHlsMediaInfo(parsed);
   },
 
-  /** Converte as variantes do master em Format[] normalizado. */
   getFormats(media) {
     return (media.variants || []).map((v, i) =>
       createFormat({
@@ -66,15 +125,55 @@ export const hlsProvider = {
         container: '',
         hasVideo: true,
         hasAudio: true,
-      })
+      }),
     );
   },
 
-  /**
-   * O download HLS segue pelo mecanismo atual (FFmpeg recebe a URL).
-   * Quando a UI ja escolheu uma variante (selectedUrl absoluta), baixa a
-   * variante escolhida; caso contrario, a URL original (master/media).
-   */
+  async prepareDownloadPlan({ url, selectedUrl, headers }) {
+    return createDownloadPlan({
+      contractVersion: 2,
+      kind: 'hls',
+      source: { manifestUrl: String(selectedUrl || url || '') },
+      requestContext: createHlsRequestContext(headers),
+      selectedFormat: selectedUrl ? { url: String(selectedUrl) } : null,
+      capabilities: {
+        qualitySelection: true,
+        segmentedDownload: true,
+        refreshAccess: supportsMdstrmRefresh(url),
+      },
+      strategyHints: {
+        preferredTransport: 'segments',
+        preserveSelectedVariant: true,
+      },
+      refreshState: {
+        entryUrl: String(url || ''),
+        selectedUrl: selectedUrl ? String(selectedUrl) : '',
+      },
+    });
+  },
+
+  async refresh({ currentPlan, refreshAttempt }) {
+    if (Number(refreshAttempt || 0) >= 2) return null;
+
+    const entryUrl = String(currentPlan?.refreshState?.entryUrl || currentPlan?.source?.manifestUrl || '');
+    const selectedUrl = String(currentPlan?.refreshState?.selectedUrl || '');
+    if (!supportsMdstrmRefresh(entryUrl) && !supportsMdstrmRefresh(selectedUrl)) return null;
+
+    const refreshedEntryUrl = await refreshMdstrmUrl(entryUrl);
+    let refreshedSelectedUrl = '';
+
+    if (selectedUrl) {
+      const analysis = await this.analyze({ url: refreshedEntryUrl });
+      refreshedSelectedUrl = resolveFreshVariantByPath(selectedUrl, analysis.variants, analysis.baseUrl) || '';
+    }
+
+    return this.prepareDownloadPlan({
+      url: refreshedEntryUrl,
+      selectedUrl: refreshedSelectedUrl || undefined,
+      headers: currentPlan?.requestContext?.headers || {},
+    });
+  },
+
   async prepareDownload({ url, selectedUrl }) {
     return { downloadUrl: selectedUrl || url };
   },

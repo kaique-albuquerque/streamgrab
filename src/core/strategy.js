@@ -12,6 +12,7 @@
  */
 
 import { isRetryable } from './errors.js';
+import { selectStrategyDecision } from '../strategy/selector.js';
 
 export const STRATEGIES = Object.freeze({
   MUX: 'mux',
@@ -57,16 +58,7 @@ export const TERMINAL_CODES = new Set([
  * @returns {string} uma das STRATEGIES.
  */
 export function selectStrategy({ sourceType, prepared = {}, options = {} } = {}) {
-  if (prepared.strategy === 'mux') return STRATEGIES.MUX;
-  if (sourceType === 'hls' || sourceType === 'dash') return STRATEGIES.FFMPEG;
-  if (sourceType === 'ytdlp' || sourceType === 'youtube' || sourceType === 'social') {
-    if (options.useYtDlpDownload && options.formatId) return STRATEGIES.YTDLP;
-    return STRATEGIES.HTTP;
-  }
-  if (sourceType === 'direct') {
-    return options.turbo ? STRATEGIES.RANGE : STRATEGIES.HTTP;
-  }
-  return STRATEGIES.HTTP;
+  return selectStrategyDecision({ sourceType, prepared, options }).strategy;
 }
 
 /**

@@ -178,3 +178,78 @@ nunca substitui a mensagem amigável.
 
 **Status:** aceito. Reavaliado após estabilizar contratos/testes/core/providers/
 transports; se aprovado, migração incremental separada.
+
+## ADR-016 — Provider V2 com contrato público mínimo
+
+**Status:** aceito para a próxima evolução. O contrato público alvo dos
+providers passa a ser enxuto e consistente, centrado em `detect()` →
+`resolve()` → `prepareDownload()` (com `getFormats()` e `refresh()` opcionais).
+Helpers como análise de página, descoberta de manifesto e derivação de headers
+continuam existindo, mas ficam internos a cada provider.
+
+## ADR-017 — `direct` migra primeiro como provider de referência
+
+**Status:** aceito. A primeira migração para o contrato novo deve usar o
+provider `direct`, por ser o caso mais simples e ideal para validar
+`ProviderResolution` → `DownloadPlan` → `StrategySelector` →
+`TransportBackend` sem misturar manifests, refresh e tokens temporários.
+
+## ADR-018 — `ProviderSession` só entra com responsabilidade concreta
+
+**Status:** aceito. `ProviderSession` não será criado na primeira fase por
+padrão. Só deve existir se surgir uma necessidade real e distinta de
+`ProviderResolution`, `RequestContext`, `DownloadPlan` e `DownloadTask`, como
+estado temporário indispensável entre `resolve()` e `refresh()`.
+
+## ADR-019 — StrategySelector determinístico e sem efeitos colaterais
+
+**Status:** aceito. A seleção de estratégia sai da lógica implícita do engine e
+evolui para um componente determinístico, sem I/O e sem mutação de estado.
+Com as mesmas entradas (`DownloadPlan`, capabilities de runtime e feature
+flags), ele deve devolver a mesma decisão e um motivo estruturado da escolha.
+
+## ADR-020 — Transport backends padronizados em `src/transports/backends/`
+
+**Status:** aceito. A política adaptativa fica em
+`src/transports/adaptive-controller.js` e todas as implementações concretas de
+transferência ficam sob `src/transports/backends/`. Isso evita espalhar
+backends em locais diferentes e reforça a separação entre política e execução.
+
+## ADR-021 — Taxonomia oficial de erros orienta retry/refresh/fallback/abort
+
+**Status:** aceito. A arquitetura passa a tratar a taxonomia de erros como
+parte oficial do core. As categorias mínimas são `UNSUPPORTED`, `TRANSIENT`,
+`RATE_LIMITED`, `REFRESHABLE`, `AUTHENTICATION`, `DRM`, `PERMANENT` e
+`CANCELLED`. Decisões de retry, refresh, fallback, backoff e abort devem ser
+guiadas por essa classificação e pelo contexto, nunca por regras espalhadas
+baseadas só em status HTTP.
+
+## ADR-022 — Refresh limitado: default 1, hard cap interno 2
+
+**Status:** aceito. O mecanismo de refresh é conservador por padrão: 1 tentativa
+por execução, com hard cap interno de 2 apenas quando um provider justificar a
+necessidade. `AUTHENTICATION`, `DRM` e `PERMANENT` não devem consumir o
+mecanismo de refresh repetidamente. Loops de refresh são proibidos.
+
+## ADR-023 — FFmpeg permanece safety net de compatibilidade
+
+**Status:** aceito. Mesmo após a entrada de backends segmentados HLS/DASH, o
+FFmpeg continua sendo o caminho de compatibilidade. `hls-segments` e
+`dash-segments` são caminhos rápidos opcionais; `hls-ffmpeg` e `dash-ffmpeg`
+continuam como fallback seguro para estruturas não suportadas.
+
+## ADR-024 — AdaptiveController é agnóstico a protocolo
+
+**Status:** aceito. O `AdaptiveController` não pode conhecer HLS, DASH ou
+Range. Ele só observa métricas genéricas e devolve decisões de concorrência e
+backoff. Parse de manifesto, unidades de trabalho e detalhes de segmento/chunk
+pertencem exclusivamente aos backends.
+
+## ADR-025 — Baseline do Smart Turbo antes da extração
+
+**Status:** aceito. Antes da extração do Smart Turbo atual para um
+`AdaptiveController` reutilizável, a suíte deve registrar um baseline do
+comportamento atual em downloads diretos por Range (1/4/8 conexões + Smart
+Turbo atual), com throughput, tempo total, erros e concorrência efetiva. O
+mesmo cenário deve ser reexecutado logo após a extração para separar refactor
+de mudança de algoritmo.

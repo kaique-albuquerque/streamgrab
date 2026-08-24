@@ -1,21 +1,43 @@
 /**
- * P3 — Provider DASH normalizado (src/providers/dash/index.js)
+ * P3/P5 - Provider DASH normalizado (src/providers/dash/index.js)
  *
- * Envolve src/dash.js (fetch + parse de MPD) e detecta DRM (<ContentProtection>)
- * com erro claro, sem contornar Widevine/PlayReady.
+ * Envolve src/dash.js (fetch + parse de MPD) e detecta DRM
+ * (<ContentProtection>) com erro claro, sem contornar Widevine/PlayReady.
  *
- * Regra crítica da P3: NÃO reinventa o download DASH. Analyze → MediaInfo →
- * Formats → PreparedDownload { downloadUrl } → mecanismo atual (FFmpeg).
- *
- * O `kind` é 'dash' e os campos legados `representations` /
- * `videoRepresentations` / `baseUrl` são preservados (consumidores legados,
- * como o Electron, dependem deles).
+ * Mantem analyze()/prepareDownload() legados e adiciona resolve()/
+ * prepareDownloadPlan() nativos do contrato V2.
  */
 
-import { detectSourceType } from '../../utils.js';
+import { detectSourceType, DEFAULT_USER_AGENT } from '../../utils.js';
 import { fetchDashManifestText, parseDashManifest } from '../../dash.js';
 import { createMediaInfo, createFormat } from '../../core/models.js';
+import { createProviderResolution, createDownloadPlan } from '../../core/download-plan.js';
+import { createRequestContext } from '../../core/request-context.js';
 import { checkDashDrm } from './drm.js';
+
+function createDashRequestContext(headers = {}) {
+  return createRequestContext({
+    headers: {
+      'User-Agent': DEFAULT_USER_AGENT,
+      ...(headers || {}),
+    },
+  });
+}
+
+function createDashMediaInfo(parsed) {
+  return {
+    ...createMediaInfo({
+      kind: 'dash',
+      sourceType: 'dash',
+      provider: 'dash',
+      title: '',
+      variants: [],
+    }),
+    baseUrl: parsed.baseUrl || '',
+    representations: parsed.representations,
+    videoRepresentations: parsed.videoRepresentations,
+  };
+}
 
 export const dashProvider = {
   id: 'dash',
@@ -23,35 +45,47 @@ export const dashProvider = {
   priority: 80,
   supportsQualitySelection: false,
 
-  /** Detecta URLs DASH (.mpd). */
   detect(url) {
     return detectSourceType(url) === 'dash';
   },
 
-  /**
-   * Analisa o manifesto DASH: busca o texto, verifica DRM e normaliza em
-   * MediaInfo (preservando o shape legado de representações).
-   */
+  async resolve({ url, headers }) {
+    const { text, url: finalUrl } = await fetchDashManifestText(url, headers);
+    checkDashDrm(text);
+    const parsed = parseDashManifest(text, finalUrl || url);
+    const mediaInfo = createDashMediaInfo(parsed);
+
+    return createProviderResolution({
+      contractVersion: 2,
+      providerId: 'dash',
+      kind: 'dash',
+      sourceUrl: String(url || ''),
+      matchedBy: 'url',
+      confidence: 'high',
+      pageUrl: String(url || ''),
+      canonicalUrl: String(finalUrl || url || ''),
+      manifestUrl: String(finalUrl || url || ''),
+      formats: this.getFormats(mediaInfo),
+      mediaInfo,
+      requestContext: createDashRequestContext(headers),
+      capabilities: {
+        qualitySelection: false,
+        segmentedDownload: true,
+      },
+      strategyHints: {
+        preferredTransport: 'segments',
+      },
+      diagnostics: {},
+    });
+  },
+
   async analyze({ url, headers }) {
     const { text, url: finalUrl } = await fetchDashManifestText(url, headers);
     checkDashDrm(text);
     const parsed = parseDashManifest(text, finalUrl || url);
-    return {
-      ...createMediaInfo({
-        kind: 'dash',
-        sourceType: 'dash',
-        provider: 'dash',
-        title: '',
-        variants: [],
-      }),
-      // Compatibilidade legada (Electron/cli): representações + base.
-      baseUrl: parsed.baseUrl || '',
-      representations: parsed.representations,
-      videoRepresentations: parsed.videoRepresentations,
-    };
+    return createDashMediaInfo(parsed);
   },
 
-  /** Converte as representações de vídeo em Format[] normalizado. */
   getFormats(media) {
     return (media.videoRepresentations || []).map((r) =>
       createFormat({
@@ -65,11 +99,26 @@ export const dashProvider = {
         container: 'mp4',
         hasVideo: true,
         hasAudio: false,
-      })
+      }),
     );
   },
 
-  /** O download DASH segue pelo mecanismo atual (FFmpeg recebe a URL). */
+  async prepareDownloadPlan({ url, headers }) {
+    return createDownloadPlan({
+      contractVersion: 2,
+      kind: 'dash',
+      source: { manifestUrl: String(url || '') },
+      requestContext: createDashRequestContext(headers),
+      capabilities: {
+        qualitySelection: false,
+        segmentedDownload: true,
+      },
+      strategyHints: {
+        preferredTransport: 'segments',
+      },
+    });
+  },
+
   async prepareDownload({ url }) {
     return { downloadUrl: url };
   },

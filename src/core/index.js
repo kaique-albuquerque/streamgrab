@@ -27,10 +27,13 @@ export { DownloadEngine, createDownloadEngine, defaultResolveAdapter } from './e
 export { ProviderRegistry, createDefaultProviderRegistry } from '../providers/registry.js';
 
 export { STRATEGIES, selectStrategy, resolveFallback, canFallback, isTerminalError } from './strategy.js';
+export { BACKEND_IDS, selectStrategyDecision } from '../strategy/selector.js';
 export { retryWithBackoff, computeBackoffDelay, parseRetryAfter, retryAfterFromError, sleep } from './retry.js';
 export { ResourceManager, Semaphore, createDefaultResourceManager } from './resources.js';
 
 export * from './models.js';
+export * from './request-context.js';
+export * from './download-plan.js';
 export * from './errors.js';
 export * from './logger.js';
 export * from './filenames.js';

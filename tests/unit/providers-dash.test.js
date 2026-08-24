@@ -8,6 +8,7 @@ import http from 'node:http';
 import { dashProvider } from '../../src/providers/dash/index.js';
 import { checkDashDrm } from '../../src/providers/dash/drm.js';
 import { UnsupportedDrmError } from '../../src/core/errors.js';
+import { DEFAULT_USER_AGENT } from '../../src/utils.js';
 
 const MPD_CLEAN = `<?xml version="1.0" encoding="UTF-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" type="static">
@@ -115,6 +116,29 @@ test('dash provider: analyze -> MediaInfo com videoRepresentations', async () =>
   assert.equal(formats[0].hasAudio, false);
 });
 
+test('dash provider: resolve retorna ProviderResolution nativo V2', async () => {
+  const resolution = await withServer((req, res) => {
+    res.writeHead(200, { 'content-type': 'application/dash+xml' });
+    res.end(MPD_CLEAN);
+  }, async (base) => dashProvider.resolve({
+    url: `${base}/manifest.mpd`,
+    headers: { Referer: 'https://page.example/watch' },
+  }));
+
+  assert.equal(resolution.contractVersion, 2);
+  assert.equal(resolution.providerId, 'dash');
+  assert.equal(resolution.kind, 'dash');
+  assert.equal(resolution.matchedBy, 'url');
+  assert.equal(resolution.confidence, 'high');
+  assert.ok(resolution.manifestUrl.endsWith('/manifest.mpd'));
+  assert.equal(resolution.formats.length, 1);
+  assert.equal(resolution.requestContext.headers['User-Agent'], DEFAULT_USER_AGENT);
+  assert.equal(resolution.requestContext.headers.Referer, 'https://page.example/watch');
+  assert.equal(resolution.capabilities.qualitySelection, false);
+  assert.equal(resolution.capabilities.segmentedDownload, true);
+  assert.equal(resolution.strategyHints.preferredTransport, 'segments');
+});
+
 test('dash provider: analyze com ContentProtection lanca UnsupportedDrmError', async () => {
   const mpd = MPD_CLEAN.replace(
     '<AdaptationSet mimeType="video/mp4" contentType="video"',
@@ -137,6 +161,22 @@ test('dash provider: analyze HTTP 404 propaga erro com status', async () => {
     }, async (base) => dashProvider.analyze({ url: `${base}/missing.mpd` })),
     (err) => err.status === 404
   );
+});
+
+test('dash provider: prepareDownloadPlan retorna DownloadPlan nativo V2', async () => {
+  const plan = await dashProvider.prepareDownloadPlan({
+    url: 'https://cdn.example.com/manifest.mpd',
+    headers: { Authorization: 'Bearer abc' },
+  });
+
+  assert.equal(plan.contractVersion, 2);
+  assert.equal(plan.kind, 'dash');
+  assert.deepEqual(plan.source, { manifestUrl: 'https://cdn.example.com/manifest.mpd' });
+  assert.equal(plan.requestContext.headers['User-Agent'], DEFAULT_USER_AGENT);
+  assert.equal(plan.requestContext.headers.Authorization, 'Bearer abc');
+  assert.equal(plan.capabilities.qualitySelection, false);
+  assert.equal(plan.capabilities.segmentedDownload, true);
+  assert.equal(plan.strategyHints.preferredTransport, 'segments');
 });
 
 test('dash provider: prepareDownload devolve downloadUrl', async () => {

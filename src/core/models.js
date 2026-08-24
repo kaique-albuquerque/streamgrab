@@ -33,6 +33,14 @@ export const JOB_STATES = Object.freeze([
 
 export const TERMINAL_JOB_STATES = Object.freeze(['completed', 'failed', 'cancelled']);
 
+export const CHECKPOINT_TASK_STATES = Object.freeze([
+  'pending',
+  'downloading',
+  'downloaded',
+  'processing',
+  'completed',
+]);
+
 /** Transicoes validas de cada estado (architect.md secoes 10 e 24). */
 export const JOB_TRANSITIONS = Object.freeze({
   queued: Object.freeze(['analyzing', 'cancelled']),
@@ -52,6 +60,10 @@ export function isValidJobState(state) {
 
 export function isTerminalJobState(state) {
   return TERMINAL_JOB_STATES.includes(state);
+}
+
+export function isValidCheckpointTaskState(state) {
+  return typeof state === 'string' && CHECKPOINT_TASK_STATES.includes(state);
 }
 
 export function canTransition(from, to) {
@@ -235,6 +247,57 @@ export function isValidMediaInfo(info) {
 
 let jobSequence = 0;
 
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function cloneSerializableObject(input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    return {};
+  }
+  return JSON.parse(JSON.stringify(input));
+}
+
+function normalizeSegmentCheckpointEntry(entry = {}) {
+  const stream = String(entry.stream || entry.track || 'video');
+  const index = Number(entry.index);
+  return {
+    id: String(
+      entry.id ||
+        createSegmentTaskId({
+          stream,
+          representationId: entry.representationId,
+          segmentIndex: Number.isFinite(index) ? index : 0,
+          init: Boolean(entry.init),
+        })
+    ),
+    stream,
+    representationId: String(entry.representationId || ''),
+    index: Number.isFinite(index) ? index : 0,
+    init: Boolean(entry.init),
+    url: String(entry.url || ''),
+    status: String(entry.status || 'pending'),
+  };
+}
+
+function createDefaultCheckpoint() {
+  return {
+    version: 1,
+    backend: '',
+    manifestUrl: '',
+    outputMode: 'single',
+    taskState: 'pending',
+    selected: {
+      videoRepresentationId: '',
+      audioRepresentationId: '',
+    },
+    segments: [],
+    completedSegmentIds: [],
+    diagnostics: {},
+    updatedAt: nowIso(),
+  };
+}
+
 /**
  * Gera um ID de job unico, resistente a colisao apos crash recovery.
  * Formato: job-<timestamp>-<random> — nunca colide com IDs restaurados
@@ -244,6 +307,101 @@ function generateJobId() {
   const ts = Date.now().toString(36);
   const rand = Math.random().toString(36).slice(2, 8);
   return `job-${ts}-${rand}`;
+}
+
+export function createSegmentTaskId({
+  stream = 'video',
+  representationId = '',
+  segmentIndex = 0,
+  init = false,
+} = {}) {
+  const normalizedStream = String(stream || 'video').trim().toLowerCase() || 'video';
+  const normalizedRepresentation = String(representationId || '').trim() || 'default';
+  const normalizedIndex = Number.isFinite(Number(segmentIndex)) ? Number(segmentIndex) : 0;
+  const kind = init ? 'init' : 'seg';
+  return `${normalizedStream}:${normalizedRepresentation}:${kind}:${normalizedIndex}`;
+}
+
+export function createSegmentCheckpoint(input = {}) {
+  const base = createDefaultCheckpoint();
+  const taskState = String(input.taskState || base.taskState);
+  const segments = Array.isArray(input.segments)
+    ? input.segments.map((entry) => normalizeSegmentCheckpointEntry(entry))
+    : base.segments;
+  const completedSegmentIds = Array.isArray(input.completedSegmentIds)
+    ? [...new Set(input.completedSegmentIds.map((value) => String(value || '')).filter(Boolean))]
+    : base.completedSegmentIds;
+
+  return {
+    version: Number(input.version || base.version) || 1,
+    backend: String(input.backend || base.backend),
+    manifestUrl: String(input.manifestUrl || base.manifestUrl),
+    outputMode: String(input.outputMode || base.outputMode),
+    taskState: isValidCheckpointTaskState(taskState) ? taskState : base.taskState,
+    selected: {
+      videoRepresentationId: String(
+        input.selected?.videoRepresentationId || input.selectedVideoRepresentationId || ''
+      ),
+      audioRepresentationId: String(
+        input.selected?.audioRepresentationId || input.selectedAudioRepresentationId || ''
+      ),
+    },
+    segments,
+    completedSegmentIds,
+    diagnostics: cloneSerializableObject(input.diagnostics),
+    updatedAt: nowIso(),
+  };
+}
+
+export function getJobCheckpoint(job) {
+  if (!job?.meta?.checkpoint) return null;
+  return createSegmentCheckpoint(job.meta.checkpoint);
+}
+
+export function setJobCheckpoint(job, checkpoint) {
+  if (!job || typeof job !== 'object') {
+    throw new TypeError('setJobCheckpoint: job deve ser um objeto');
+  }
+  const nextCheckpoint = createSegmentCheckpoint(checkpoint);
+  job.meta = {
+    ...(job.meta || {}),
+    checkpoint: nextCheckpoint,
+    taskState: nextCheckpoint.taskState,
+    taskStateUpdatedAt: nextCheckpoint.updatedAt,
+  };
+  return nextCheckpoint;
+}
+
+export function setJobTaskState(job, taskState, { checkpoint = null } = {}) {
+  if (!job || typeof job !== 'object') {
+    throw new TypeError('setJobTaskState: job deve ser um objeto');
+  }
+  if (!isValidCheckpointTaskState(taskState)) {
+    const err = new Error(`Estado de checkpoint invalido: "${taskState}"`);
+    err.code = 'INVALID_CHECKPOINT_TASK_STATE';
+    throw err;
+  }
+  const updatedAt = nowIso();
+  job.meta = {
+    ...(job.meta || {}),
+    taskState,
+    taskStateUpdatedAt: updatedAt,
+  };
+  if (checkpoint) {
+    const nextCheckpoint = createSegmentCheckpoint({
+      ...checkpoint,
+      taskState,
+    });
+    nextCheckpoint.updatedAt = updatedAt;
+    job.meta.checkpoint = nextCheckpoint;
+  } else if (job.meta.checkpoint) {
+    job.meta.checkpoint = {
+      ...job.meta.checkpoint,
+      taskState,
+      updatedAt,
+    };
+  }
+  return job;
 }
 
 /**
@@ -270,14 +428,19 @@ export function createDownloadJob({ id, url, title = '', meta = {} } = {}) {
     throw new TypeError('createDownloadJob: meta deve ser um objeto');
   }
   jobSequence += 1;
-  const now = new Date().toISOString();
+  const now = nowIso();
   return {
     id: String(id || generateJobId()),
     url,
     title: String(title || ''),
     state: 'queued',
     error: null,
-    meta: { ...meta },
+    meta: {
+      ...meta,
+      taskState: isValidCheckpointTaskState(meta.taskState) ? meta.taskState : 'pending',
+      taskStateUpdatedAt: String(meta.taskStateUpdatedAt || now),
+      checkpoint: meta.checkpoint ? createSegmentCheckpoint(meta.checkpoint) : undefined,
+    },
     createdAt: now,
     updatedAt: now,
     history: [{ from: null, to: 'queued', at: now }],
@@ -300,7 +463,7 @@ export function transitionJob(job, nextState, { error = null } = {}) {
     err.code = 'INVALID_JOB_TRANSITION';
     throw err;
   }
-  const now = new Date().toISOString();
+  const now = nowIso();
   job.state = nextState;
   job.updatedAt = now;
   job.error = error ? serializeError(error) : null;
