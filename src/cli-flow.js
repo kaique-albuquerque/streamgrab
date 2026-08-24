@@ -27,7 +27,14 @@ import {
   describeSourceType,
   resolveExistingFile,
 } from './cli/ui.js';
-import { loadConfig, parseCliHeaders, parseCliAuth, isGoogleVideoPlaybackUrl, collectDevtoolsHeaders } from './cli/config.js';
+import {
+  loadConfig,
+  parseCliHeaders,
+  parseCliAuth,
+  isGoogleVideoPlaybackUrl,
+  collectDevtoolsHeaders,
+  applyProviderHeaders,
+} from './cli/config.js';
 import { runDownloadFlow, runMuxedDownloadFlow, runMuxMultiDownloadFlow } from './cli/download.js';
 import { runTurboDownloadFlow, runTurboMuxedDownloadFlow, DEFAULT_TURBO_CHUNKS } from './cli/turbo.js';
 import { runCurlDownloadFlow } from './cli/curl-flow.js';
@@ -73,7 +80,11 @@ export async function runCliSession({
   let useCurlFlag = argv.includes('--curl-impersonate') || argv.includes('--ci');
   const forceYouTube = argv.includes('--youtube');
   const config = loadConfig(projectRoot, safeIo);
-  let headers = normalizeHeaders({ ...config.headers, ...parseCliHeaders(argv) });
+  let headers = applyProviderHeaders({
+    url: '',
+    headers: { ...config.headers, ...parseCliHeaders(argv) },
+    argv,
+  });
 
   // Rollback da P4 (transports): com STREAMGRAB_LEGACY_FLOW=1 a CLI volta aos
   // fluxos antigos — desativa turbo (transports/range) e curl-impersonate
@@ -160,6 +171,7 @@ export async function runCliSession({
     safeIo.error('\n[ERRO] Nenhuma URL informada.');
     return { code: 1, ok: false };
   }
+  headers = applyProviderHeaders({ url, headers, argv });
 
   // mdstrm: URL crua do CDN (tokens presos à sessão do player) dá 403 para
   // qualquer cliente — converte para a URL do player usando o embed público.

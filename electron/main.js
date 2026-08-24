@@ -7,8 +7,7 @@ import { createCurlClient, findCurlImpersonate } from '../src/curlimp.js';
 import { parsePlaylistText } from '../src/hls.js';
 import { isMdstrmUrl } from '../src/mdstrm.js';
 import { resolveSourceAdapterAsync } from '../src/source-adapters.js';
-import { loadConfig } from '../src/cli/config.js';
-import { normalizeHeaders } from '../src/utils.js';
+import { loadConfig, applyProviderHeaders } from '../src/cli/config.js';
 import { friendlyReport } from '../src/core/errors.js';
 import { safeRefreshMdstrm } from '../src/core/mdstrm-routing.js';
 import { normalizeMediaInfo } from './media-info.js';
@@ -173,7 +172,11 @@ async function analyzePlaylist(rawPayload) {
   // P11.1: o Electron agora le os headers do config.json (como o CLI) e os
   // repassa para analise + download. Headers vindos do renderer vencem config.
   const config = loadConfig(PROJECT_ROOT, { log: () => {} });
-  const mergedHeaders = normalizeHeaders({ ...config.headers, ...headers });
+  const mergedHeaders = applyProviderHeaders({
+    url,
+    headers: { ...config.headers, ...headers },
+    argv: ['--hotmart'],
+  });
 
   // URL efetivamente usada na analise (mdstrm converte a URL crua do CDN para
   // a URL do player). Devolvida ao renderer para que a fila re-analise/baixe
@@ -262,6 +265,11 @@ function enqueueDownload({ url, filename, outputDir, selectedUrl, title, turbo, 
   // P11.1: headers do config.json (Referer/Origin/User-Agent) seguem para o
   // download na fila — mesmo comportamento do CLI.
   const config = loadConfig(PROJECT_ROOT, { log: () => {} });
+  const downloadHeaders = applyProviderHeaders({
+    url,
+    headers: config.headers,
+    argv: ['--hotmart'],
+  });
 
   const job = services.queue.enqueue(url, {
     title: title || filename || '',
@@ -272,7 +280,7 @@ function enqueueDownload({ url, filename, outputDir, selectedUrl, title, turbo, 
       sourceUrl: url,
       taskId: taskId || '',
       turbo: Boolean(turbo),
-      headers: normalizeHeaders(config.headers),
+      headers: downloadHeaders,
       auth: {
         cookiesFile: cookiesFile || config.cookiesFile || '',
         cookiesFromBrowser: cookiesFromBrowser || config.cookiesFromBrowser || '',

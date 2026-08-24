@@ -12,7 +12,7 @@ import {
   getDefaultDownloadsDir,
 } from '../utils.js';
 import { ADAPTIVE_URI_PREFIX } from '../adapters/ytdlp.js';
-import { loadConfig, parseCliHeaders, parseCliAuth } from './config.js';
+import { loadConfig, parseCliHeaders, parseCliAuth, applyProviderHeaders } from './config.js';
 import { runCliSession } from '../cli-flow.js';
 import { runDownloadFlow } from './download.js';
 import { createContext } from './context.js';
@@ -42,6 +42,7 @@ export function printSubcommandHelp(io) {
   io.log('  --json                       Saida em JSON (machine-readable)');
   io.log('  --cookies <arquivo>          cookies.txt (Netscape)');
   io.log('  --cookies-from-browser <b>   Extrai cookies do navegador');
+  io.log('  --hotmart                    Headers padrao do embed Hotmart (isolado)');
   io.log('  --referer <url>              Header Referer');
   io.log('  --user-agent <ua>            Header User-Agent');
   io.log('');
@@ -61,12 +62,14 @@ export function printSubcommandHelp(io) {
   io.log('  --cookies <arquivo>          cookies.txt (Netscape)');
   io.log('  --cookies-from-browser <b>   Extrai cookies do navegador');
   io.log('  --curl-impersonate           Forca o modo curl-impersonate para HLS');
+  io.log('  --hotmart                    Headers padrao do embed Hotmart (isolado)');
   io.log('  --referer <url>              Header Referer');
   io.log('  --user-agent <ua>            Header User-Agent');
 }
 
 export function parseAnalyzeFlags(rest = []) {
   return {
+    argv: rest,
     json: rest.includes('--json'),
     headers: parseCliHeaders(rest),
     auth: parseCliAuth(rest),
@@ -90,6 +93,7 @@ export function parseDownloadFlags(rest = []) {
     cookiesFile: '',
     cookiesFromBrowser: '',
     headers: {},
+    argv: rest,
   };
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
@@ -123,7 +127,11 @@ export async function runAnalyzeCommand({ url, projectRoot, io = console, flags 
   }
 
   const config = loadConfig(projectRoot, io);
-  const headers = normalizeHeaders({ ...config.headers, ...(flags.headers || {}) });
+  const headers = applyProviderHeaders({
+    url: target,
+    headers: { ...config.headers, ...(flags.headers || {}) },
+    argv: flags.argv || [],
+  });
   const auth = {
     cookiesFile: flags.cookiesFile || config.cookiesFile || '',
     cookiesFromBrowser: flags.cookiesFromBrowser || config.cookiesFromBrowser || '',
@@ -166,7 +174,11 @@ export async function runDownloadCommand({ url, projectRoot, io = console, optio
   }
 
   const config = loadConfig(projectRoot, io);
-  const headers = normalizeHeaders({ ...config.headers, ...(options.headers || {}) });
+  const headers = applyProviderHeaders({
+    url: target,
+    headers: { ...config.headers, ...(options.headers || {}) },
+    argv: options.argv || [],
+  });
   const auth = {
     cookiesFile: options.cookiesFile || config.cookiesFile || '',
     cookiesFromBrowser: options.cookiesFromBrowser || config.cookiesFromBrowser || '',
@@ -218,6 +230,9 @@ export function buildDownloadArgv({ options = {}, auth = {} }) {
   if (options.forceCurl) argv.push('--curl-impersonate');
   if (auth.cookiesFile) argv.push('--cookies', auth.cookiesFile);
   if (auth.cookiesFromBrowser) argv.push('--cookies-from-browser', auth.cookiesFromBrowser);
+  // Preserva flags de provider que precisam chegar ao cli-flow.
+  const srcArgv = options.argv || [];
+  if (srcArgv.includes('--hotmart')) argv.push('--hotmart');
   return argv;
 }
 
