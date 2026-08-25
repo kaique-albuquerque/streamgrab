@@ -18,6 +18,12 @@ import { maskUrl } from '../../src/utils.js';
 const SENSITIVE = [
   'token',
   'access_token',
+  'access_key',
+  'secret_key',
+  'api_token',
+  'auth_token',
+  'bearer',
+  'ticket',
   'authorization',
   'auth',
   'sid',
