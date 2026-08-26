@@ -1,7 +1,7 @@
 /**
  * P10 — Gera checksums SHA-256 dos artefatos de release (scripts/checksums.mjs)
  *
- * Varre dist/ por instaladores (StreamGrab-Setup-*.exe) e escreve
+ * Varre dist/ por instaladores (.exe, .dmg e .zip) e escreve
  * dist/SHA256SUMS.txt (formato: "<hash>  <nome-do-arquivo>").
  *
  * Uso: node scripts/checksums.mjs
@@ -26,11 +26,11 @@ export function main() {
   }
   const artifacts = fs
     .readdirSync(DIST_DIR)
-    .filter((name) => /\.(exe|blockmap|yml)$/i.test(name))
+    .filter((name) => /\.(exe|dmg|zip|blockmap|yml)$/i.test(name))
     .sort();
 
   if (!artifacts.length) {
-    throw new Error(`Nenhum artefato em ${DIST_DIR} (esperava *.exe).`);
+    throw new Error(`Nenhum artefato em ${DIST_DIR} (esperava *.exe, *.dmg ou *.zip).`);
   }
 
   const lines = artifacts.map((name) => `${sha256(path.join(DIST_DIR, name))}  ${name}`);

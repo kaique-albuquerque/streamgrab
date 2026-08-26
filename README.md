@@ -523,6 +523,29 @@ npm run update:ytdlp     # atualiza o binário do yt-dlp (todas as cópias locai
 
 > Requer `npm install` prévio (o `postinstall` baixa FFmpeg/Electron/yt-dlp). CI em PRs: `.github/workflows/ci.yml` (lint + testes + build). Release manual: empurre uma tag `v*` — `.github/workflows/release.yml` gera o instalador, checksums e publica a GitHub Release.
 
+### Empacotamento macOS (DMG)
+
+O instalador macOS é gerado pelo mesmo `electron-builder`. O build precisa ser executado em um Mac e requer uma cópia local do FFmpeg em `vendor/ffmpeg/` e o binário do yt-dlp em `node_modules/youtube-dl-exec/bin/`. O FFmpeg instalado pelo Homebrew no PATH não é suficiente para empacotar o app; use um binário macOS compatível com a arquitetura escolhida.
+
+```bash
+npm install
+# coloque um FFmpeg macOS estático em vendor/ffmpeg/ffmpeg e torne-o executável
+chmod +x vendor/ffmpeg/ffmpeg
+npm run dist:mac           # gera DMGs arm64 e x64 em dist/
+npm run dist:mac:dir       # build sem instalador, para testar
+node scripts/checksums.mjs # gera SHA256SUMS.txt incluindo os DMGs
+```
+
+Para gerar apenas uma arquitetura, use diretamente o electron-builder:
+
+```bash
+npm run pack:resources
+npx electron-builder --mac --arm64  # Apple Silicon
+npx electron-builder --mac --x64    # Mac Intel
+```
+
+Para distribuição pública, configure um certificado **Developer ID Application**, hardened runtime e notarização Apple no ambiente de release. Sem assinatura/notarização o DMG é útil para testes, mas o Gatekeeper exibirá avisos ou bloqueará a abertura.
+
 ### Limitações (por design)
 
 - Não funciona com vídeos protegidos por DRM (Widevine/PlayReady) ou conteúdo criptografado.

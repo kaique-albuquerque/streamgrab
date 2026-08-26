@@ -30,6 +30,8 @@
     "update:ytdlp": "node scripts/update-ytdlp.mjs",
     "dist": "npm run pack:resources && electron-builder --win",
     "dist:dir": "npm run pack:resources && electron-builder --win --dir",
+    "dist:mac": "npm run pack:resources && electron-builder --mac",
+    "dist:mac:dir": "npm run pack:resources && electron-builder --mac --dir",
     "dist:linux": "npm run pack:resources && electron-builder --linux",
     "release": "npm run dist && node scripts/checksums.mjs",
     "postinstall": "node scripts/install-ffmpeg.mjs && node scripts/install-electron.mjs"
