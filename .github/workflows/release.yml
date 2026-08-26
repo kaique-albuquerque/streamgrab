@@ -1,5 +1,5 @@
 # P10 — Release (seção 30 do architect.md)
-# Disparo manual/explícito: empurrar uma tag v* cria os instaladores Windows/macOS,
+# Disparo manual/explícito: empurrar uma tag v* cria os instaladores Windows/macOS/Linux,
 # checksums e uma GitHub Release. Nunca automático sem tag.
 
 name: Release
@@ -30,7 +30,7 @@ jobs:
       - name: Testes
         run: npm test
 
-      - name: Build instalador NSIS
+      - name: Build instalador MSI
         run: npm run dist
 
       - name: Publicar artefatos Windows
@@ -38,7 +38,7 @@ jobs:
         with:
           name: release-windows
           path: |
-            dist/*.exe
+            dist/*.msi
             dist/*.blockmap
             dist/*.yml
 
@@ -59,7 +59,7 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      - name: Build instalador DMG x64
+      - name: Build instalador PKG x64
         run: npm run pack:resources && npx electron-builder --mac --x64
 
       - name: Publicar artefatos macOS x64
@@ -67,7 +67,7 @@ jobs:
         with:
           name: release-macos-x64
           path: |
-            dist/*.dmg
+            dist/*.pkg
             dist/*.blockmap
             dist/*.yml
 
@@ -88,7 +88,7 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      - name: Build instalador DMG arm64
+      - name: Build instalador PKG arm64
         run: npm run pack:resources && npx electron-builder --mac --arm64
 
       - name: Publicar artefatos macOS arm64
@@ -96,13 +96,43 @@ jobs:
         with:
           name: release-macos-arm64
           path: |
-            dist/*.dmg
+            dist/*.pkg
+            dist/*.blockmap
+            dist/*.yml
+
+  build-linux:
+    name: Build installers (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Build instaladores Linux
+        run: npm run dist:linux
+
+      - name: Publicar artefatos Linux
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: |
+            dist/*.AppImage
+            dist/*.deb
             dist/*.blockmap
             dist/*.yml
 
   publish:
     name: Publish GitHub Release
-    needs: [build-windows, build-macos-x64, build-macos-arm64]
+    needs: [build-windows, build-macos-x64, build-macos-arm64, build-linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -125,8 +155,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/*.exe
-            dist/*.dmg
+            dist/*.msi
+            dist/*.pkg
+            dist/*.AppImage
+            dist/*.deb
             dist/*.blockmap
             dist/*.yml
             dist/SHA256SUMS.txt
