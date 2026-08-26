@@ -126,6 +126,7 @@ jobs:
         with:
           files: |
             dist/*.exe
+            dist/*.dmg
             dist/*.blockmap
             dist/*.yml
             dist/SHA256SUMS.txt
