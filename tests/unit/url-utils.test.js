@@ -26,12 +26,20 @@ test('url-utils: isValidM3u8Url recognizes .m3u8', () => {
 });
 
 test('url-utils: maskUrl masks sensitive params', () => {
-  const masked = maskUrl('https://example.com/v.m3u8?access_token=abc&sid=xyz&cP=123');
+  const masked = maskUrl('https://example.com/v.m3u8?access_token=abc&sid=xyz&access_key=k1&secret_key=k2&bearer=b1&ticket=t1&cP=123');
   assert.ok(masked.includes('access_token=***'));
   assert.ok(masked.includes('sid=***'));
+  assert.ok(masked.includes('access_key=***'));
+  assert.ok(masked.includes('secret_key=***'));
+  assert.ok(masked.includes('bearer=***'));
+  assert.ok(masked.includes('ticket=***'));
   assert.ok(masked.includes('cP=123'), 'non-sensitive param preserved');
   assert.ok(!masked.includes('abc'));
   assert.ok(!masked.includes('xyz'));
+  assert.ok(!masked.includes('k1'));
+  assert.ok(!masked.includes('k2'));
+  assert.ok(!masked.includes('b1'));
+  assert.ok(!masked.includes('t1'));
 });
 
 test('url-utils: maskUrl handles invalid URLs gracefully', () => {

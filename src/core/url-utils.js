@@ -8,7 +8,7 @@
 // Query parameters considered sensitive — values are masked
 // in any display or log (we never record the full URL).
 const SENSITIVE_PARAMS =
-  /^(token|access_token|authorization|auth|sid|uid|signature|sig|key|api[_-]?key|secret|password|pass|pwd|session|session_id|jwt)$/i;
+  /^(token|access_token|access[_-]?key|secret[_-]?key|api[_-]?token|auth[_-]?token|bearer|ticket|authorization|auth|sid|uid|signature|sig|key|api[_-]?key|secret|password|pass|pwd|session|session_id|jwt)$/i;
 
 // Accidental Markdown formatting escapes (\&, \_, \?, \= etc.).
 const MARKDOWN_ESCAPES = /\\([&_?=%*#!.\-()\[\]{}~])/g;
