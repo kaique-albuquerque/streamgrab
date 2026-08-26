@@ -52,10 +52,11 @@ if (isLocalFfmpegReady()) {
   process.exit(0);
 }
 
-const pathFfmpeg = resolveOnPath('ffmpeg');
+const pathFfmpeg = resolveOnPath('ffmpeg') || resolveHomebrewFfmpeg();
 if (pathFfmpeg) {
-  console.log(`[ffmpeg] FFmpeg já disponível no PATH: ${pathFfmpeg}`);
-  console.log('[ffmpeg] O empacotamento do app ainda precisa de uma cópia local em vendor/ffmpeg.');
+  console.log(`[ffmpeg] FFmpeg local encontrado: ${pathFfmpeg}`);
+  installLocalFromPath(pathFfmpeg);
+  process.exit(0);
 }
 
 if (!FFmpeg_URLS.length) {
@@ -240,12 +241,43 @@ async function downloadFromSources(zipPath) {
   return null;
 }
 
-/** Resolve um executável no PATH usando `where`. */
+/** Resolve um executável no PATH usando o comando nativo do sistema. */
 function resolveOnPath(name) {
-  const r = spawnSync('where', [name], { encoding: 'utf8', windowsHide: true });
+  const command = process.platform === 'win32' ? 'where' : 'which';
+  const r = spawnSync(command, [name], { encoding: 'utf8', windowsHide: true });
   if (r.status !== 0) return null;
   const found = r.stdout.split(/\r?\n/).find(Boolean);
   return found ? found.trim() : null;
+}
+
+/** Localiza e copia o FFmpeg instalado pelo Homebrew no macOS. */
+function resolveHomebrewFfmpeg() {
+  if (process.platform !== 'darwin') return null;
+  const brew = spawnSync('brew', ['--prefix', 'ffmpeg'], { encoding: 'utf8', windowsHide: true });
+  if (brew.status !== 0) return null;
+  const prefix = brew.stdout.trim();
+  const candidate = path.join(prefix, 'bin', 'ffmpeg');
+  return fs.existsSync(candidate) ? candidate : null;
+}
+
+/** Copia um FFmpeg do sistema para o diretório usado pelo empacotador. */
+function installLocalFromPath(binaryPath) {
+  if (!checkLocalBinary(binaryPath)) {
+    console.log(`[ffmpeg] Binário encontrado, mas não responde: ${binaryPath}`);
+    return;
+  }
+
+  fs.mkdirSync(VENDOR_DIR, { recursive: true });
+  fs.copyFileSync(binaryPath, BIN_PATH);
+  fs.chmodSync(BIN_PATH, 0o755);
+  fs.writeFileSync(INSTALLED_MARKER, JSON.stringify({
+    installedAt: new Date().toISOString(),
+    source: binaryPath,
+    binary: BIN_PATH,
+    version: getVersionLine(binaryPath) || 'unknown',
+  }, null, 2));
+  fs.writeFileSync(INSTALLED_VERSION, `${getVersionLine(binaryPath) || 'unknown'}\n`);
+  console.log(`[ffmpeg] Cópia local preparada em: ${BIN_PATH}`);
 }
 
 /** Localiza um executável 7-Zip no PATH. */

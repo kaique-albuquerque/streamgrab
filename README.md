@@ -525,11 +525,11 @@ npm run update:ytdlp     # atualiza o binário do yt-dlp (todas as cópias locai
 
 ### Empacotamento macOS (DMG)
 
-O instalador macOS é gerado pelo mesmo `electron-builder`. O build precisa ser executado em um Mac e requer uma cópia local do FFmpeg em `vendor/ffmpeg/` e o binário do yt-dlp em `node_modules/youtube-dl-exec/bin/`. O FFmpeg instalado pelo Homebrew no PATH não é suficiente para empacotar o app; use um binário macOS compatível com a arquitetura escolhida.
+O instalador macOS é gerado pelo mesmo `electron-builder`. O build precisa ser executado em um Mac e requer uma cópia local do FFmpeg em `vendor/ffmpeg/` e o binário do yt-dlp em `node_modules/youtube-dl-exec/bin/`. O script de instalação copia automaticamente o FFmpeg do Homebrew ou do PATH para esse diretório; para distribuir a terceiros, valide também as bibliotecas nativas e a assinatura do binário.
 
 ```bash
 npm install
-# coloque um FFmpeg macOS estático em vendor/ffmpeg/ffmpeg e torne-o executável
+# se necessário, instale com: brew install ffmpeg
 chmod +x vendor/ffmpeg/ffmpeg
 npm run dist:mac           # gera DMGs arm64 e x64 em dist/
 npm run dist:mac:dir       # build sem instalador, para testar
