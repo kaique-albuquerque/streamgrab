@@ -15,6 +15,8 @@
  * decidir retry por heuristica local (secao 40 do architect.md).
  */
 
+import { redactText } from './logger.js';
+
 const SYS_RETRYABLE_CODES = new Set([
   'ECONNRESET',
   'ETIMEDOUT',
@@ -31,7 +33,7 @@ export class StreamGrabError extends Error {
     super(message);
     this.name = this.constructor.name;
     this.code = code;
-    this.detail = detail;
+    this.detail = typeof detail === 'string' ? redactText(detail) : detail;
     this.retryable = Boolean(retryable);
     this.status = Number(status) || 0;
     this.suggestedAction = suggestedAction;
