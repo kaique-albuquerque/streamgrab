@@ -41,9 +41,6 @@ win:
 mac:
   target:
     - target: pkg
-      arch:
-        - x64
-        - arm64
   artifactName: StreamGrab-${version}-${arch}.${ext}
   category: public.app-category.video
 
