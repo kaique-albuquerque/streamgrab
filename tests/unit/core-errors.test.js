@@ -222,3 +222,15 @@ test('core-errors: P11 — toJSON inclui suggestedAction', () => {
   assert.equal(parsed.code, 'FORBIDDEN_ERROR');
   assert.ok(parsed.suggestedAction.length > 0);
 });
+
+test('core-errors: StreamGrabError redige parametros sensiveis em detail', () => {
+  const err = new ForbiddenError('Acesso negado', {
+    detail: 'GET https://example.com/stream.m3u8?access_token=secret123&sid=abc Authorization: Bearer secretToken',
+  });
+  assert.ok(!err.detail.includes('secret123'));
+  assert.ok(!err.detail.includes('secretToken'));
+  assert.ok(err.detail.includes('access_token=***'));
+
+  const report = friendlyReport(err);
+  assert.equal(report.detail, err.detail);
+});
