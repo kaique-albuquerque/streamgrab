@@ -1,5 +1,5 @@
 # P10 — Release (seção 30 do architect.md)
-# Disparo MANUAL/explícito: empurrar uma tag v* cria o StreamGrab-Setup-<versão>.exe,
+# Disparo manual/explícito: empurrar uma tag v* cria os instaladores Windows/macOS,
 # checksums e uma GitHub Release. Nunca automático sem tag.
 
 name: Release
@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-windows:
     name: Build installer (Windows)
     runs-on: windows-latest
     steps:
@@ -33,6 +33,91 @@ jobs:
       - name: Build instalador NSIS
         run: npm run dist
 
+      - name: Publicar artefatos Windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/*.yml
+
+  build-macos-x64:
+    name: Build installer (macOS Intel)
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar FFmpeg
+        run: brew install ffmpeg
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Build instalador DMG x64
+        run: npm run pack:resources && npx electron-builder --mac --x64
+
+      - name: Publicar artefatos macOS x64
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos-x64
+          path: |
+            dist/*.dmg
+            dist/*.blockmap
+            dist/*.yml
+
+  build-macos-arm64:
+    name: Build installer (macOS Apple Silicon)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar FFmpeg
+        run: brew install ffmpeg
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Build instalador DMG arm64
+        run: npm run pack:resources && npx electron-builder --mac --arm64
+
+      - name: Publicar artefatos macOS arm64
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos-arm64
+          path: |
+            dist/*.dmg
+            dist/*.blockmap
+            dist/*.yml
+
+  publish:
+    name: Publish GitHub Release
+    needs: [build-windows, build-macos-x64, build-macos-arm64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Baixar artefatos da release
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
       - name: Checksums SHA-256
         run: node scripts/checksums.mjs
 
@@ -41,6 +126,7 @@ jobs:
         with:
           files: |
             dist/*.exe
+            dist/*.dmg
             dist/*.blockmap
             dist/*.yml
             dist/SHA256SUMS.txt

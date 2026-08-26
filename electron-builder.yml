@@ -38,6 +38,15 @@ win:
         - x64
   artifactName: StreamGrab-Setup-${version}.exe
 
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  artifactName: StreamGrab-${version}-${arch}.${ext}
+  category: public.app-category.video
+
 linux:
   target:
     - target: AppImage
