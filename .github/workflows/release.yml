@@ -22,6 +22,7 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
 
@@ -33,8 +34,11 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      # timeout-minutes no job level (12min) é o seguro principal.
+      # O 'timeout 600' abaixo é backup para matar o node se o
+      # GitHub Actions não enforce o step-level timeout.
       - name: Testes unitários e integração
-        run: node --experimental-test-module-mocks --test "tests/unit/*.test.js" "tests/integration/*.test.js"
+        run: timeout 600 node --experimental-test-module-mocks --test "tests/unit/*.test.js" "tests/integration/*.test.js"
         timeout-minutes: 10
 
   # ── Windows ────────────────────────────────────────────────────────────
