@@ -40,7 +40,7 @@ function chromeVersion(profile) {
  * Retorna { cmd, name, profile } (profile é undefined para binários v1.x)
  * ou null.
  */
-export function findCurlImpersonate() {
+export function findCurlImpersonate({ platform = process.platform } = {}) {
   const dirs = new Set();
   for (const p of (process.env.PATH || '').split(path.delimiter)) {
     if (p.trim()) dirs.add(p.trim());
@@ -64,11 +64,11 @@ export function findCurlImpersonate() {
     }
     for (const name of entries) {
       const lower = name.toLowerCase();
-      if (lower === 'curl-impersonate.exe') {
+      if (platform === 'win32' && lower === 'curl-impersonate.exe') {
         mainExe = path.join(dir, name);
-      } else if (/^curl_(chrome|edge|safari|firefox)\d+(?:_\w+)?\.exe$/i.test(name)) {
+      } else if (platform === 'win32' && /^curl_(chrome|edge|safari|firefox)\d+(?:_\w+)?\.exe$/i.test(name)) {
         standalone.push(path.join(dir, name));
-      } else if (/^curl_(chrome|edge|safari|firefox)\d+(?:_\w+)?\.bat$/i.test(name)) {
+      } else if (platform === 'win32' && /^curl_(chrome|edge|safari|firefox)\d+(?:_\w+)?\.bat$/i.test(name)) {
         const profile = name.replace(/^curl_/i, '').replace(/\.bat$/i, '');
         if (PROFILE_ORDER.includes(profile)) profiles.add(profile);
       }

@@ -66,7 +66,7 @@ test('curl-impersonate: v2.x com perfis - chrome146 e o preferido', () => {
   fs.writeFileSync(path.join(dir, 'curl_firefox135.bat'), '');
   fs.writeFileSync(path.join(dir, 'curl_chrome101.bat'), '');
 
-  const found = withIsolatedCurlDirs([dir], () => findCurlImpersonate());
+  const found = withIsolatedCurlDirs([dir], () => findCurlImpersonate({ platform: 'win32' }));
   assert.ok(found, 'deve encontrar o v2.x');
   assert.equal(found.name, 'curl-impersonate.exe');
   assert.equal(found.cmd, exe);
@@ -78,7 +78,7 @@ test('curl-impersonate: v2.x sem perfil conhecido - profile undefined', () => {
   fs.writeFileSync(path.join(dir, 'curl-impersonate.exe'), 'fake');
   fs.writeFileSync(path.join(dir, 'curl_unknown99.bat'), '');
 
-  const found = withIsolatedCurlDirs([dir], () => findCurlImpersonate());
+  const found = withIsolatedCurlDirs([dir], () => findCurlImpersonate({ platform: 'win32' }));
   assert.ok(found);
   assert.equal(found.name, 'curl-impersonate.exe');
   assert.equal(found.profile, undefined, 'perfil desconhecido nao entra no PROFILE_ORDER');
@@ -90,7 +90,7 @@ test('curl-impersonate: v1.x standalone ordenado por versao do Chrome (desc)', (
   fs.writeFileSync(path.join(dir, 'curl_chrome999.exe'), 'fake');
   fs.writeFileSync(path.join(dir, 'curl_edge101.exe'), 'fake');
 
-  const found = withIsolatedCurlDirs([dir], () => findCurlImpersonate());
+  const found = withIsolatedCurlDirs([dir], () => findCurlImpersonate({ platform: 'win32' }));
   assert.ok(found);
   assert.equal(found.name, 'curl_chrome999.exe', 'deve escolher a versao mais recente');
   assert.equal(found.profile, undefined);
@@ -99,6 +99,15 @@ test('curl-impersonate: v1.x standalone ordenado por versao do Chrome (desc)', (
 test('curl-impersonate: sem binarios em lugar nenhum -> null', () => {
   const root = makeFakeRoot();
   const emptyDir = path.join(root, 'curl-impersonate');
-  const found = withIsolatedCurlDirs([emptyDir], () => findCurlImpersonate());
+  const found = withIsolatedCurlDirs([emptyDir], () => findCurlImpersonate({ platform: 'win32' }));
+  assert.equal(found, null);
+});
+
+test('curl-impersonate: ignora binarios Windows no macOS', () => {
+  const dir = fakeDir(makeFakeRoot());
+  fs.writeFileSync(path.join(dir, 'curl-impersonate.exe'), 'fake');
+  fs.writeFileSync(path.join(dir, 'curl_chrome146.bat'), '');
+
+  const found = withIsolatedCurlDirs([dir], () => findCurlImpersonate({ platform: 'darwin' }));
   assert.equal(found, null);
 });
