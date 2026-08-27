@@ -35,6 +35,7 @@ jobs:
 
       - name: Testes unitários e integração
         run: node --experimental-test-module-mocks --test "tests/unit/*.test.js" "tests/integration/*.test.js"
+        timeout-minutes: 10
 
   # ── Windows ────────────────────────────────────────────────────────────
   build-windows:
@@ -54,6 +55,7 @@ jobs:
 
       - name: Build instalador MSI
         run: npm run dist
+        timeout-minutes: 15
 
       - name: Publicar artefatos Windows
         uses: actions/upload-artifact@v4
@@ -85,6 +87,7 @@ jobs:
 
       - name: Build instalador PKG x64
         run: npm run pack:resources && npx electron-builder --mac --x64
+        timeout-minutes: 15
 
       - name: Publicar artefatos macOS x64
         uses: actions/upload-artifact@v4
@@ -116,6 +119,7 @@ jobs:
 
       - name: Build instalador PKG arm64
         run: npm run pack:resources && npx electron-builder --mac --arm64
+        timeout-minutes: 15
 
       - name: Publicar artefatos macOS arm64
         uses: actions/upload-artifact@v4
@@ -152,6 +156,7 @@ jobs:
       # o mksquashfs (já presente no ubuntu-latest).
       - name: Build instaladores Linux
         run: npm run pack:resources && npx electron-builder --linux --x64
+        timeout-minutes: 15
 
       - name: Publicar artefatos Linux
         uses: actions/upload-artifact@v4
