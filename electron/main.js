@@ -21,6 +21,8 @@ import {
   validateSettingsPayload,
   validateRevealPayload,
   validateExportLogsPayload,
+  isValidJobId,
+  isValidTaskId,
 } from './security.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -410,9 +412,9 @@ ipcMain.handle('queue:remove', async (_event, rawPayload) => {
 ipcMain.handle('download:cancel', async (_event, rawPayload) => {
   if (!services) return false;
   const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
-  let jobId = typeof payload.jobId === 'string' && payload.jobId ? payload.jobId : '';
+  let jobId = typeof payload.jobId === 'string' && isValidJobId(payload.jobId) ? payload.jobId : '';
   if (!jobId) {
-    const taskId = typeof payload.taskId === 'string' ? payload.taskId : '';
+    const taskId = typeof payload.taskId === 'string' && isValidTaskId(payload.taskId) ? payload.taskId : '';
     jobId = taskToJob.get(taskId) || '';
   }
   if (!jobId) return false;

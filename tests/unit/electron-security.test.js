@@ -211,6 +211,33 @@ test('validateDownloadPayload rejeita payload inválido', () => {
   );
 });
 
+test('validação IPC de audio/subtitle sanitiza strings e impõe limites', () => {
+  const longLang = 'a'.repeat(50);
+  const qOut = validateQueueEnqueuePayload({
+    url: 'https://example.com/v.mp4',
+    audioLanguage: `  ${longLang}  `,
+    allAudio: true,
+    subtitleLanguages: [`  ${longLang}  `, 123, '', 'pt-BR'],
+    embedSubs: true,
+  });
+  assert.ok(qOut);
+  assert.equal(qOut.audioLanguage, 'a'.repeat(32));
+  assert.equal(qOut.allAudio, true);
+  assert.deepEqual(qOut.subtitleLanguages, ['a'.repeat(32), 'pt-BR']);
+  assert.equal(qOut.embedSubs, true);
+
+  const dOut = validateDownloadPayload({
+    taskId: 'tab-1',
+    url: 'https://example.com/v.mp4',
+    filename: 'v',
+    audioLanguage: '  en-US  ',
+    subtitleLanguages: ['en', 'es'],
+  });
+  assert.ok(dOut);
+  assert.equal(dOut.audioLanguage, 'en-US');
+  assert.deepEqual(dOut.subtitleLanguages, ['en', 'es']);
+});
+
 test('validateDownloadPayload normaliza defaults e força booleans', () => {
   const out = validateDownloadPayload({
     taskId: 'tab-2',
