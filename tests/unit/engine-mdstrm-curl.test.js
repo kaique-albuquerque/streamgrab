@@ -48,12 +48,11 @@ class FakeTransport {
   }
 }
 mock.module(CURL_URL, {
-  exports: {
+  namedExports: {
     CurlImpersonateTransport: FakeTransport,
     rewritePlaylist: () => '',
     extForUri: () => '.ts',
     createCurlTransport: () => FakeTransport,
-    default: { CurlImpersonateTransport: FakeTransport },
   },
 });
 

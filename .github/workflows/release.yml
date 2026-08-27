@@ -36,17 +36,15 @@ jobs:
 
       # Três camadas de proteção contra hang:
       #  1. --test-timeout=30000  → Node mata qualquer teste individual > 30s
-      #  2. timeout 600           → GNU kill se o processo inteiro passar 10min
-      #  3. timeout-minutes: 10   → GitHub cancela o step
-      #  4. timeout-minutes: 12   → GitHub cancela a job inteira
+      #  2. timeout-minutes: 10   → GitHub cancela o step
+      #  3. timeout-minutes: 12   → GitHub cancela a job inteira
       #
       # Nota: Testes de integração (tests/integration/) usam FFmpeg,
       # servidores HTTP locais e processos filhos que podem travar no CI.
       # Rodamos apenas unitários no CI — integração fica para desenvolvimento local.
       - name: Testes unitários
-        run: |
-          timeout 600 node --test-timeout=30000 --experimental-test-module-mocks --test --test-reporter=spec "tests/unit/*.test.js" 2>&1 | tee test-results.log
-          exit "${PIPESTATUS[0]}"
+        run: node --test-timeout=30000 --experimental-test-module-mocks --test "tests/unit/*.test.js" 2>&1 | tee test-results.log
+        shell: bash {0}
         timeout-minutes: 10
 
       - name: Upload test logs
