@@ -131,6 +131,18 @@ export function validateDownloadPayload(payload = {}) {
   const cookiesFromBrowser = typeof payload?.cookiesFromBrowser === 'string' ? payload.cookiesFromBrowser.trim() : '';
   if (cookiesFromBrowser && !isValidBrowserSpec(cookiesFromBrowser)) return null;
 
+  // P12.1: audio/subtitle selections
+  const audioLanguage = typeof payload?.audioLanguage === 'string' ? payload.audioLanguage.trim().slice(0, 32) : '';
+  const allAudio = payload?.allAudio === true;
+  const subtitleLanguages = Array.isArray(payload?.subtitleLanguages)
+    ? payload.subtitleLanguages
+        .filter((s) => typeof s === 'string')
+        .map((s) => s.trim().slice(0, 32))
+        .filter(Boolean)
+        .slice(0, 20)
+    : [];
+  const embedSubs = payload?.embedSubs === true;
+
   return {
     taskId: String(payload.taskId),
     url,
@@ -145,6 +157,10 @@ export function validateDownloadPayload(payload = {}) {
     turbo,
     cookiesFile,
     cookiesFromBrowser,
+    audioLanguage,
+    allAudio,
+    subtitleLanguages,
+    embedSubs,
   };
 }
 
@@ -203,10 +219,14 @@ export function validateQueueEnqueuePayload(payload = {}) {
   if (cookiesFromBrowser && !isValidBrowserSpec(cookiesFromBrowser)) return null;
 
   // P12.1: audio/subtitle selections
-  const audioLanguage = typeof payload?.audioLanguage === 'string' ? payload.audioLanguage.trim() : '';
+  const audioLanguage = typeof payload?.audioLanguage === 'string' ? payload.audioLanguage.trim().slice(0, 32) : '';
   const allAudio = payload?.allAudio === true;
   const subtitleLanguages = Array.isArray(payload?.subtitleLanguages)
-    ? payload.subtitleLanguages.filter((s) => typeof s === 'string').slice(0, 20)
+    ? payload.subtitleLanguages
+        .filter((s) => typeof s === 'string')
+        .map((s) => s.trim().slice(0, 32))
+        .filter(Boolean)
+        .slice(0, 20)
     : [];
   const embedSubs = payload?.embedSubs === true;
 
