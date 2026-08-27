@@ -44,6 +44,15 @@ mac:
   artifactName: StreamGrab-${version}-${arch}.${ext}
   category: public.app-category.video
 
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  artifactName: StreamGrab-${version}-${arch}.${ext}
+  category: public.app-category.video
+
 linux:
   target:
     - target: AppImage
