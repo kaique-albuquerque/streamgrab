@@ -2,17 +2,14 @@
 
 # StreamGrab
 
-**Seu curso vai expirar? Baixa os vídeos e assiste pra sempre. 🎬**
-
-| 🇧🇷 [Português](#pt) | 🇺🇸 [English](#en) | 🇪🇸 [Español](#es) |
-|---|---|---|
+**Download videos from HLS, DASH, YouTube, and other supported sources.**
 
 </div>
 
 ---
 
-<h2 id="pt">🇧🇷 Português</h2>
-
+<!-- Portuguese translation retained for reference; English is the public README. -->
+<!--
 ## A história
 
 Eu comprei um curso que gostei **demais**. O problema? O acesso ia expirar. Pra continuar assistindo, teria que comprar de novo — e no Brasil, isso é caro. País que mais paga imposto do mundo e a gente não tem retorno de nada do que paga.
@@ -570,7 +567,9 @@ Use apenas para conteúdo que você tem o direito de baixar.
 
 ---
 
-<h2 id="en">🇺🇸 English</h2>
+-->
+
+# English
 
 ## The story
 
@@ -627,6 +626,30 @@ npm install
 ```
 
 > The program itself has **no runtime dependencies** — you can run it directly with `node src/index.js` without `npm install`. `npm install` only installs **ntl** (optional scripts menu) as a dev dependency.
+
+### Install from npm
+
+StreamGrab is also available as an npm package. Install the CLI globally:
+
+```bash
+npm install --global streamgrab
+```
+
+After installation, run it from any directory:
+
+```bash
+streamgrab <url>                                      # interactive download
+streamgrab analyze <url> [--json]                     # analyze a URL
+streamgrab download <url> [--output <dir>] [--turbo]  # download without prompts
+streamgrab help                                       # show all commands
+```
+
+To update or remove the global installation:
+
+```bash
+npm update --global streamgrab
+npm uninstall --global streamgrab
+```
 
 ---
 
@@ -1046,6 +1069,8 @@ npm run update:ytdlp     # updates the yt-dlp binary (all local copies)
 
 Use only for content you have the right to download.
 
+<!-- Spanish translation retained for reference. -->
+<!--
 ---
 
 <h2 id="es">🇪🇸 Español</h2>
@@ -1535,9 +1560,4 @@ Usa solo para contenido que tienes derecho a descargar.
 
 ---
 
-<div align="center">
-
-| 🇧🇷 [Português](#pt) | 🇺🇸 [English](#en) | 🇪🇸 [Español](#es) |
-|---|---|---|
-
-</div>
+-->
