@@ -44,8 +44,18 @@ jobs:
       # servidores HTTP locais e processos filhos que podem travar no CI.
       # Rodamos apenas unitários no CI — integração fica para desenvolvimento local.
       - name: Testes unitários
-        run: timeout 600 node --test-timeout=30000 --experimental-test-module-mocks --test "tests/unit/*.test.js"
+        run: |
+          timeout 600 node --test-timeout=30000 --experimental-test-module-mocks --test --test-reporter=spec "tests/unit/*.test.js" 2>&1 | tee test-results.log
+          exit "${PIPESTATUS[0]}"
         timeout-minutes: 10
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results.log
+          retention-days: 5
 
   # ── Windows ────────────────────────────────────────────────────────────
   build-windows:
