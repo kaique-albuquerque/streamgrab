@@ -33,17 +33,14 @@ compression: normal
 
 win:
   target:
-    - target: nsis
+    - target: msi
       arch:
         - x64
-  artifactName: StreamGrab-Setup-${version}.exe
+  artifactName: StreamGrab-${version}-${arch}.${ext}
 
 mac:
   target:
-    - target: dmg
-      arch:
-        - x64
-        - arm64
+    - target: pkg
   artifactName: StreamGrab-${version}-${arch}.${ext}
   category: public.app-category.video
 
@@ -58,10 +55,3 @@ linux:
   artifactName: StreamGrab-${version}-${arch}.${ext}
   category: AudioVideo
 
-nsis:
-  oneClick: false
-  perMachine: false
-  allowToChangeInstallationDirectory: true
-  shortcutName: StreamGrab
-  createDesktopShortcut: true
-  deleteAppDataOnUninstall: false
