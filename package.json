@@ -2,11 +2,29 @@
   "name": "streamgrab",
   "version": "1.1.2",
   "description": "Universal video downloader for HLS, DASH, YouTube and other supported sources.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kaique-albuquerque/streamgrab.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kaique-albuquerque/streamgrab/issues"
+  },
+  "homepage": "https://github.com/kaique-albuquerque/streamgrab#readme",
   "type": "module",
   "main": "electron/main.js",
   "bin": {
     "streamgrab": "bin/streamgrab.mjs"
   },
+  "files": [
+    "bin/**",
+    "src/**",
+    "scripts/**",
+    "electron/**",
+    "config.example.json",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "streamgrab": "node bin/streamgrab.mjs",
     "analyze": "node bin/streamgrab.mjs analyze",
