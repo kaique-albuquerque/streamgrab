@@ -34,11 +34,13 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      # timeout-minutes no job level (12min) é o seguro principal.
-      # O 'timeout 600' abaixo é backup para matar o node se o
-      # GitHub Actions não enforce o step-level timeout.
+      # Três camadas de proteção contra hang:
+      #  1. --test-timeout=30000  → Node mata qualquer teste individual > 30s
+      #  2. timeout 600           → GNU kill se o processo inteiro passar 10min
+      #  3. timeout-minutes: 10   → GitHub cancela o step
+      #  4. timeout-minutes: 12   → GitHub cancela a job inteira
       - name: Testes unitários e integração
-        run: timeout 600 node --experimental-test-module-mocks --test "tests/unit/*.test.js" "tests/integration/*.test.js"
+        run: timeout 600 node --test-timeout=30000 --experimental-test-module-mocks --test "tests/unit/*.test.js" "tests/integration/*.test.js"
         timeout-minutes: 10
 
   # ── Windows ────────────────────────────────────────────────────────────
