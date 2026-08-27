@@ -39,8 +39,12 @@ jobs:
       #  2. timeout 600           → GNU kill se o processo inteiro passar 10min
       #  3. timeout-minutes: 10   → GitHub cancela o step
       #  4. timeout-minutes: 12   → GitHub cancela a job inteira
-      - name: Testes unitários e integração
-        run: timeout 600 node --test-timeout=30000 --experimental-test-module-mocks --test "tests/unit/*.test.js" "tests/integration/*.test.js"
+      #
+      # Nota: Testes de integração (tests/integration/) usam FFmpeg,
+      # servidores HTTP locais e processos filhos que podem travar no CI.
+      # Rodamos apenas unitários no CI — integração fica para desenvolvimento local.
+      - name: Testes unitários
+        run: timeout 600 node --test-timeout=30000 --experimental-test-module-mocks --test "tests/unit/*.test.js"
         timeout-minutes: 10
 
   # ── Windows ────────────────────────────────────────────────────────────
