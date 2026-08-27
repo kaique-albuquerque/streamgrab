@@ -509,21 +509,23 @@ Além do CLI, o app pode ser aberto como interface gráfica (`npm run electron:d
 - **Configurações** — pasta padrão, downloads simultâneos, turbo, qualidade padrão, áudio, tema, notificações, comando ao concluir e retenção do histórico;
 - Fila, histórico e configurações são **persistidos em disco** (`settings.json`, `history.json`, `queue.json`) e restaurados ao reiniciar o app — inclusive com **recuperação de downloads interrompidos** (jobs voltam para a fila como *aguardando*).
 
-### Empacotamento (instalador Windows)
+### Empacotamento (instaladores)
 
-O instalador **StreamGrab-Setup-<versão>.exe** (NSIS) é gerado com o **electron-builder**. Os binários externos (FFmpeg de `vendor/ffmpeg/` — **incluindo as DLLs do build compartilhado**, yt-dlp do pacote `youtube-dl-exec` e, se presente, o curl-impersonate de `tools/`) são empacotados em `extraResources` (pastas `resources/bin/`) — em produção o app resolve os binários por `process.resourcesPath`, então a **máquina-alvo não precisa** de Node.js, FFmpeg ou yt-dlp instalados manualmente.
+Os instaladores são gerados com o **electron-builder**. O Windows usa MSI, o macOS usa PKG e o Linux usa AppImage e DEB. Os binários externos (FFmpeg de `vendor/ffmpeg/`, yt-dlp do pacote `youtube-dl-exec` e, se presente, o curl-impersonate) são empacotados em `extraResources` (`resources/bin/`) — em produção o app resolve os binários por `process.resourcesPath`, então a **máquina-alvo não precisa** de Node.js, FFmpeg ou yt-dlp instalados manualmente.
 
 ```powershell
 npm run pack:resources   # copia os binários para build/extraResources/bin
-npm run dist             # gera dist/StreamGrab-Setup-<versão>.exe (Windows)
-npm run dist:dir         # build sem instalador (dist/win-unpacked) — para testar
-npm run release          # dist + checksums SHA-256 (dist/SHA256SUMS.txt)
+npm run dist             # gera o MSI Windows em dist/
+npm run dist:dir         # build Windows sem instalador — para testar
+npm run dist:mac         # gera PKG macOS
+npm run dist:linux       # gera AppImage e DEB Linux
+npm run release          # build Windows + checksums SHA-256
 npm run update:ytdlp     # atualiza o binário do yt-dlp (todas as cópias locais)
 ```
 
 > Requer `npm install` prévio (o `postinstall` baixa FFmpeg/Electron/yt-dlp). CI em PRs: `.github/workflows/ci.yml` (lint + testes + build). Release manual: empurre uma tag `v*` — `.github/workflows/release.yml` gera o instalador, checksums e publica a GitHub Release.
 
-### Empacotamento macOS (DMG)
+### Empacotamento macOS (PKG)
 
 O instalador macOS é gerado pelo mesmo `electron-builder`. O build precisa ser executado em um Mac e requer uma cópia local do FFmpeg em `vendor/ffmpeg/` e o binário do yt-dlp em `node_modules/youtube-dl-exec/bin/`. O script de instalação copia automaticamente o FFmpeg do Homebrew ou do PATH para esse diretório; para distribuir a terceiros, valide também as bibliotecas nativas e a assinatura do binário.
 
@@ -531,12 +533,12 @@ O instalador macOS é gerado pelo mesmo `electron-builder`. O build precisa ser 
 npm install
 # se necessário, instale com: brew install ffmpeg
 chmod +x vendor/ffmpeg/ffmpeg
-npm run dist:mac           # gera DMGs arm64 e x64 em dist/
+npm run dist:mac           # gera PKG para a arquitetura do runner em dist/
 npm run dist:mac:dir       # build sem instalador, para testar
-node scripts/checksums.mjs # gera SHA256SUMS.txt incluindo os DMGs
+node scripts/checksums.mjs # gera SHA256SUMS.txt incluindo os PKGs
 ```
 
-Para gerar apenas uma arquitetura, use diretamente o electron-builder:
+Para gerar uma arquitetura específica, use diretamente o electron-builder:
 
 ```bash
 npm run pack:resources
@@ -544,7 +546,18 @@ npx electron-builder --mac --arm64  # Apple Silicon
 npx electron-builder --mac --x64    # Mac Intel
 ```
 
-Para distribuição pública, configure um certificado **Developer ID Application**, hardened runtime e notarização Apple no ambiente de release. Sem assinatura/notarização o DMG é útil para testes, mas o Gatekeeper exibirá avisos ou bloqueará a abertura.
+Para distribuição pública, configure um certificado **Developer ID Application**, hardened runtime e notarização Apple no ambiente de release. Sem assinatura/notarização o PKG é útil para testes, mas o Gatekeeper exibirá avisos ou bloqueará a abertura.
+
+### Publicação no npm
+
+O pacote `streamgrab` também pode ser instalado para usar a CLI pelo terminal:
+
+```bash
+npm install -g streamgrab
+streamgrab
+```
+
+Para atualizar, use `npm update -g streamgrab`. O npm distribui a CLI e seus arquivos de código; os instaladores gráficos MSI, PKG, AppImage e DEB são publicados separadamente nas releases do GitHub.
 
 ### Limitações (por design)
 
@@ -1008,15 +1021,17 @@ Besides the CLI, the app can be opened as a graphical interface (`npm run electr
 - **Settings** — default folder, concurrent downloads, turbo, default quality, audio, theme, notifications, command on complete and history retention;
 - Queue, history and settings are **persisted to disk** (`settings.json`, `history.json`, `queue.json`) and restored on restart — including **interrupted-download recovery** (jobs come back to the queue as *waiting*).
 
-### Building (Windows installer)
+### Building (installers)
 
-The **StreamGrab-Setup-<version>.exe** installer (NSIS) is produced with **electron-builder**. External binaries (FFmpeg from `vendor/ffmpeg/` — **including the shared-build DLLs**, yt-dlp from the `youtube-dl-exec` package and, if present, curl-impersonate from `tools/`) are bundled into `extraResources` (`resources/bin/`) — in production the app resolves binaries via `process.resourcesPath`, so the **target machine does not need** Node.js, FFmpeg or yt-dlp installed manually.
+Installers are produced with **electron-builder**. Windows uses MSI, macOS uses PKG, and Linux uses AppImage and DEB. External binaries (FFmpeg from `vendor/ffmpeg/`, yt-dlp from `youtube-dl-exec` and, if present, curl-impersonate) are bundled into `extraResources` (`resources/bin/`) — in production the app resolves binaries via `process.resourcesPath`, so the **target machine does not need** Node.js, FFmpeg or yt-dlp installed manually.
 
 ```powershell
 npm run pack:resources   # copies binaries into build/extraResources/bin
-npm run dist             # produces dist/StreamGrab-Setup-<version>.exe (Windows)
-npm run dist:dir         # unpacked build (dist/win-unpacked) — for testing
-npm run release          # dist + SHA-256 checksums (dist/SHA256SUMS.txt)
+npm run dist             # produces the Windows MSI in dist/
+npm run dist:dir         # unpacked Windows build — for testing
+npm run dist:mac         # produces macOS PKG packages
+npm run dist:linux       # produces Linux AppImage and DEB packages
+npm run release          # Windows build + SHA-256 checksums
 npm run update:ytdlp     # updates the yt-dlp binary (all local copies)
 ```
 
@@ -1484,17 +1499,30 @@ Además del CLI, la app se puede abrir como interfaz gráfica (`npm run electron
 - **Configuración** — carpeta predeterminada, descargas simultáneas, turbo, calidad predeterminada, audio, tema, notificaciones, comando al completar y retención del historial;
 - La cola, el historial y la configuración se **persisten en disco** (`settings.json`, `history.json`, `queue.json`) y se restauran al reiniciar — incluida la **recuperación de descargas interrumpidas** (los jobs vuelven a la cola como *esperando*).
 
-### Empacado (instalador Windows)
+### Empacado (instaladores)
 
-El instalador **StreamGrab-Setup-<versión>.exe** (NSIS) se genera con **electron-builder**. Los binarios externos (FFmpeg de `vendor/ffmpeg/` — **incluidas las DLLs del build compartido**, yt-dlp del paquete `youtube-dl-exec` y, si está presente, curl-impersonate de `tools/`) se empaquetan en `extraResources` (carpetas `resources/bin/`) — en producción la app resuelve los binarios por `process.resourcesPath`, así que la **máquina destino no necesita** Node.js, FFmpeg ni yt-dlp instalados manualmente.
+Los instaladores se generan con **electron-builder**. Windows usa MSI, macOS usa PKG y Linux usa AppImage y DEB. Los binarios externos (FFmpeg de `vendor/ffmpeg/`, yt-dlp de `youtube-dl-exec` y, si está presente, curl-impersonate) se empaquetan en `extraResources` (`resources/bin/`) — en producción la app resuelve los binarios por `process.resourcesPath`, así que la **máquina destino no necesita** Node.js, FFmpeg ni yt-dlp instalados manualmente.
 
 ```powershell
 npm run pack:resources   # copia los binarios a build/extraResources/bin
-npm run dist             # genera dist/StreamGrab-Setup-<versión>.exe (Windows)
-npm run dist:dir         # build sin instalador (dist/win-unpacked) — para probar
-npm run release          # dist + checksums SHA-256 (dist/SHA256SUMS.txt)
+npm run dist             # genera el MSI de Windows en dist/
+npm run dist:dir         # build de Windows sin instalador — para probar
+npm run dist:mac         # genera paquetes PKG para macOS
+npm run dist:linux       # genera paquetes AppImage y DEB para Linux
+npm run release          # build de Windows + checksums SHA-256
 npm run update:ytdlp     # actualiza el binario de yt-dlp (todas las copias locales)
 ```
+
+### Publicación en npm
+
+El paquete `streamgrab` también se puede instalar para usar el CLI desde la terminal:
+
+```bash
+npm install -g streamgrab
+streamgrab
+```
+
+Los instaladores gráficos MSI, PKG, AppImage y DEB se publican por separado en las releases de GitHub.
 
 ### Limitaciones (por diseño)
 
