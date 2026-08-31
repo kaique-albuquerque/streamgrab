@@ -308,8 +308,11 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
 
 /** Verifica se `child` está dentro de `root` (ambos absolutos). */
 export function isPathWithin(child, root) {
-  const norm = (p) => String(p).replace(/[\\/]+/g, '/').replace(/\/+$/, '');
+  if (typeof child !== 'string' || typeof root !== 'string') return false;
+  if (!child.trim() || !root.trim()) return false;
+  const norm = (p) => String(p).trim().replace(/[\\/]+/g, '/').replace(/\/+$/, '');
   const c = norm(child).toLowerCase();
   const r = norm(root).toLowerCase();
+  if (!c || !r) return false;
   return c === r || c.startsWith(`${r}/`);
 }
