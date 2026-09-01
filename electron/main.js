@@ -13,6 +13,7 @@ import { safeRefreshMdstrm } from '../src/core/mdstrm-routing.js';
 import { normalizeMediaInfo } from './media-info.js';
 import { createElectronServices } from './services.js';
 import {
+  isSafeHttpUrl,
   validateAnalyzePayload,
   validateDownloadPayload,
   validateQueueEnqueuePayload,
@@ -69,6 +70,21 @@ function createWindow() {
   });
 
   win.removeMenu();
+
+  // P8 (seção 24): navegação web e janelas externas — impede abertura de popups
+  // ou navegação da janela principal para URLs não confiáveis.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSafeHttpUrl(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  win.webContents.on('will-navigate', (event, url) => {
+    if (url !== win.webContents.getURL()) {
+      event.preventDefault();
+      if (isSafeHttpUrl(url)) shell.openExternal(url);
+    }
+  });
+
   win.loadFile(path.join(__dirname, 'index.html'));
 }
 
