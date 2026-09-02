@@ -126,7 +126,6 @@ ipcMain.handle('app:pick-output-dir', async () => {
 ipcMain.handle('app:resolve-paths', async () => {
   const defaultDownloads = app.getPath('downloads');
   registerRevealRoot(defaultDownloads);
-  registerRevealRoot(PROJECT_ROOT);
   return {
     projectRoot: PROJECT_ROOT,
     defaultDownloads,

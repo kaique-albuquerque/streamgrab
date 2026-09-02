@@ -265,15 +265,16 @@ test('validateCancelPayload valida taskId', () => {
 });
 
 test('validateRevealPayload restringe abertura a raízes permitidas', () => {
-  const roots = ['C:\\Users\\teste\\Downloads', '/home/user'];
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
   assert.deepEqual(validateRevealPayload({ filePath: 'C:\\Users\\teste\\Downloads\\v.mp4' }, roots), {
     filePath: 'C:\\Users\\teste\\Downloads\\v.mp4',
   });
-  assert.deepEqual(validateRevealPayload({ filePath: '/home/user/v.mp4' }, roots), {
-    filePath: '/home/user/v.mp4',
+  assert.deepEqual(validateRevealPayload({ filePath: '/home/user/Downloads/v.mp4' }, roots), {
+    filePath: '/home/user/Downloads/v.mp4',
   });
   assert.equal(validateRevealPayload({ filePath: 'C:\\Windows\\system32\\x.dll' }, roots), null);
   assert.equal(validateRevealPayload({ filePath: 'C:\\Users\\..\\etc' }, roots), null);
+  assert.equal(validateRevealPayload({ filePath: '/home/user/project/src/index.js' }, roots), null);
   assert.equal(validateRevealPayload({}, roots), null);
   assert.equal(validateRevealPayload({ filePath: 'relative.mp4' }, roots), null);
 });
