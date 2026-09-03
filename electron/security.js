@@ -289,7 +289,7 @@ export function validateRevealPayload(payload = {}, allowedRoots = []) {
   if (!isSafeAbsolutePath(filePath)) return null;
   // O caminho deve estar dentro de uma das raízes permitidas (output dir,
   // Downloads padrão, projectRoot) — impede abrir arquivos arbitrários.
-  if (!allowedRoots.some((root) => typeof root === 'string' && root && isPathWithin(filePath, root))) {
+  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(filePath, root))) {
     return null;
   }
   return { filePath };
@@ -300,7 +300,7 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
   const customPath = typeof payload?.path === 'string' ? payload.path.trim() : '';
   if (!customPath) return { path: null };
   if (!isSafeAbsolutePath(customPath)) return null;
-  if (!allowedRoots.some((root) => typeof root === 'string' && root && isPathWithin(customPath, root))) {
+  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(customPath, root))) {
     return null;
   }
   return { path: customPath };
@@ -308,8 +308,17 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
 
 /** Verifica se `child` está dentro de `root` (ambos absolutos). */
 export function isPathWithin(child, root) {
-  const norm = (p) => String(p).replace(/[\\/]+/g, '/').replace(/\/+$/, '');
-  const c = norm(child).toLowerCase();
-  const r = norm(root).toLowerCase();
-  return c === r || c.startsWith(`${r}/`);
+  if (typeof child !== 'string' || typeof root !== 'string') return false;
+  const cPath = child.trim();
+  const rPath = root.trim();
+  if (!cPath || !rPath) return false;
+  if (!isSafeAbsolutePath(cPath) || !isSafeAbsolutePath(rPath)) return false;
+
+  const norm = (p) => p.replace(/[\\/]+/g, '/').replace(/\/+$/, '');
+  const c = norm(cPath).toLowerCase();
+  const r = norm(rPath).toLowerCase();
+
+  if (c === r) return true;
+  const rWithSlash = r.endsWith('/') ? r : `${r}/`;
+  return c.startsWith(rWithSlash);
 }
