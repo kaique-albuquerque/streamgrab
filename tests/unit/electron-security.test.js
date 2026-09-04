@@ -9,6 +9,7 @@ import {
   sanitizeDownloadFilename,
   isAbsolutePath,
   isSafeAbsolutePath,
+  sanitizeHeaders,
   validateAnalyzePayload,
   validateDownloadPayload,
   validateCancelPayload,
@@ -129,6 +130,39 @@ test('isPathWithin verifica subcaminhos', () => {
   assert.equal(isPathWithin('C:\\Users\\a\\Other\\v.mp4', 'C:\\Users\\a\\Downloads'), false);
   assert.equal(isPathWithin('/home/a/v.mp4', '/home/a'), true);
   assert.equal(isPathWithin('/home/ab/v.mp4', '/home/a'), false);
+  assert.equal(isPathWithin('', '/home/a'), false);
+  assert.equal(isPathWithin('/home/a/v.mp4', ''), false);
+  assert.equal(isPathWithin('   ', '/home/a'), false);
+  assert.equal(isPathWithin(null, '/home/a'), false);
+  assert.equal(isPathWithin('/home/a/v.mp4', undefined), false);
+});
+
+// ---------------------------------------------------------------------------
+// sanitizeHeaders (HTTP Header / CRLF Injection & Pollution)
+// ---------------------------------------------------------------------------
+
+test('sanitizeHeaders limpa headers perigosos, CRLF e propriedades de protótipo', () => {
+  const input = JSON.parse(
+    '{"User-Agent": "Mozilla/5.0\\r\\nX-Injected: true", "Referer": "https://example.com\\nSet-Cookie: evil=1", "X-Valid": "ok", "Invalid Key": "val", "constructor": "bad"}'
+  );
+  const clean = sanitizeHeaders(input);
+
+  assert.equal(clean['User-Agent'], 'Mozilla/5.0X-Injected: true');
+  assert.equal(clean['Referer'], 'https://example.comSet-Cookie: evil=1');
+  assert.equal(clean['X-Valid'], 'ok');
+  assert.equal(clean['Invalid Key'], undefined);
+  assert.equal(Object.hasOwn(clean, 'constructor'), false);
+  assert.equal(Object.prototype.polluted, undefined);
+});
+
+test('sanitizeHeaders lida com entradas nulas, não-objetos e limita tamanho', () => {
+  assert.deepEqual(sanitizeHeaders(null), {});
+  assert.deepEqual(sanitizeHeaders('not object'), {});
+  assert.deepEqual(sanitizeHeaders([]), {});
+
+  const longValue = 'a'.repeat(5000);
+  const clean = sanitizeHeaders({ 'X-Long': longValue });
+  assert.equal(clean['X-Long'].length, 4096);
 });
 
 // ---------------------------------------------------------------------------
@@ -435,6 +469,16 @@ test('validateSettingsPayload rejeita payloads inválidos', () => {
   assert.equal(validateSettingsPayload([]), null);
   assert.equal(validateSettingsPayload({ defaultDir: 'C:\\Users\\..\\Windows' }), null);
   assert.equal(validateSettingsPayload({ defaultDir: 'relative' }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: -5 }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: 0 }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: 100 }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: 3.5 }), null);
+  assert.equal(validateSettingsPayload({ historyRetentionDays: -1 }), null);
+  assert.equal(validateSettingsPayload({ historyRetentionDays: 999999 }), null);
+  assert.equal(validateSettingsPayload({ turboChunks: 0 }), null);
+  assert.equal(validateSettingsPayload({ turboChunks: 128 }), null);
+  assert.equal(validateSettingsPayload({ turbo: 12345 }), null);
+  assert.equal(validateSettingsPayload({ smartTurbo: 'invalid' }), null);
   // payload vazio é válido (nada a atualizar)
   assert.deepEqual(validateSettingsPayload({}), {});
 });
