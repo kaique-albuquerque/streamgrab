@@ -23,6 +23,30 @@ const BROWSER_SPEC_RE = /^[A-Za-z0-9_.:-]{1,64}$/;
 const FILENAME_BAD_RE = /[\\/]|\.\./;
 const ABSOLUTE_WIN_RE = /^[A-Za-z]:[\\/]/;
 const ABSOLUTE_POSIX_RE = /^\//;
+const HEADER_NAME_RE = /^[!#$%&'*+\-.^_`|~0-9a-zA-Z]+$/;
+const UNSAFE_PROPS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/**
+ * Sanitiza objeto de headers vindo do IPC:
+ *  - Rejeita propriedades de poluição de protótipo (__proto__, etc.)
+ *  - Valida nomes de header contra caracteres RFC válidos
+ *  - Remove caracteres de controle (CRLF, NUL) prevenindo HTTP Header Injection
+ *  - Trunca valores a limites razoáveis (4096 chars)
+ */
+export function sanitizeHeaders(rawHeaders) {
+  if (!rawHeaders || typeof rawHeaders !== 'object' || Array.isArray(rawHeaders)) return {};
+  const clean = {};
+  for (const [key, val] of Object.entries(rawHeaders)) {
+    if (UNSAFE_PROPS.has(key)) continue;
+    const name = String(key).trim();
+    if (!name || !HEADER_NAME_RE.test(name)) continue;
+    if (val === null || val === undefined) continue;
+    const valueStr = String(val).replace(/[\r\n\0]/g, '').trim().slice(0, 4096);
+    if (!valueStr) continue;
+    clean[name] = valueStr;
+  }
+  return clean;
+}
 
 /** Valida uma URL não confiável vinda do renderer (apenas http/https). */
 export function isSafeHttpUrl(value) {
@@ -86,9 +110,10 @@ export function isSafeAbsolutePath(value) {
 export function validateAnalyzePayload(payload = {}) {
   const url = typeof payload?.url === 'string' ? payload.url.trim() : '';
   if (!isSafeHttpUrl(url)) return null;
-  const headers = payload?.headers && typeof payload.headers === 'object' && !Array.isArray(payload.headers)
+  const rawHeaders = payload?.headers && typeof payload.headers === 'object' && !Array.isArray(payload.headers)
     ? payload.headers
     : {};
+  const headers = sanitizeHeaders(rawHeaders);
   const rawAuth = payload?.auth && typeof payload.auth === 'object' && !Array.isArray(payload.auth) ? payload.auth : {};
   const cookiesFile = typeof rawAuth.cookiesFile === 'string' ? rawAuth.cookiesFile.trim() : '';
   if (cookiesFile && !isSafeAbsolutePath(cookiesFile)) return null;
