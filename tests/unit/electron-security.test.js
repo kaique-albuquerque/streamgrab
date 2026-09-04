@@ -130,6 +130,11 @@ test('isPathWithin verifica subcaminhos', () => {
   assert.equal(isPathWithin('C:\\Users\\a\\Other\\v.mp4', 'C:\\Users\\a\\Downloads'), false);
   assert.equal(isPathWithin('/home/a/v.mp4', '/home/a'), true);
   assert.equal(isPathWithin('/home/ab/v.mp4', '/home/a'), false);
+  assert.equal(isPathWithin('', '/home/a'), false);
+  assert.equal(isPathWithin('/home/a/v.mp4', ''), false);
+  assert.equal(isPathWithin('   ', '/home/a'), false);
+  assert.equal(isPathWithin(null, '/home/a'), false);
+  assert.equal(isPathWithin('/home/a/v.mp4', undefined), false);
 });
 
 // ---------------------------------------------------------------------------
