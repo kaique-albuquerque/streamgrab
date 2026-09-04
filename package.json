@@ -1,6 +1,6 @@
 {
   "name": "streamgrab",
-  "version": "1.1.3",
+  "version": "1.2.0",
   "description": "Universal video downloader for HLS, DASH, YouTube and other supported sources.",
   "repository": {
     "type": "git",
@@ -51,7 +51,7 @@
     "dist:mac": "npm run pack:resources && electron-builder --mac",
     "dist:mac:dir": "npm run pack:resources && electron-builder --mac --dir",
     "dist:linux": "npm run pack:resources && electron-builder --linux",
-    "release": "npm run dist && node scripts/checksums.mjs",
+    "release": "npm run pack:resources && electron-builder --win --mac --linux && node scripts/checksums.mjs",
     "postinstall": "node scripts/install-ffmpeg.mjs && node scripts/install-electron.mjs"
   },
   "engines": {
