@@ -464,6 +464,16 @@ test('validateSettingsPayload rejeita payloads inválidos', () => {
   assert.equal(validateSettingsPayload([]), null);
   assert.equal(validateSettingsPayload({ defaultDir: 'C:\\Users\\..\\Windows' }), null);
   assert.equal(validateSettingsPayload({ defaultDir: 'relative' }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: -5 }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: 0 }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: 100 }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: 3.5 }), null);
+  assert.equal(validateSettingsPayload({ historyRetentionDays: -1 }), null);
+  assert.equal(validateSettingsPayload({ historyRetentionDays: 999999 }), null);
+  assert.equal(validateSettingsPayload({ turboChunks: 0 }), null);
+  assert.equal(validateSettingsPayload({ turboChunks: 128 }), null);
+  assert.equal(validateSettingsPayload({ turbo: 12345 }), null);
+  assert.equal(validateSettingsPayload({ smartTurbo: 'invalid' }), null);
   // payload vazio é válido (nada a atualizar)
   assert.deepEqual(validateSettingsPayload({}), {});
 });

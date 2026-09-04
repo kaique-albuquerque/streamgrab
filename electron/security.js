@@ -300,6 +300,21 @@ export function validateSettingsPayload(payload = {}) {
       const dir = typeof value === 'string' ? value.trim() : '';
       if (dir && !isSafeAbsolutePath(dir)) return null;
       clean[key] = dir;
+    } else if (key === 'maxConcurrentDownloads') {
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 32) return null;
+      clean[key] = value;
+    } else if (key === 'historyRetentionDays') {
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 3650) return null;
+      clean[key] = value;
+    } else if (key === 'turboChunks') {
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 64) return null;
+      clean[key] = value;
+    } else if (key === 'turbo' || key === 'audio' || key === 'notifications') {
+      if (typeof value !== 'boolean' && typeof value !== 'string') return null;
+      clean[key] = value;
+    } else if (key === 'smartTurbo') {
+      if (typeof value !== 'boolean' && !(value && typeof value === 'object' && !Array.isArray(value))) return null;
+      clean[key] = value;
     } else {
       clean[key] = value;
     }
