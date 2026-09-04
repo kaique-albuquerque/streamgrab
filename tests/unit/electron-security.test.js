@@ -9,6 +9,7 @@ import {
   sanitizeDownloadFilename,
   isAbsolutePath,
   isSafeAbsolutePath,
+  sanitizeHeaders,
   validateAnalyzePayload,
   validateDownloadPayload,
   validateCancelPayload,
@@ -129,6 +130,34 @@ test('isPathWithin verifica subcaminhos', () => {
   assert.equal(isPathWithin('C:\\Users\\a\\Other\\v.mp4', 'C:\\Users\\a\\Downloads'), false);
   assert.equal(isPathWithin('/home/a/v.mp4', '/home/a'), true);
   assert.equal(isPathWithin('/home/ab/v.mp4', '/home/a'), false);
+});
+
+// ---------------------------------------------------------------------------
+// sanitizeHeaders (HTTP Header / CRLF Injection & Pollution)
+// ---------------------------------------------------------------------------
+
+test('sanitizeHeaders limpa headers perigosos, CRLF e propriedades de protótipo', () => {
+  const input = JSON.parse(
+    '{"User-Agent": "Mozilla/5.0\\r\\nX-Injected: true", "Referer": "https://example.com\\nSet-Cookie: evil=1", "X-Valid": "ok", "Invalid Key": "val", "constructor": "bad"}'
+  );
+  const clean = sanitizeHeaders(input);
+
+  assert.equal(clean['User-Agent'], 'Mozilla/5.0X-Injected: true');
+  assert.equal(clean['Referer'], 'https://example.comSet-Cookie: evil=1');
+  assert.equal(clean['X-Valid'], 'ok');
+  assert.equal(clean['Invalid Key'], undefined);
+  assert.equal(Object.hasOwn(clean, 'constructor'), false);
+  assert.equal(Object.prototype.polluted, undefined);
+});
+
+test('sanitizeHeaders lida com entradas nulas, não-objetos e limita tamanho', () => {
+  assert.deepEqual(sanitizeHeaders(null), {});
+  assert.deepEqual(sanitizeHeaders('not object'), {});
+  assert.deepEqual(sanitizeHeaders([]), {});
+
+  const longValue = 'a'.repeat(5000);
+  const clean = sanitizeHeaders({ 'X-Long': longValue });
+  assert.equal(clean['X-Long'].length, 4096);
 });
 
 // ---------------------------------------------------------------------------
