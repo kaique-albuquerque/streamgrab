@@ -48,18 +48,35 @@ test('core-logger: redactText redige stderr de processo externo com URL + token'
   assert.ok(out.includes('ffmpeg version 6.0'), 'restante do stderr preservado');
 });
 
-test('core-logger: redactHeaders redige authorization/cookie, preserva demais', () => {
+test('core-logger: redactHeaders redige authorization/cookie e headers customizados sensiveis, preserva demais', () => {
   const headers = {
     'User-Agent': 'streamgrab/0.1.0',
     Referer: 'https://example.com',
     Authorization: 'Bearer abc123',
     Cookie: 'session=xyz',
+    'x-auth-token': 'secret123',
+    'x-access-token': 'secret456',
+    'X-API-Key': 'key789',
   };
   const out = redactHeaders(headers);
   assert.equal(out['User-Agent'], 'streamgrab/0.1.0');
   assert.equal(out.Referer, 'https://example.com');
   assert.equal(out.Authorization, '***');
   assert.equal(out.Cookie, '***');
+  assert.equal(out['x-auth-token'], '***');
+  assert.equal(out['x-access-token'], '***');
+  assert.equal(out['X-API-Key'], '***');
+});
+
+test('core-logger: redactText redige headers sensiveis inline customizados (x-auth-token, x-access-token, x-api-key)', () => {
+  const text = 'Requisicao com x-auth-token: secret123 e x-access-token: tok456 e X-API-Key: k999';
+  const out = redactText(text);
+  assert.ok(out.includes('x-auth-token:***'));
+  assert.ok(out.includes('x-access-token:***'));
+  assert.ok(out.includes('X-API-Key:***'));
+  assert.ok(!out.includes('secret123'));
+  assert.ok(!out.includes('tok456'));
+  assert.ok(!out.includes('k999'));
 });
 
 test('core-logger: redact recursivo em objetos (chaves sensiveis)', () => {

@@ -13,6 +13,7 @@ import { safeRefreshMdstrm } from '../src/core/mdstrm-routing.js';
 import { normalizeMediaInfo } from './media-info.js';
 import { createElectronServices } from './services.js';
 import {
+  isSafeHttpUrl,
   validateAnalyzePayload,
   validateDownloadPayload,
   validateQueueEnqueuePayload,
@@ -69,6 +70,26 @@ function createWindow() {
   });
 
   win.removeMenu();
+
+  // P8 (seção 24): impede navegação não autorizada fora do app local (apenas protocolo file:)
+  win.webContents.on('will-navigate', (event, navigationUrl) => {
+    try {
+      const parsed = new URL(navigationUrl);
+      if (parsed.protocol !== 'file:') {
+        event.preventDefault();
+      }
+    } catch {
+      event.preventDefault();
+    }
+  });
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSafeHttpUrl(url)) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
   win.loadFile(path.join(__dirname, 'index.html'));
 }
 
@@ -126,7 +147,6 @@ ipcMain.handle('app:pick-output-dir', async () => {
 ipcMain.handle('app:resolve-paths', async () => {
   const defaultDownloads = app.getPath('downloads');
   registerRevealRoot(defaultDownloads);
-  registerRevealRoot(PROJECT_ROOT);
   return {
     projectRoot: PROJECT_ROOT,
     defaultDownloads,
