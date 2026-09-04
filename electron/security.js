@@ -23,6 +23,30 @@ const BROWSER_SPEC_RE = /^[A-Za-z0-9_.:-]{1,64}$/;
 const FILENAME_BAD_RE = /[\\/]|\.\./;
 const ABSOLUTE_WIN_RE = /^[A-Za-z]:[\\/]/;
 const ABSOLUTE_POSIX_RE = /^\//;
+const HEADER_NAME_RE = /^[!#$%&'*+\-.^_`|~0-9a-zA-Z]+$/;
+const UNSAFE_PROPS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/**
+ * Sanitiza objeto de headers vindo do IPC:
+ *  - Rejeita propriedades de poluição de protótipo (__proto__, etc.)
+ *  - Valida nomes de header contra caracteres RFC válidos
+ *  - Remove caracteres de controle (CRLF, NUL) prevenindo HTTP Header Injection
+ *  - Trunca valores a limites razoáveis (4096 chars)
+ */
+export function sanitizeHeaders(rawHeaders) {
+  if (!rawHeaders || typeof rawHeaders !== 'object' || Array.isArray(rawHeaders)) return {};
+  const clean = {};
+  for (const [key, val] of Object.entries(rawHeaders)) {
+    if (UNSAFE_PROPS.has(key)) continue;
+    const name = String(key).trim();
+    if (!name || !HEADER_NAME_RE.test(name)) continue;
+    if (val === null || val === undefined) continue;
+    const valueStr = String(val).replace(/[\r\n\0]/g, '').trim().slice(0, 4096);
+    if (!valueStr) continue;
+    clean[name] = valueStr;
+  }
+  return clean;
+}
 
 /** Valida uma URL não confiável vinda do renderer (apenas http/https). */
 export function isSafeHttpUrl(value) {
@@ -86,9 +110,10 @@ export function isSafeAbsolutePath(value) {
 export function validateAnalyzePayload(payload = {}) {
   const url = typeof payload?.url === 'string' ? payload.url.trim() : '';
   if (!isSafeHttpUrl(url)) return null;
-  const headers = payload?.headers && typeof payload.headers === 'object' && !Array.isArray(payload.headers)
+  const rawHeaders = payload?.headers && typeof payload.headers === 'object' && !Array.isArray(payload.headers)
     ? payload.headers
     : {};
+  const headers = sanitizeHeaders(rawHeaders);
   const rawAuth = payload?.auth && typeof payload.auth === 'object' && !Array.isArray(payload.auth) ? payload.auth : {};
   const cookiesFile = typeof rawAuth.cookiesFile === 'string' ? rawAuth.cookiesFile.trim() : '';
   if (cookiesFile && !isSafeAbsolutePath(cookiesFile)) return null;
@@ -131,6 +156,18 @@ export function validateDownloadPayload(payload = {}) {
   const cookiesFromBrowser = typeof payload?.cookiesFromBrowser === 'string' ? payload.cookiesFromBrowser.trim() : '';
   if (cookiesFromBrowser && !isValidBrowserSpec(cookiesFromBrowser)) return null;
 
+  // P12.1: audio/subtitle selections
+  const audioLanguage = typeof payload?.audioLanguage === 'string' ? payload.audioLanguage.trim().slice(0, 32) : '';
+  const allAudio = payload?.allAudio === true;
+  const subtitleLanguages = Array.isArray(payload?.subtitleLanguages)
+    ? payload.subtitleLanguages
+        .filter((s) => typeof s === 'string')
+        .map((s) => s.trim().slice(0, 32))
+        .filter(Boolean)
+        .slice(0, 20)
+    : [];
+  const embedSubs = payload?.embedSubs === true;
+
   return {
     taskId: String(payload.taskId),
     url,
@@ -145,6 +182,10 @@ export function validateDownloadPayload(payload = {}) {
     turbo,
     cookiesFile,
     cookiesFromBrowser,
+    audioLanguage,
+    allAudio,
+    subtitleLanguages,
+    embedSubs,
   };
 }
 
@@ -203,10 +244,14 @@ export function validateQueueEnqueuePayload(payload = {}) {
   if (cookiesFromBrowser && !isValidBrowserSpec(cookiesFromBrowser)) return null;
 
   // P12.1: audio/subtitle selections
-  const audioLanguage = typeof payload?.audioLanguage === 'string' ? payload.audioLanguage.trim() : '';
+  const audioLanguage = typeof payload?.audioLanguage === 'string' ? payload.audioLanguage.trim().slice(0, 32) : '';
   const allAudio = payload?.allAudio === true;
   const subtitleLanguages = Array.isArray(payload?.subtitleLanguages)
-    ? payload.subtitleLanguages.filter((s) => typeof s === 'string').slice(0, 20)
+    ? payload.subtitleLanguages
+        .filter((s) => typeof s === 'string')
+        .map((s) => s.trim().slice(0, 32))
+        .filter(Boolean)
+        .slice(0, 20)
     : [];
   const embedSubs = payload?.embedSubs === true;
 
@@ -255,6 +300,21 @@ export function validateSettingsPayload(payload = {}) {
       const dir = typeof value === 'string' ? value.trim() : '';
       if (dir && !isSafeAbsolutePath(dir)) return null;
       clean[key] = dir;
+    } else if (key === 'maxConcurrentDownloads') {
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 32) return null;
+      clean[key] = value;
+    } else if (key === 'historyRetentionDays') {
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 3650) return null;
+      clean[key] = value;
+    } else if (key === 'turboChunks') {
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 64) return null;
+      clean[key] = value;
+    } else if (key === 'turbo' || key === 'audio' || key === 'notifications') {
+      if (typeof value !== 'boolean' && typeof value !== 'string') return null;
+      clean[key] = value;
+    } else if (key === 'smartTurbo') {
+      if (typeof value !== 'boolean' && !(value && typeof value === 'object' && !Array.isArray(value))) return null;
+      clean[key] = value;
     } else {
       clean[key] = value;
     }
@@ -288,8 +348,11 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
 
 /** Verifica se `child` está dentro de `root` (ambos absolutos). */
 export function isPathWithin(child, root) {
-  const norm = (p) => String(p).replace(/[\\/]+/g, '/').replace(/\/+$/, '');
+  if (typeof child !== 'string' || typeof root !== 'string') return false;
+  if (!child.trim() || !root.trim()) return false;
+  const norm = (p) => String(p).trim().replace(/[\\/]+/g, '/').replace(/\/+$/, '');
   const c = norm(child).toLowerCase();
   const r = norm(root).toLowerCase();
+  if (!c || !r) return false;
   return c === r || c.startsWith(`${r}/`);
 }

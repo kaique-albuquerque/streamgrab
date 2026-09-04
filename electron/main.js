@@ -13,6 +13,7 @@ import { safeRefreshMdstrm } from '../src/core/mdstrm-routing.js';
 import { normalizeMediaInfo } from './media-info.js';
 import { createElectronServices } from './services.js';
 import {
+  isSafeHttpUrl,
   validateAnalyzePayload,
   validateDownloadPayload,
   validateQueueEnqueuePayload,
@@ -21,6 +22,8 @@ import {
   validateSettingsPayload,
   validateRevealPayload,
   validateExportLogsPayload,
+  isValidJobId,
+  isValidTaskId,
 } from './security.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -67,6 +70,26 @@ function createWindow() {
   });
 
   win.removeMenu();
+
+  // P8 (seção 24): impede navegação não autorizada fora do app local (apenas protocolo file:)
+  win.webContents.on('will-navigate', (event, navigationUrl) => {
+    try {
+      const parsed = new URL(navigationUrl);
+      if (parsed.protocol !== 'file:') {
+        event.preventDefault();
+      }
+    } catch {
+      event.preventDefault();
+    }
+  });
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSafeHttpUrl(url)) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
   win.loadFile(path.join(__dirname, 'index.html'));
 }
 
@@ -124,7 +147,6 @@ ipcMain.handle('app:pick-output-dir', async () => {
 ipcMain.handle('app:resolve-paths', async () => {
   const defaultDownloads = app.getPath('downloads');
   registerRevealRoot(defaultDownloads);
-  registerRevealRoot(PROJECT_ROOT);
   return {
     projectRoot: PROJECT_ROOT,
     defaultDownloads,
@@ -410,9 +432,9 @@ ipcMain.handle('queue:remove', async (_event, rawPayload) => {
 ipcMain.handle('download:cancel', async (_event, rawPayload) => {
   if (!services) return false;
   const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
-  let jobId = typeof payload.jobId === 'string' && payload.jobId ? payload.jobId : '';
+  let jobId = typeof payload.jobId === 'string' && isValidJobId(payload.jobId) ? payload.jobId : '';
   if (!jobId) {
-    const taskId = typeof payload.taskId === 'string' ? payload.taskId : '';
+    const taskId = typeof payload.taskId === 'string' && isValidTaskId(payload.taskId) ? payload.taskId : '';
     jobId = taskToJob.get(taskId) || '';
   }
   if (!jobId) return false;

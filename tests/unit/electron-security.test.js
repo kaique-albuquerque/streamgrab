@@ -9,6 +9,7 @@ import {
   sanitizeDownloadFilename,
   isAbsolutePath,
   isSafeAbsolutePath,
+  sanitizeHeaders,
   validateAnalyzePayload,
   validateDownloadPayload,
   validateCancelPayload,
@@ -129,6 +130,39 @@ test('isPathWithin verifica subcaminhos', () => {
   assert.equal(isPathWithin('C:\\Users\\a\\Other\\v.mp4', 'C:\\Users\\a\\Downloads'), false);
   assert.equal(isPathWithin('/home/a/v.mp4', '/home/a'), true);
   assert.equal(isPathWithin('/home/ab/v.mp4', '/home/a'), false);
+  assert.equal(isPathWithin('', '/home/a'), false);
+  assert.equal(isPathWithin('/home/a/v.mp4', ''), false);
+  assert.equal(isPathWithin('   ', '/home/a'), false);
+  assert.equal(isPathWithin(null, '/home/a'), false);
+  assert.equal(isPathWithin('/home/a/v.mp4', undefined), false);
+});
+
+// ---------------------------------------------------------------------------
+// sanitizeHeaders (HTTP Header / CRLF Injection & Pollution)
+// ---------------------------------------------------------------------------
+
+test('sanitizeHeaders limpa headers perigosos, CRLF e propriedades de protótipo', () => {
+  const input = JSON.parse(
+    '{"User-Agent": "Mozilla/5.0\\r\\nX-Injected: true", "Referer": "https://example.com\\nSet-Cookie: evil=1", "X-Valid": "ok", "Invalid Key": "val", "constructor": "bad"}'
+  );
+  const clean = sanitizeHeaders(input);
+
+  assert.equal(clean['User-Agent'], 'Mozilla/5.0X-Injected: true');
+  assert.equal(clean['Referer'], 'https://example.comSet-Cookie: evil=1');
+  assert.equal(clean['X-Valid'], 'ok');
+  assert.equal(clean['Invalid Key'], undefined);
+  assert.equal(Object.hasOwn(clean, 'constructor'), false);
+  assert.equal(Object.prototype.polluted, undefined);
+});
+
+test('sanitizeHeaders lida com entradas nulas, não-objetos e limita tamanho', () => {
+  assert.deepEqual(sanitizeHeaders(null), {});
+  assert.deepEqual(sanitizeHeaders('not object'), {});
+  assert.deepEqual(sanitizeHeaders([]), {});
+
+  const longValue = 'a'.repeat(5000);
+  const clean = sanitizeHeaders({ 'X-Long': longValue });
+  assert.equal(clean['X-Long'].length, 4096);
 });
 
 // ---------------------------------------------------------------------------
@@ -211,6 +245,33 @@ test('validateDownloadPayload rejeita payload inválido', () => {
   );
 });
 
+test('validação IPC de audio/subtitle sanitiza strings e impõe limites', () => {
+  const longLang = 'a'.repeat(50);
+  const qOut = validateQueueEnqueuePayload({
+    url: 'https://example.com/v.mp4',
+    audioLanguage: `  ${longLang}  `,
+    allAudio: true,
+    subtitleLanguages: [`  ${longLang}  `, 123, '', 'pt-BR'],
+    embedSubs: true,
+  });
+  assert.ok(qOut);
+  assert.equal(qOut.audioLanguage, 'a'.repeat(32));
+  assert.equal(qOut.allAudio, true);
+  assert.deepEqual(qOut.subtitleLanguages, ['a'.repeat(32), 'pt-BR']);
+  assert.equal(qOut.embedSubs, true);
+
+  const dOut = validateDownloadPayload({
+    taskId: 'tab-1',
+    url: 'https://example.com/v.mp4',
+    filename: 'v',
+    audioLanguage: '  en-US  ',
+    subtitleLanguages: ['en', 'es'],
+  });
+  assert.ok(dOut);
+  assert.equal(dOut.audioLanguage, 'en-US');
+  assert.deepEqual(dOut.subtitleLanguages, ['en', 'es']);
+});
+
 test('validateDownloadPayload normaliza defaults e força booleans', () => {
   const out = validateDownloadPayload({
     taskId: 'tab-2',
@@ -238,15 +299,16 @@ test('validateCancelPayload valida taskId', () => {
 });
 
 test('validateRevealPayload restringe abertura a raízes permitidas', () => {
-  const roots = ['C:\\Users\\teste\\Downloads', '/home/user'];
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
   assert.deepEqual(validateRevealPayload({ filePath: 'C:\\Users\\teste\\Downloads\\v.mp4' }, roots), {
     filePath: 'C:\\Users\\teste\\Downloads\\v.mp4',
   });
-  assert.deepEqual(validateRevealPayload({ filePath: '/home/user/v.mp4' }, roots), {
-    filePath: '/home/user/v.mp4',
+  assert.deepEqual(validateRevealPayload({ filePath: '/home/user/Downloads/v.mp4' }, roots), {
+    filePath: '/home/user/Downloads/v.mp4',
   });
   assert.equal(validateRevealPayload({ filePath: 'C:\\Windows\\system32\\x.dll' }, roots), null);
   assert.equal(validateRevealPayload({ filePath: 'C:\\Users\\..\\etc' }, roots), null);
+  assert.equal(validateRevealPayload({ filePath: '/home/user/project/src/index.js' }, roots), null);
   assert.equal(validateRevealPayload({}, roots), null);
   assert.equal(validateRevealPayload({ filePath: 'relative.mp4' }, roots), null);
 });
@@ -408,6 +470,16 @@ test('validateSettingsPayload rejeita payloads inválidos', () => {
   assert.equal(validateSettingsPayload([]), null);
   assert.equal(validateSettingsPayload({ defaultDir: 'C:\\Users\\..\\Windows' }), null);
   assert.equal(validateSettingsPayload({ defaultDir: 'relative' }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: -5 }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: 0 }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: 100 }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: 3.5 }), null);
+  assert.equal(validateSettingsPayload({ historyRetentionDays: -1 }), null);
+  assert.equal(validateSettingsPayload({ historyRetentionDays: 999999 }), null);
+  assert.equal(validateSettingsPayload({ turboChunks: 0 }), null);
+  assert.equal(validateSettingsPayload({ turboChunks: 128 }), null);
+  assert.equal(validateSettingsPayload({ turbo: 12345 }), null);
+  assert.equal(validateSettingsPayload({ smartTurbo: 'invalid' }), null);
   // payload vazio é válido (nada a atualizar)
   assert.deepEqual(validateSettingsPayload({}), {});
 });
