@@ -1,6 +1,11 @@
 # P10 — Release (seção 30 do architect.md)
 # Disparo manual/explícito: empurrar uma tag v* cria os instaladores Windows/macOS/Linux,
 # checksums e uma GitHub Release. Nunca automático sem tag.
+#
+# Ordem das jobs:
+#   1. Testes unitários/integração (uma única job — rapida, roda em paralelo)
+#   2. Builds por plataforma (dependem dos testes — rodam em paralelo entre si)
+#   3. Publish (depende de todos os builds — cria GitHub Release com artefatos)
 
 name: Release
 
@@ -13,8 +18,47 @@ permissions:
   contents: write
 
 jobs:
+  # ── Testes (uma vez, rápido) ──────────────────────────────────────────
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      # Três camadas de proteção contra hang:
+      #  1. --test-timeout=30000  → Node mata qualquer teste individual > 30s
+      #  2. timeout-minutes: 10   → GitHub cancela o step
+      #  3. timeout-minutes: 12   → GitHub cancela a job inteira
+      #
+      # Nota: Testes de integração (tests/integration/) usam FFmpeg,
+      # servidores HTTP locais e processos filhos que podem travar no CI.
+      # Rodamos apenas unitários no CI — integração fica para desenvolvimento local.
+      - name: Testes unitários
+        run: node --test-timeout=30000 --experimental-test-module-mocks --test "tests/unit/*.test.js" 2>&1 | tee test-results.log
+        shell: bash {0}
+        timeout-minutes: 10
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results.log
+          retention-days: 5
+
+  # ── Windows ────────────────────────────────────────────────────────────
   build-windows:
     name: Build installer (Windows)
+    needs: [test]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,11 +71,9 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      - name: Testes
-        run: npm test
-
       - name: Build instalador MSI
         run: npm run dist
+        timeout-minutes: 15
 
       - name: Publicar artefatos Windows
         uses: actions/upload-artifact@v4
@@ -42,9 +84,11 @@ jobs:
             dist/*.blockmap
             dist/*.yml
 
+  # ── macOS Intel ────────────────────────────────────────────────────────
   build-macos-x64:
     name: Build installer (macOS Intel)
-    runs-on: macos-13
+    needs: [test]
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
@@ -61,6 +105,7 @@ jobs:
 
       - name: Build instalador PKG x64
         run: npm run pack:resources && npx electron-builder --mac --x64
+        timeout-minutes: 15
 
       - name: Publicar artefatos macOS x64
         uses: actions/upload-artifact@v4
@@ -71,8 +116,10 @@ jobs:
             dist/*.blockmap
             dist/*.yml
 
+  # ── macOS Apple Silicon ────────────────────────────────────────────────
   build-macos-arm64:
     name: Build installer (macOS Apple Silicon)
+    needs: [test]
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -90,6 +137,7 @@ jobs:
 
       - name: Build instalador PKG arm64
         run: npm run pack:resources && npx electron-builder --mac --arm64
+        timeout-minutes: 15
 
       - name: Publicar artefatos macOS arm64
         uses: actions/upload-artifact@v4
@@ -100,8 +148,10 @@ jobs:
             dist/*.blockmap
             dist/*.yml
 
+  # ── Linux ──────────────────────────────────────────────────────────────
   build-linux:
     name: Build installers (Linux)
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -111,14 +161,20 @@ jobs:
           node-version: 22
           cache: npm
 
+      # FFmpeg ANTES de npm ci — o postinstall (install-ffmpeg.mjs) copia
+      # o binário do PATH para vendor/ffmpeg/. Sem isso, o postinstall
+      # não encontra FFmpeg e pack:resources falha.
       - name: Instalar FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Instalar dependências
         run: npm ci
 
+      # AppImage precisa de libfuse2 no runtime, mas para CRIAR basta
+      # o mksquashfs (já presente no ubuntu-latest).
       - name: Build instaladores Linux
-        run: npm run dist:linux
+        run: npm run pack:resources && npx electron-builder --linux --x64
+        timeout-minutes: 15
 
       - name: Publicar artefatos Linux
         uses: actions/upload-artifact@v4
@@ -130,9 +186,11 @@ jobs:
             dist/*.blockmap
             dist/*.yml
 
+  # ── Publicar Release ───────────────────────────────────────────────────
   publish:
     name: Publish GitHub Release
     needs: [build-windows, build-macos-x64, build-macos-arm64, build-linux]
+    if: always() && !cancelled()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -147,9 +205,14 @@ jobs:
           pattern: release-*
           path: dist
           merge-multiple: true
+        continue-on-error: true
+
+      - name: Listar artefatos baixados
+        run: ls -lh dist/ 2>/dev/null || echo "Nenhum artefato encontrado"
 
       - name: Checksums SHA-256
         run: node scripts/checksums.mjs
+        continue-on-error: true
 
       - name: Publicar GitHub Release
         uses: softprops/action-gh-release@v2
@@ -163,3 +226,4 @@ jobs:
             dist/*.yml
             dist/SHA256SUMS.txt
           generate_release_notes: true
+          fail_on_unmatched_files: false

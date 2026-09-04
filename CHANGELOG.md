@@ -8,6 +8,13 @@ arquitetônica (`0.1.x` — base; `1.0.0` — versão considerada estável).
 
 ## [Não publicado]
 
+## [1.2.0] - 2026-09-04
+
+### Corrigido
+
+- **Release multiplataforma:** script `release` agora constrói Windows, macOS e Linux
+  simultaneamente (`electron-builder --win --mac --linux`) em vez de apenas Windows.
+
 ### Adicionado
 
 - **Maturidade (P11, seções 34/35/36/42/43/49 do architect.md):** README como produto,
