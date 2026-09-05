@@ -71,23 +71,18 @@ function createWindow() {
 
   win.removeMenu();
 
-  // P8 (seção 24): impede navegação não autorizada fora do app local (apenas protocolo file:)
-  win.webContents.on('will-navigate', (event, navigationUrl) => {
-    try {
-      const parsed = new URL(navigationUrl);
-      if (parsed.protocol !== 'file:') {
-        event.preventDefault();
-      }
-    } catch {
-      event.preventDefault();
-    }
+  // P8 (seção 24): navegação web e janelas externas — impede abertura de popups
+  // ou navegação da janela principal para URLs não confiáveis.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSafeHttpUrl(url)) shell.openExternal(url);
+    return { action: 'deny' };
   });
 
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (isSafeHttpUrl(url)) {
-      shell.openExternal(url);
+  win.webContents.on('will-navigate', (event, url) => {
+    if (url !== win.webContents.getURL()) {
+      event.preventDefault();
+      if (isSafeHttpUrl(url)) shell.openExternal(url);
     }
-    return { action: 'deny' };
   });
 
   win.loadFile(path.join(__dirname, 'index.html'));
