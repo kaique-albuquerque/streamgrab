@@ -5,7 +5,7 @@
 **Learning:** IPC handlers in Electron that accept file output paths must validate that paths are safe absolute paths constrained to permitted application directory roots.
 **Prevention:** Use `isSafeAbsolutePath` and `isPathWithin` against allowed directory roots for all IPC handlers that write files.
 
-## 2026-08-28 - Narrow Header Redaction Regex Leaked Custom Token and API Headers in Log Exports
-**Vulnerability:** Header redaction regex in `logger.js` only checked exact names (`authorization`, `cookie`, `set-cookie`, `proxy-authorization`, `x-api-key`, `api-key`), allowing custom authentication headers (`x-auth-token`, `x-access-token`, `x-session-id`, `x-csrf-token`, etc.) to leak into log buffers and exported log files.
-**Learning:** Custom auth headers are widely used by streaming providers and proxies. Header redaction regexes must match generic token, secret, auth, session, key, and signature patterns in header names, and inline text redaction must use word/whitespace bounds to avoid consuming surrounding text.
-**Prevention:** Include generic token, key, auth, and session keywords in `SENSITIVE_HEADER_NAMES` and test inline header redaction against multi-token strings.
+## 2026-09-03 - Path Containment Bypass via Empty/Unsanitized Root String in `isPathWithin`
+**Vulnerability:** `isPathWithin` evaluated empty/whitespace root directory strings to `""`, causing `${r}/` to become `'/'` and matching any absolute POSIX path.
+**Learning:** Prefix-based path containment helpers must validate that both child and root are non-empty, safe absolute paths before performing normalization or string prefix checks.
+**Prevention:** Always verify `isSafeAbsolutePath(child)` and `isSafeAbsolutePath(root)` in path validation helpers prior to string manipulation.

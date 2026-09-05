@@ -165,6 +165,17 @@ test('sanitizeHeaders lida com entradas nulas, não-objetos e limita tamanho', (
   assert.equal(clean['X-Long'].length, 4096);
 });
 
+test('isPathWithin rejeita raízes vazias, em branco, relativas ou caminhos inválidos', () => {
+  assert.equal(isPathWithin('/etc/passwd', ''), false);
+  assert.equal(isPathWithin('/etc/passwd', '   '), false);
+  assert.equal(isPathWithin('/etc/passwd', 'relative/dir'), false);
+  assert.equal(isPathWithin('relative/file.txt', '/home/a'), false);
+  assert.equal(isPathWithin('/etc/../passwd', '/etc'), false);
+  assert.equal(isPathWithin('/etc/passwd', '/etc/../tmp'), false);
+  assert.equal(isPathWithin(null, '/home/a'), false);
+  assert.equal(isPathWithin('/home/a', null), false);
+});
+
 // ---------------------------------------------------------------------------
 // validateAnalyzePayload
 // ---------------------------------------------------------------------------
