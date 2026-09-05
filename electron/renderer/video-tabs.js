@@ -470,13 +470,18 @@ export function createVideoTabsController({ appState, dom, onQueueRefresh, onHis
       item.type = 'button';
       item.className = `quality ${state.selectedQuality === resolved ? 'selected' : ''}`;
       item.disabled = state.busy;
-      item.innerHTML = [
-        '<div>',
-        `<strong>${q.resolution || `variante ${idx + 1}`}</strong>`,
-        `<small>${q.height ? `${q.height}p` : 'Resolucao nao informada'}${q.bandwidth ? `  ~ ${formatKbps(q.bandwidth)}` : ''}</small>`,
-        '</div>',
-        `<small>${q.codecs || 'Sem codecs informados'}</small>`,
-      ].join('');
+      // Sentinel Security: Use textContent & DOM nodes instead of innerHTML to prevent XSS from unescaped media metadata
+      const div = document.createElement('div');
+      const strong = document.createElement('strong');
+      strong.textContent = q.resolution || `variante ${idx + 1}`;
+      const small1 = document.createElement('small');
+      small1.textContent = `${q.height ? `${q.height}p` : 'Resolucao nao informada'}${q.bandwidth ? `  ~ ${formatKbps(q.bandwidth)}` : ''}`;
+      div.append(strong, small1);
+
+      const small2 = document.createElement('small');
+      small2.textContent = q.codecs || 'Sem codecs informados';
+
+      item.append(div, small2);
       item.addEventListener('click', () => {
         if (state.busy) return;
         state.selectedVariantUri = q.uri;
