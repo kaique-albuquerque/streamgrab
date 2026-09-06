@@ -9,3 +9,8 @@
 **Vulnerability:** Header redaction regex in `logger.js` only checked exact names (`authorization`, `cookie`, `set-cookie`, `proxy-authorization`, `x-api-key`, `api-key`), allowing custom authentication headers (`x-auth-token`, `x-access-token`, `x-session-id`, `x-csrf-token`, etc.) to leak into log buffers and exported log files.
 **Learning:** Custom auth headers are widely used by streaming providers and proxies. Header redaction regexes must match generic token, secret, auth, session, key, and signature patterns in header names, and inline text redaction must use word/whitespace bounds to avoid consuming surrounding text.
 **Prevention:** Include generic token, key, auth, and session keywords in `SENSITIVE_HEADER_NAMES` and test inline header redaction against multi-token strings.
+
+## 2026-09-02 - Unvalidated Reveal Roots Registration Allowed Path Traversal in File Open IPC Handlers
+**Vulnerability:** The local `registerRevealRoot` helper in `electron/main.js` accepted any string input without validating whether it was a safe absolute path. Relative paths or paths with traversal segments (`..`) could be registered in `allowedRevealRoots`, bypassing folder restriction checks in `app:open-file`, `app:show-in-folder`, and `app:export-logs`.
+**Learning:** Helper functions that add permitted root directories to security allowlists must strictly validate input paths using `isSafeAbsolutePath` before registration.
+**Prevention:** Export a centralized `registerRevealRoot` function in `electron/security.js` that checks `isSafeAbsolutePath` before populating the `allowedRevealRoots` set.

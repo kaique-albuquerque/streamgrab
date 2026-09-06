@@ -346,6 +346,17 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
   return { path: customPath };
 }
 
+/**
+ * Registra uma raiz permitida para abertura/exportação de arquivos se for um caminho absoluto seguro.
+ */
+export function registerRevealRoot(dir, allowedRoots) {
+  if (typeof dir !== 'string' || !dir.trim() || !(allowedRoots instanceof Set)) return false;
+  const trimmed = dir.trim();
+  if (!isSafeAbsolutePath(trimmed)) return false;
+  allowedRoots.add(trimmed);
+  return true;
+}
+
 /** Verifica se `child` está dentro de `root` (ambos absolutos). */
 export function isPathWithin(child, root) {
   if (typeof child !== 'string' || typeof root !== 'string') return false;

@@ -22,6 +22,7 @@ import {
   validateSettingsPayload,
   validateRevealPayload,
   validateExportLogsPayload,
+  registerRevealRoot,
   isValidJobId,
   isValidTaskId,
 } from './security.js';
@@ -47,8 +48,8 @@ const taskToJob = new Map();
 // traversal e abertura de arquivos arbitrários via IPC).
 const allowedRevealRoots = new Set();
 
-function registerRevealRoot(dir) {
-  if (typeof dir === 'string' && dir.trim()) allowedRevealRoots.add(dir.trim());
+function addRevealRoot(dir) {
+  registerRevealRoot(dir, allowedRevealRoots);
 }
 
 function createWindow() {
@@ -140,13 +141,13 @@ ipcMain.handle('app:pick-output-dir', async () => {
     properties: ['openDirectory', 'createDirectory'],
   });
   if (result.canceled || !result.filePaths[0]) return null;
-  registerRevealRoot(result.filePaths[0]);
+  addRevealRoot(result.filePaths[0]);
   return result.filePaths[0];
 });
 
 ipcMain.handle('app:resolve-paths', async () => {
   const defaultDownloads = app.getPath('downloads');
-  registerRevealRoot(defaultDownloads);
+  addRevealRoot(defaultDownloads);
   return {
     projectRoot: PROJECT_ROOT,
     defaultDownloads,
@@ -282,7 +283,7 @@ function enqueueDownload({ url, filename, outputDir, selectedUrl, title, turbo, 
     err.code = 'NOT_READY';
     throw err;
   }
-  if (outputDir) registerRevealRoot(outputDir);
+  if (outputDir) addRevealRoot(outputDir);
 
   // P11.1: headers do config.json (Referer/Origin/User-Agent) seguem para o
   // download na fila — mesmo comportamento do CLI.
