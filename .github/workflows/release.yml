@@ -69,6 +69,8 @@ jobs:
           cache: npm
 
       - name: Instalar dependências (npm ci)
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
         run: npm ci 2>&1
         timeout-minutes: 10
 
@@ -76,6 +78,10 @@ jobs:
         if: runner.os == 'Windows'
         run: node scripts/install-ffmpeg.mjs 2>&1
         timeout-minutes: 5
+
+      - name: Instalar Electron
+        run: node scripts/install-electron.mjs 2>&1
+        timeout-minutes: 10
 
       - name: Verificar binários obrigatórios
         run: |
@@ -129,7 +135,13 @@ jobs:
         timeout-minutes: 8
 
       - name: Instalar dependências (npm ci)
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
         run: npm ci 2>&1
+        timeout-minutes: 10
+
+      - name: Instalar Electron
+        run: node scripts/install-electron.mjs 2>&1
         timeout-minutes: 10
 
       - name: Empacotar binários (pack:resources)
@@ -173,7 +185,13 @@ jobs:
         timeout-minutes: 8
 
       - name: Instalar dependências (npm ci)
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
         run: npm ci 2>&1
+        timeout-minutes: 10
+
+      - name: Instalar Electron
+        run: node scripts/install-electron.mjs 2>&1
         timeout-minutes: 10
 
       - name: Empacotar binários (pack:resources)
@@ -222,7 +240,13 @@ jobs:
         timeout-minutes: 8
 
       - name: Instalar dependências (npm ci)
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
         run: npm ci 2>&1
+        timeout-minutes: 10
+
+      - name: Instalar Electron
+        run: node scripts/install-electron.mjs 2>&1
         timeout-minutes: 10
 
       - name: Empacotar binários (pack:resources)
