@@ -24,5 +24,3 @@ test-output*.txt
 # Pasta padrao p/ relatorios futuros de testes (npm test > test-results/...)
 test-results/
 
-# GIFs grandes de demo — gravar em assets/ mas nao commitar
-assets/*.gif
