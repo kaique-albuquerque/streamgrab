@@ -36,6 +36,12 @@ const E2E_DIR = path.join(os.tmpdir(), 'vd-e2e');
 const OUT_DIR = path.join(os.tmpdir(), 'vd-e2e-out');
 const TOOLS_DIR = path.join(ROOT, 'tools');
 
+// Timeout para processos filhos nos testes E2E — evita que o CI trave
+// indefinidamente se o child process não encerrar (ex.: FFmpeg travado,
+// servidor HTTP não responde, etc.). Em CI, 30s é suficiente para
+// downloads locais de ~4s de vídeo. Local pode demorar mais.
+const CHILD_TIMEOUT_MS = Number(process.env.CI) ? 30_000 : 120_000;
+
 function stderrText(result) {
   if (!result) return '';
   if (typeof result.stderr === 'string') return result.stderr;
@@ -57,6 +63,35 @@ const ok = (cond, msg) => {
   console.log(`${cond ? '✅' : '❌'} ${msg}`);
   if (!cond) failures++;
 };
+
+/**
+ * Spawna um child process com timeout. Retorna uma Promise<{code, output}>
+ * que resolve com o exit code e saída combinada (stdout+stderr), ou
+ * code=null se o processo foi killed por timeout.
+ */
+function spawnWithTimeout(args, opts, { stdin: stdinData, timeoutMs = CHILD_TIMEOUT_MS } = {}) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, args, opts);
+    let out = '';
+    child.stdout?.on('data', (d) => { out += d.toString(); });
+    child.stderr?.on('data', (d) => { out += d.toString(); });
+
+    if (stdinData != null && child.stdin) {
+      child.stdin.end(stdinData);
+    }
+
+    const timer = setTimeout(() => {
+      console.log(`  ⏰ Timeout (${timeoutMs}ms) — matando child process...`);
+      child.kill('SIGKILL');
+      resolve({ code: null, output: out });
+    }, timeoutMs);
+
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      resolve({ code, output: out });
+    });
+  });
+}
 
 // ---- 0) unidade: parseSegmentPlaylist + parsePlaylistText (criptografia) ----
 {
@@ -280,16 +315,11 @@ media.m3u8
 
   // executa o programa em modo curl-impersonate (stdin via pipe)
   const stdin = `http://127.0.0.1:${port}/master.m3u8\ncurl-test\n${OUT_DIR}\n\n`;
-  const child = spawn(process.execPath, [path.join(ROOT, 'src', 'index.js'), '--curl-impersonate'], {
-    cwd: ROOT,
-    windowsHide: true,
-  });
-  child.stdin.end(stdin);
-
-  let out = '';
-  child.stdout.on('data', (d) => (out += d.toString()));
-  child.stderr.on('data', (d) => (out += d.toString()));
-  const code = await new Promise((resolve) => child.on('close', resolve));
+  const { code, output: out } = await spawnWithTimeout(
+    [path.join(ROOT, 'src', 'index.js'), '--curl-impersonate'],
+    { cwd: ROOT, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] },
+    { stdin }
+  );
 
   // resumo das linhas relevantes da saída
   for (const line of out.split(/\r?\n/)) {
@@ -300,7 +330,11 @@ media.m3u8
   if (code !== 0) console.log(out.slice(-2000));
 
   // verificações
-  ok(code === 0, `[${label}] exit code 0 (foi ${code})`);
+  if (code === null) {
+    ok(false, `[${label}] child process atingiu timeout de ${CHILD_TIMEOUT_MS}ms`);
+  } else {
+    ok(code === 0, `[${label}] exit code 0 (foi ${code})`);
+  }
   const mp4 = path.join(OUT_DIR, 'curl-test.mp4');
   const size = fs.existsSync(mp4) ? fs.statSync(mp4).size : 0;
   ok(size > 100000, `[${label}] MP4 gerado (${size} bytes)`);
@@ -359,15 +393,17 @@ async function runDirectCase() {
   const port = server.address().port;
 
   const stdin = `http://127.0.0.1:${port}/source.mp4\ndirect-test\n${OUT_DIR}\n`;
-  const child = spawn(process.execPath, [path.join(ROOT, 'src', 'index.js')], { cwd: ROOT, windowsHide: true });
-  child.stdin.end(stdin);
+  const { code, output: out } = await spawnWithTimeout(
+    [path.join(ROOT, 'src', 'index.js')],
+    { cwd: ROOT, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] },
+    { stdin }
+  );
 
-  let out = '';
-  child.stdout.on('data', (d) => (out += d.toString()));
-  child.stderr.on('data', (d) => (out += d.toString()));
-  const code = await new Promise((resolve) => child.on('close', resolve));
-
-  ok(code === 0, `[arquivo direto] exit code 0 (foi ${code})`);
+  if (code === null) {
+    ok(false, '[arquivo direto] child process atingiu timeout');
+  } else {
+    ok(code === 0, `[arquivo direto] exit code 0 (foi ${code})`);
+  }
   const mp4 = path.join(OUT_DIR, 'direct-test.mp4');
   const size = fs.existsSync(mp4) ? fs.statSync(mp4).size : 0;
   ok(size > 50000, `[arquivo direto] MP4 gerado (${size} bytes)`);
@@ -417,15 +453,17 @@ async function runDashCase() {
   // cwd = E2E_DIR: o demuxer DASH do FFmpeg grava temp files (init-*.mp4,
   // seg-*.m4s) no diretorio de trabalho do processo; com cwd=ROOT eles
   // poluiriam a raiz do repositorio.
-  const child = spawn(process.execPath, [path.join(ROOT, 'src', 'index.js')], { cwd: E2E_DIR, windowsHide: true });
-  child.stdin.end(stdin);
+  const { code, output: out } = await spawnWithTimeout(
+    [path.join(ROOT, 'src', 'index.js')],
+    { cwd: E2E_DIR, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] },
+    { stdin }
+  );
 
-  let out = '';
-  child.stdout.on('data', (d) => (out += d.toString()));
-  child.stderr.on('data', (d) => (out += d.toString()));
-  const code = await new Promise((resolve) => child.on('close', resolve));
-
-  ok(code === 0, `[DASH] exit code 0 (foi ${code})`);
+  if (code === null) {
+    ok(false, '[DASH] child process atingiu timeout');
+  } else {
+    ok(code === 0, `[DASH] exit code 0 (foi ${code})`);
+  }
   const mp4 = path.join(OUT_DIR, 'dash-test.mp4');
   const size = fs.existsSync(mp4) ? fs.statSync(mp4).size : 0;
   ok(size > 50000, `[DASH] MP4 gerado (${size} bytes)`);

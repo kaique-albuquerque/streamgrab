@@ -11,15 +11,16 @@ const FAKE_TOOLS = ['curl-impersonate.exe', 'curl_chrome146.bat', 'curl_chrome13
 test('buildResourcePlan: entradas obrigatórias/opcionais + perfis v2', () => {
   const plan = buildResourcePlan({ projectRoot: 'P:/proj', listTools: () => FAKE_TOOLS });
 
+  const BIN_EXT = process.platform === 'win32' ? '.exe' : '';
   assert.equal(plan.entries.length, 3);
   const ffmpeg = plan.entries.find((e) => e.id === 'ffmpeg');
   const ytdlp = plan.entries.find((e) => e.id === 'yt-dlp');
   const curl = plan.entries.find((e) => e.id === 'curl-impersonate');
 
   assert.equal(ffmpeg.required, true);
-  assert.ok(ffmpeg.from.endsWith(path.join('vendor', 'ffmpeg', 'ffmpeg.exe')));
+  assert.ok(ffmpeg.from.endsWith(path.join('vendor', 'ffmpeg', `ffmpeg${BIN_EXT}`)));
   assert.equal(ytdlp.required, true);
-  assert.ok(ytdlp.from.endsWith(path.join('node_modules', 'youtube-dl-exec', 'bin', 'yt-dlp.exe')));
+  assert.ok(ytdlp.from.endsWith(path.join('node_modules', 'youtube-dl-exec', 'bin', `yt-dlp${BIN_EXT}`)));
   assert.equal(curl.required, false);
 
   // Perfis v2 copiados; arquivos sem padrão de perfil ignorados
@@ -41,6 +42,7 @@ test('runResourcePlan: obrigatório ausente lança com mensagem clara', () => {
 });
 
 test('runResourcePlan: copia entradas existentes para outDir (dirs reais temporários)', () => {
+  const BIN_EXT = process.platform === 'win32' ? '.exe' : '';
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sg-plan-'));
   try {
     const proj = path.join(tmp, 'proj');
@@ -49,22 +51,22 @@ test('runResourcePlan: copia entradas existentes para outDir (dirs reais tempor�
     const ytdlpBin = path.join(proj, 'node_modules', 'youtube-dl-exec', 'bin');
     fs.mkdirSync(vendorFfmpeg, { recursive: true });
     fs.mkdirSync(ytdlpBin, { recursive: true });
-    fs.writeFileSync(path.join(vendorFfmpeg, 'ffmpeg.exe'), 'ffmpeg-bytes');
+    fs.writeFileSync(path.join(vendorFfmpeg, `ffmpeg${BIN_EXT}`), 'ffmpeg-bytes');
     fs.writeFileSync(path.join(vendorFfmpeg, 'avcodec-63.dll'), 'avcodec-bytes');
     fs.writeFileSync(path.join(vendorFfmpeg, 'avformat-63.dll'), 'avformat-bytes');
-    fs.writeFileSync(path.join(vendorFfmpeg, 'ffplay.exe'), 'ffplay-bytes'); // não é DLL → não copia
-    fs.writeFileSync(path.join(ytdlpBin, 'yt-dlp.exe'), 'ytdlp-bytes');
+    fs.writeFileSync(path.join(vendorFfmpeg, `ffplay${BIN_EXT}`), 'ffplay-bytes'); // não é DLL → não copia
+    fs.writeFileSync(path.join(ytdlpBin, `yt-dlp${BIN_EXT}`), 'ytdlp-bytes');
 
     const plan = buildResourcePlan({ projectRoot: proj, listTools: () => [] });
     const result = runResourcePlan(plan, { outDir: out });
-    // ffmpeg.exe + 2 DLLs + yt-dlp.exe (curl opcional ausente); ffplay.exe ignorado
+    // ffmpeg + 2 DLLs + yt-dlp (curl opcional ausente); ffplay ignorado
     assert.equal(result.length, 4);
-    assert.ok(fs.existsSync(path.join(out, 'ffmpeg.exe')));
+    assert.ok(fs.existsSync(path.join(out, `ffmpeg${BIN_EXT}`)));
     assert.ok(fs.existsSync(path.join(out, 'avcodec-63.dll')));
     assert.ok(fs.existsSync(path.join(out, 'avformat-63.dll')));
-    assert.ok(fs.existsSync(path.join(out, 'yt-dlp.exe')));
-    assert.equal(fs.existsSync(path.join(out, 'ffplay.exe')), false);
-    assert.equal(fs.readFileSync(path.join(out, 'ffmpeg.exe'), 'utf8'), 'ffmpeg-bytes');
+    assert.ok(fs.existsSync(path.join(out, `yt-dlp${BIN_EXT}`)));
+    assert.equal(fs.existsSync(path.join(out, `ffplay${BIN_EXT}`)), false);
+    assert.equal(fs.readFileSync(path.join(out, `ffmpeg${BIN_EXT}`), 'utf8'), 'ffmpeg-bytes');
     assert.equal(fs.readFileSync(path.join(out, 'avcodec-63.dll'), 'utf8'), 'avcodec-bytes');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });

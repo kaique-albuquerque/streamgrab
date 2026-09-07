@@ -48,7 +48,12 @@ class FakeTransport {
   }
 }
 mock.module(CURL_URL, {
-  namedExports: { CurlImpersonateTransport: FakeTransport },
+  namedExports: {
+    CurlImpersonateTransport: FakeTransport,
+    rewritePlaylist: () => '',
+    extForUri: () => '.ts',
+    createCurlTransport: () => FakeTransport,
+  },
 });
 
 // ffmpeg fake: grava o arquivo de saida e registra a URL recebida.

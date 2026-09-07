@@ -21,6 +21,7 @@ import {
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
+  registerRevealRoot,
 } from '../../electron/security.js';
 
 // ---------------------------------------------------------------------------
@@ -256,6 +257,116 @@ test('validateDownloadPayload rejeita payload inválido', () => {
   );
 });
 
+// ---------------------------------------------------------------------------
+// XSS Safety in Video Tabs rendering
+// ---------------------------------------------------------------------------
+
+test('renderQualities em video-tabs trata propriedades de formato com HTML/JS como texto puro', async () => {
+  const elementsCreated = [];
+  const elementMap = new Map();
+  class FakeElement {
+    constructor(tag) {
+      this.tagName = tag;
+      this.children = [];
+      this.classList = {
+        add() {},
+        remove() {},
+        toggle() {},
+      };
+      this.listeners = {};
+      this.textContent = '';
+      this.fields = {};
+      this.style = {};
+      this.value = '';
+      elementsCreated.push(this);
+    }
+    addEventListener(event, fn) {
+      this.listeners[event] = fn;
+    }
+    async click() {
+      if (this.listeners['click']) await this.listeners['click']();
+    }
+    cloneNode() {
+      const copy = new FakeElement(this.tagName);
+      return copy;
+    }
+    append(...nodes) {
+      this.children.push(...nodes);
+    }
+    appendChild(node) {
+      this.children.push(node);
+    }
+    querySelector(sel) {
+      if (!elementMap.has(sel)) elementMap.set(sel, new FakeElement('div'));
+      return elementMap.get(sel);
+    }
+    querySelectorAll() {
+      return [];
+    }
+  }
+
+  globalThis.document = {
+    createElement(tag) {
+      return new FakeElement(tag);
+    },
+  };
+  globalThis.window = {
+    api: {
+      analyzePlaylist: async () => ({
+        kind: 'master',
+        variants: [
+          {
+            uri: 'https://example.com/stream.m3u8',
+            resolution: '<img src=x onerror=alert(1)>',
+            codecs: '<script>alert(1)</script>',
+            height: 1080,
+            bandwidth: 5000000,
+          },
+        ],
+      }),
+    },
+  };
+
+  try {
+    const { createVideoTabsController } = await import('../../electron/renderer/video-tabs.js');
+
+    const mockTabPanel = new FakeElement('div');
+
+    const controller = createVideoTabsController({
+      appState: {
+        counter: 1,
+        tabs: new Map(),
+        activeOutputs: new Map(),
+        defaultOutputDir: '',
+      },
+      dom: {
+        tabTemplate: { content: { firstElementChild: mockTabPanel } },
+        tabBar: new FakeElement('div'),
+        tabPanels: new FakeElement('div'),
+      },
+    });
+
+    controller.addTab();
+    assert.ok(controller);
+
+    const urlInput = elementMap.get('[data-field="url"]');
+    if (urlInput) urlInput.value = 'https://example.com/master.m3u8';
+
+    const analyzeBtn = elementMap.get('[data-action="analyze"]');
+    if (analyzeBtn) await analyzeBtn.click();
+
+    // Verify elements created during rendering assign textContent safely
+    const strongs = elementsCreated.filter((e) => e.tagName === 'strong');
+    assert.ok(strongs.some((s) => s.textContent === '<img src=x onerror=alert(1)>'));
+
+    const smalls = elementsCreated.filter((e) => e.tagName === 'small');
+    assert.ok(smalls.some((s) => s.textContent === '<script>alert(1)</script>'));
+  } finally {
+    delete globalThis.document;
+    delete globalThis.window;
+  }
+});
+
 test('validação IPC de audio/subtitle sanitiza strings e impõe limites', () => {
   const longLang = 'a'.repeat(50);
   const qOut = validateQueueEnqueuePayload({
@@ -334,6 +445,22 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
+});
+
+test('registerRevealRoot só aceita caminhos absolutos seguros e sem traversal', () => {
+  const roots = new Set();
+  assert.equal(registerRevealRoot('C:\\Users\\teste\\Downloads', roots), true);
+  assert.equal(roots.has('C:\\Users\\teste\\Downloads'), true);
+
+  assert.equal(registerRevealRoot('/home/user/Downloads', roots), true);
+  assert.equal(roots.has('/home/user/Downloads'), true);
+
+  assert.equal(registerRevealRoot('C:\\Users\\teste\\..\\Windows', roots), false);
+  assert.equal(registerRevealRoot('/home/user/../etc', roots), false);
+  assert.equal(registerRevealRoot('relative/path', roots), false);
+  assert.equal(registerRevealRoot('', roots), false);
+  assert.equal(registerRevealRoot(null, roots), false);
+  assert.equal(registerRevealRoot('C:\\Downloads', null), false);
 });
 
 // ---------------------------------------------------------------------------
