@@ -13,6 +13,7 @@ import { safeRefreshMdstrm } from '../src/core/mdstrm-routing.js';
 import { normalizeMediaInfo } from './media-info.js';
 import { createElectronServices } from './services.js';
 import {
+  isSafeHttpUrl,
   validateAnalyzePayload,
   validateDownloadPayload,
   validateQueueEnqueuePayload,
@@ -21,6 +22,9 @@ import {
   validateSettingsPayload,
   validateRevealPayload,
   validateExportLogsPayload,
+  registerRevealRoot,
+  isValidJobId,
+  isValidTaskId,
 } from './security.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -44,8 +48,8 @@ const taskToJob = new Map();
 // traversal e abertura de arquivos arbitrários via IPC).
 const allowedRevealRoots = new Set();
 
-function registerRevealRoot(dir) {
-  if (typeof dir === 'string' && dir.trim()) allowedRevealRoots.add(dir.trim());
+function addRevealRoot(dir) {
+  registerRevealRoot(dir, allowedRevealRoots);
 }
 
 function createWindow() {
@@ -67,6 +71,21 @@ function createWindow() {
   });
 
   win.removeMenu();
+
+  // P8 (seção 24): navegação web e janelas externas — impede abertura de popups
+  // ou navegação da janela principal para URLs não confiáveis.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSafeHttpUrl(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  win.webContents.on('will-navigate', (event, url) => {
+    if (url !== win.webContents.getURL()) {
+      event.preventDefault();
+      if (isSafeHttpUrl(url)) shell.openExternal(url);
+    }
+  });
+
   win.loadFile(path.join(__dirname, 'index.html'));
 }
 
@@ -117,14 +136,13 @@ ipcMain.handle('app:pick-output-dir', async () => {
     properties: ['openDirectory', 'createDirectory'],
   });
   if (result.canceled || !result.filePaths[0]) return null;
-  registerRevealRoot(result.filePaths[0]);
+  addRevealRoot(result.filePaths[0]);
   return result.filePaths[0];
 });
 
 ipcMain.handle('app:resolve-paths', async () => {
   const defaultDownloads = app.getPath('downloads');
-  registerRevealRoot(defaultDownloads);
-  registerRevealRoot(PROJECT_ROOT);
+  addRevealRoot(defaultDownloads);
   return {
     projectRoot: PROJECT_ROOT,
     defaultDownloads,
@@ -260,7 +278,7 @@ function enqueueDownload({ url, filename, outputDir, selectedUrl, title, turbo, 
     err.code = 'NOT_READY';
     throw err;
   }
-  if (outputDir) registerRevealRoot(outputDir);
+  if (outputDir) addRevealRoot(outputDir);
 
   // P11.1: headers do config.json (Referer/Origin/User-Agent) seguem para o
   // download na fila — mesmo comportamento do CLI.
@@ -410,9 +428,9 @@ ipcMain.handle('queue:remove', async (_event, rawPayload) => {
 ipcMain.handle('download:cancel', async (_event, rawPayload) => {
   if (!services) return false;
   const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
-  let jobId = typeof payload.jobId === 'string' && payload.jobId ? payload.jobId : '';
+  let jobId = typeof payload.jobId === 'string' && isValidJobId(payload.jobId) ? payload.jobId : '';
   if (!jobId) {
-    const taskId = typeof payload.taskId === 'string' ? payload.taskId : '';
+    const taskId = typeof payload.taskId === 'string' && isValidTaskId(payload.taskId) ? payload.taskId : '';
     jobId = taskToJob.get(taskId) || '';
   }
   if (!jobId) return false;

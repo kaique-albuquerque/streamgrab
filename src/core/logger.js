@@ -13,7 +13,8 @@ import { maskUrl } from '../utils.js';
 
 export const LOG_LEVELS = Object.freeze({ debug: 10, info: 20, warn: 30, error: 40 });
 
-const SENSITIVE_HEADER_NAMES = /^(authorization|proxy-authorization|cookie|set-cookie|x-api-key|api-key)$/i;
+// Sentinel Security: Redact standard and custom auth, token, cookie, session, key, and signature headers
+const SENSITIVE_HEADER_NAMES = /(authorization|proxy-authorization|cookie|set-cookie|api[_-]?key|token|secret|auth|session|credential|jwt|signature|sig)$/i;
 
 // Mesma lista do maskUrl (utils.js) adaptada para chaves de objeto.
 const SENSITIVE_OBJECT_KEYS = /(token|secret|password|passwd|pwd|pass|credential|api[_-]?key|authorization|auth|cookie|signature|sig|sid|uid|session|session_id|jwt)$/i;
@@ -21,14 +22,14 @@ const SENSITIVE_OBJECT_KEYS = /(token|secret|password|passwd|pwd|pass|credential
 const URL_RE = /https?:\/\/[^\s"'<>)\]]+/gi;
 
 // Redige o valor inteiro apos o header (ate fim de linha/virgula/ponto-e-virgula),
-// cobrindo "Bearer <token>", "Cookie: a=b; Path=/", etc.
-const INLINE_HEADER_RE = /\b(authorization|proxy-authorization|cookie|set-cookie)\s*[:=]\s*[^\r\n,;]+/gi;
+// cobrindo "Bearer <token>", "Cookie: a=b; Path=/", "x-auth-token: secret", etc.
+const INLINE_HEADER_RE = /(^|\n|\s)(authorization|proxy-authorization|cookie|set-cookie|x-api-key|api[_-]?key|x-auth-token|x-access-token|x-session-id|x-csrf-token|auth-token|session-token|x-signature)\s*[:=]\s*(?:Bearer\s+\S+|\S+)/gi;
 
 /** Redige segredos em texto livre (mensagens, stderr, logs). */
 export function redactText(value) {
   let out = String(value ?? '');
   out = out.replace(URL_RE, (m) => maskUrl(m));
-  out = out.replace(INLINE_HEADER_RE, (_m, header) => `${header}:***`);
+  out = out.replace(INLINE_HEADER_RE, (_m, prefix, header) => `${prefix}${header}:***`);
   return out;
 }
 

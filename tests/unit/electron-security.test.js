@@ -9,6 +9,7 @@ import {
   sanitizeDownloadFilename,
   isAbsolutePath,
   isSafeAbsolutePath,
+  sanitizeHeaders,
   validateAnalyzePayload,
   validateDownloadPayload,
   validateCancelPayload,
@@ -20,6 +21,7 @@ import {
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
+  registerRevealRoot,
 } from '../../electron/security.js';
 
 // ---------------------------------------------------------------------------
@@ -129,6 +131,50 @@ test('isPathWithin verifica subcaminhos', () => {
   assert.equal(isPathWithin('C:\\Users\\a\\Other\\v.mp4', 'C:\\Users\\a\\Downloads'), false);
   assert.equal(isPathWithin('/home/a/v.mp4', '/home/a'), true);
   assert.equal(isPathWithin('/home/ab/v.mp4', '/home/a'), false);
+  assert.equal(isPathWithin('', '/home/a'), false);
+  assert.equal(isPathWithin('/home/a/v.mp4', ''), false);
+  assert.equal(isPathWithin('   ', '/home/a'), false);
+  assert.equal(isPathWithin(null, '/home/a'), false);
+  assert.equal(isPathWithin('/home/a/v.mp4', undefined), false);
+});
+
+// ---------------------------------------------------------------------------
+// sanitizeHeaders (HTTP Header / CRLF Injection & Pollution)
+// ---------------------------------------------------------------------------
+
+test('sanitizeHeaders limpa headers perigosos, CRLF e propriedades de protótipo', () => {
+  const input = JSON.parse(
+    '{"User-Agent": "Mozilla/5.0\\r\\nX-Injected: true", "Referer": "https://example.com\\nSet-Cookie: evil=1", "X-Valid": "ok", "Invalid Key": "val", "constructor": "bad"}'
+  );
+  const clean = sanitizeHeaders(input);
+
+  assert.equal(clean['User-Agent'], 'Mozilla/5.0X-Injected: true');
+  assert.equal(clean['Referer'], 'https://example.comSet-Cookie: evil=1');
+  assert.equal(clean['X-Valid'], 'ok');
+  assert.equal(clean['Invalid Key'], undefined);
+  assert.equal(Object.hasOwn(clean, 'constructor'), false);
+  assert.equal(Object.prototype.polluted, undefined);
+});
+
+test('sanitizeHeaders lida com entradas nulas, não-objetos e limita tamanho', () => {
+  assert.deepEqual(sanitizeHeaders(null), {});
+  assert.deepEqual(sanitizeHeaders('not object'), {});
+  assert.deepEqual(sanitizeHeaders([]), {});
+
+  const longValue = 'a'.repeat(5000);
+  const clean = sanitizeHeaders({ 'X-Long': longValue });
+  assert.equal(clean['X-Long'].length, 4096);
+});
+
+test('isPathWithin rejeita raízes vazias, em branco, relativas ou caminhos inválidos', () => {
+  assert.equal(isPathWithin('/etc/passwd', ''), false);
+  assert.equal(isPathWithin('/etc/passwd', '   '), false);
+  assert.equal(isPathWithin('/etc/passwd', 'relative/dir'), false);
+  assert.equal(isPathWithin('relative/file.txt', '/home/a'), false);
+  assert.equal(isPathWithin('/etc/../passwd', '/etc'), false);
+  assert.equal(isPathWithin('/etc/passwd', '/etc/../tmp'), false);
+  assert.equal(isPathWithin(null, '/home/a'), false);
+  assert.equal(isPathWithin('/home/a', null), false);
 });
 
 // ---------------------------------------------------------------------------
@@ -211,6 +257,143 @@ test('validateDownloadPayload rejeita payload inválido', () => {
   );
 });
 
+// ---------------------------------------------------------------------------
+// XSS Safety in Video Tabs rendering
+// ---------------------------------------------------------------------------
+
+test('renderQualities em video-tabs trata propriedades de formato com HTML/JS como texto puro', async () => {
+  const elementsCreated = [];
+  const elementMap = new Map();
+  class FakeElement {
+    constructor(tag) {
+      this.tagName = tag;
+      this.children = [];
+      this.classList = {
+        add() {},
+        remove() {},
+        toggle() {},
+      };
+      this.listeners = {};
+      this.textContent = '';
+      this.fields = {};
+      this.style = {};
+      this.value = '';
+      elementsCreated.push(this);
+    }
+    addEventListener(event, fn) {
+      this.listeners[event] = fn;
+    }
+    async click() {
+      if (this.listeners['click']) await this.listeners['click']();
+    }
+    cloneNode() {
+      const copy = new FakeElement(this.tagName);
+      return copy;
+    }
+    append(...nodes) {
+      this.children.push(...nodes);
+    }
+    appendChild(node) {
+      this.children.push(node);
+    }
+    querySelector(sel) {
+      if (!elementMap.has(sel)) elementMap.set(sel, new FakeElement('div'));
+      return elementMap.get(sel);
+    }
+    querySelectorAll() {
+      return [];
+    }
+  }
+
+  globalThis.document = {
+    createElement(tag) {
+      return new FakeElement(tag);
+    },
+  };
+  globalThis.window = {
+    api: {
+      analyzePlaylist: async () => ({
+        kind: 'master',
+        variants: [
+          {
+            uri: 'https://example.com/stream.m3u8',
+            resolution: '<img src=x onerror=alert(1)>',
+            codecs: '<script>alert(1)</script>',
+            height: 1080,
+            bandwidth: 5000000,
+          },
+        ],
+      }),
+    },
+  };
+
+  try {
+    const { createVideoTabsController } = await import('../../electron/renderer/video-tabs.js');
+
+    const mockTabPanel = new FakeElement('div');
+
+    const controller = createVideoTabsController({
+      appState: {
+        counter: 1,
+        tabs: new Map(),
+        activeOutputs: new Map(),
+        defaultOutputDir: '',
+      },
+      dom: {
+        tabTemplate: { content: { firstElementChild: mockTabPanel } },
+        tabBar: new FakeElement('div'),
+        tabPanels: new FakeElement('div'),
+      },
+    });
+
+    controller.addTab();
+    assert.ok(controller);
+
+    const urlInput = elementMap.get('[data-field="url"]');
+    if (urlInput) urlInput.value = 'https://example.com/master.m3u8';
+
+    const analyzeBtn = elementMap.get('[data-action="analyze"]');
+    if (analyzeBtn) await analyzeBtn.click();
+
+    // Verify elements created during rendering assign textContent safely
+    const strongs = elementsCreated.filter((e) => e.tagName === 'strong');
+    assert.ok(strongs.some((s) => s.textContent === '<img src=x onerror=alert(1)>'));
+
+    const smalls = elementsCreated.filter((e) => e.tagName === 'small');
+    assert.ok(smalls.some((s) => s.textContent === '<script>alert(1)</script>'));
+  } finally {
+    delete globalThis.document;
+    delete globalThis.window;
+  }
+});
+
+test('validação IPC de audio/subtitle sanitiza strings e impõe limites', () => {
+  const longLang = 'a'.repeat(50);
+  const qOut = validateQueueEnqueuePayload({
+    url: 'https://example.com/v.mp4',
+    audioLanguage: `  ${longLang}  `,
+    allAudio: true,
+    subtitleLanguages: [`  ${longLang}  `, 123, '', 'pt-BR'],
+    embedSubs: true,
+  });
+  assert.ok(qOut);
+  assert.equal(qOut.audioLanguage, 'a'.repeat(32));
+  assert.equal(qOut.allAudio, true);
+  assert.deepEqual(qOut.subtitleLanguages, ['a'.repeat(32), 'pt-BR']);
+  assert.equal(qOut.embedSubs, true);
+
+  const dOut = validateDownloadPayload({
+    taskId: 'tab-1',
+    url: 'https://example.com/v.mp4',
+    filename: 'v',
+    audioLanguage: '  en-US  ',
+    subtitleLanguages: ['en', 'es'],
+  });
+  assert.ok(dOut);
+  assert.equal(dOut.audioLanguage, 'en-US');
+  assert.deepEqual(dOut.subtitleLanguages, ['en', 'es']);
+});
+
 test('validateDownloadPayload normaliza defaults e força booleans', () => {
   const out = validateDownloadPayload({
     taskId: 'tab-2',
@@ -238,15 +421,16 @@ test('validateCancelPayload valida taskId', () => {
 });
 
 test('validateRevealPayload restringe abertura a raízes permitidas', () => {
-  const roots = ['C:\\Users\\teste\\Downloads', '/home/user'];
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
   assert.deepEqual(validateRevealPayload({ filePath: 'C:\\Users\\teste\\Downloads\\v.mp4' }, roots), {
     filePath: 'C:\\Users\\teste\\Downloads\\v.mp4',
   });
-  assert.deepEqual(validateRevealPayload({ filePath: '/home/user/v.mp4' }, roots), {
-    filePath: '/home/user/v.mp4',
+  assert.deepEqual(validateRevealPayload({ filePath: '/home/user/Downloads/v.mp4' }, roots), {
+    filePath: '/home/user/Downloads/v.mp4',
   });
   assert.equal(validateRevealPayload({ filePath: 'C:\\Windows\\system32\\x.dll' }, roots), null);
   assert.equal(validateRevealPayload({ filePath: 'C:\\Users\\..\\etc' }, roots), null);
+  assert.equal(validateRevealPayload({ filePath: '/home/user/project/src/index.js' }, roots), null);
   assert.equal(validateRevealPayload({}, roots), null);
   assert.equal(validateRevealPayload({ filePath: 'relative.mp4' }, roots), null);
 });
@@ -261,6 +445,22 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
+});
+
+test('registerRevealRoot só aceita caminhos absolutos seguros e sem traversal', () => {
+  const roots = new Set();
+  assert.equal(registerRevealRoot('C:\\Users\\teste\\Downloads', roots), true);
+  assert.equal(roots.has('C:\\Users\\teste\\Downloads'), true);
+
+  assert.equal(registerRevealRoot('/home/user/Downloads', roots), true);
+  assert.equal(roots.has('/home/user/Downloads'), true);
+
+  assert.equal(registerRevealRoot('C:\\Users\\teste\\..\\Windows', roots), false);
+  assert.equal(registerRevealRoot('/home/user/../etc', roots), false);
+  assert.equal(registerRevealRoot('relative/path', roots), false);
+  assert.equal(registerRevealRoot('', roots), false);
+  assert.equal(registerRevealRoot(null, roots), false);
+  assert.equal(registerRevealRoot('C:\\Downloads', null), false);
 });
 
 // ---------------------------------------------------------------------------
@@ -408,6 +608,16 @@ test('validateSettingsPayload rejeita payloads inválidos', () => {
   assert.equal(validateSettingsPayload([]), null);
   assert.equal(validateSettingsPayload({ defaultDir: 'C:\\Users\\..\\Windows' }), null);
   assert.equal(validateSettingsPayload({ defaultDir: 'relative' }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: -5 }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: 0 }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: 100 }), null);
+  assert.equal(validateSettingsPayload({ maxConcurrentDownloads: 3.5 }), null);
+  assert.equal(validateSettingsPayload({ historyRetentionDays: -1 }), null);
+  assert.equal(validateSettingsPayload({ historyRetentionDays: 999999 }), null);
+  assert.equal(validateSettingsPayload({ turboChunks: 0 }), null);
+  assert.equal(validateSettingsPayload({ turboChunks: 128 }), null);
+  assert.equal(validateSettingsPayload({ turbo: 12345 }), null);
+  assert.equal(validateSettingsPayload({ smartTurbo: 'invalid' }), null);
   // payload vazio é válido (nada a atualizar)
   assert.deepEqual(validateSettingsPayload({}), {});
 });
