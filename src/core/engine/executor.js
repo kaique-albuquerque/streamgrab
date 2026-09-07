@@ -75,7 +75,9 @@ export function createDefaultExecutor({
         const isYouTube = sourceType === 'ytdlp' || isYouTubeUrl(job.url || '');
         if (isYouTube) {
           const height = prepared.chosenFormat?.height || 1080;
-          const formatSelector = `bestvideo[height<=${height}]+bestaudio/best[height<=${height}]`;
+          // QuickTime Player (macOS) so aceita H.264 (avc1). YouTube
+          // prefere VP9 para 1080p, entao forçamos codec H.264.
+          const formatSelector = `bestvideo[height<=${height}][vcodec*=avc1]+bestaudio[acodec*=mp4a]/best[height<=${height}]`;
           onLog?.(`[yt-dlp] mux strategy: baixando com format="${formatSelector}" via yt-dlp`);
           try {
             await runYtDlpDownload({
