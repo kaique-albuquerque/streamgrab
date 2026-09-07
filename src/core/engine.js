@@ -340,6 +340,23 @@ async function runStreamDownload(url, output, headers, signal, onProgress, atomi
     if (!res.ok || !res.body) {
       return { ok: false, code: 'HTTP_ERROR', error: `HTTP ${res.status}`, status: res.status };
     }
+    // P11.1: YouTube e outros CDNs podem retornar 200 com HTML/texto em vez de
+    // video quando a URL expira ou e bloqueada. Detecta cedo para evitar
+    // baixar MBs de lixo que falham no ffmpeg (moov atom not found).
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    const isTextResponse = contentType.includes('text/') || contentType.includes('application/json') || contentType.includes('application/xml');
+    if (isTextResponse && !contentType.includes('mp2t')) {
+      // Le os primeiros bytes para confirmar que nao e video
+      const peek = res.body.getReader();
+      const { value: firstChunk } = await peek.read();
+      await peek.cancel().catch(() => {});
+      const preview = firstChunk ? new TextDecoder('utf-8', { fatal: false }).decode(firstChunk.slice(0, 512)) : '';
+      // Se parece com HTML/JSON/XML, rejeita
+      if (/^[\s]*[<{![]|^\s*\{|"error"|"message"|"status"/i.test(preview)) {
+        const snippet = preview.slice(0, 200).replace(/\s+/g, ' ').trim();
+        return { ok: false, code: 'INVALID_RESPONSE', error: `Resposta nao e video (content-type=${contentType}): ${snippet}`, status: res.status };
+      }
+    }
     total = Number(res.headers.get('content-length') || 0);
     await fs.promises.mkdir(path.dirname(output), { recursive: true });
     const fh = await fs.promises.open(output, 'w');
@@ -722,14 +739,24 @@ async function runMuxDownload(prepared, output, headers, signal, onProgress) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sg-mux-'));
   const videoTmp = path.join(tmpDir, 'video.mp4');
   const audioTmp = path.join(tmpDir, 'audio.m4a');
+  // P11.1: YouTube CDN requer Referer/Origin para URLs adaptativas temporarias.
+  // Sem esses headers, a CDN retorna HTML de erro com HTTP 200.
+  const muxHeaders = { ...headers };
+  if (prepared.videoUrl?.includes('googlevideo.com') || prepared.audioUrl?.includes('googlevideo.com')) {
+    muxHeaders['Referer'] = muxHeaders['Referer'] || 'https://www.youtube.com/';
+    muxHeaders['Origin'] = muxHeaders['Origin'] || 'https://www.youtube.com';
+  }
   try {
     const [video, audio] = await Promise.all([
-      runStreamDownload(prepared.videoUrl, videoTmp, headers, signal, (u) => onProgress({ ...u, stage: 'downloading' })),
-      runStreamDownload(prepared.audioUrl, audioTmp, headers, signal, (u) => onProgress({ ...u, stage: 'downloading' })),
+      runStreamDownload(prepared.videoUrl, videoTmp, muxHeaders, signal, (u) => onProgress({ ...u, stage: 'downloading' })),
+      runStreamDownload(prepared.audioUrl, audioTmp, muxHeaders, signal, (u) => onProgress({ ...u, stage: 'downloading' })),
     ]);
     if (signal?.aborted) return abortOutcome(signal);
     if (!video.ok || !audio.ok) {
-      return { ok: false, code: 'MUX_DOWNLOAD_FAILED', error: 'Falha ao baixar video/audio separados.' };
+      const parts = [];
+      if (!video.ok) parts.push(`video: ${video.error || 'falha'} (code=${video.code || '?'}, status=${video.status || '?'})`);
+      if (!audio.ok) parts.push(`audio: ${audio.error || 'falha'} (code=${audio.code || '?'}, status=${audio.status || '?'})`);
+      return { ok: false, code: 'MUX_DOWNLOAD_FAILED', error: `Falha ao baixar video/audio separados: ${parts.join('; ')}` };
     }
     // Validação: arquivos vazios causam ffmpeg exit code estranho (ex: 183).
     const [videoStat, audioStat] = await Promise.all([
