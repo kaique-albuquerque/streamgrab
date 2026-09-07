@@ -8,6 +8,23 @@
 
 ---
 
+### 📸 Demo
+
+<!-- Grava suas telas com Kap (macOS) ou ScreenToGif (Windows), salve em assets/ -->
+<!-- Recomendações: 10fps, 800px largura, <2MB por GIF, 10-15 segundos máximo -->
+
+#### Uso no terminal
+
+![Analisar URL](assets/analise-url.gif)
+
+![Download de vídeo](assets/download-video.gif)
+
+#### App Electron (interface gráfica)
+
+![Interface Electron](assets/electron-app.gif)
+
+---
+
 <!-- Portuguese translation retained for reference; English is the public README. -->
 <!--
 ## A história
@@ -771,7 +788,7 @@ If the platform doesn't offer 1080p in the list, no option will "create" that re
 
 ### What the 403 error means
 
-The server **refused the request**. The most common causes:
+The server **recused the request**. The most common causes:
 
 1. **Expired token** — the temporary URL is no longer valid. Get a new request URL from DevTools.
 2. **Missing headers** — the server requires browser-like headers (`Referer`, `Origin`, `User-Agent`). Set them in `config.json` or via `--referer`/`--origin`/`--user-agent`.
@@ -781,23 +798,23 @@ The program **does not** try to bypass any of this: without a fresh token or ser
 
 ---
 
-### curl-impersonate mode (bypass non-browser client blocking)
+### Modo curl-impersonate (contornar bloqueio de cliente não-navegador)
 
-For CDNs with *TLS fingerprinting* (item 3 above), the program offers an extra mode that **mimics the TLS of a real browser (Chrome)** when making requests. FFmpeg is only used to **remux files locally** — it never touches the network, so the block doesn't apply.
+Para CDNs com *fingerprinting TLS* (item 3 acima), o programa oferece um modo extra que **imita o TLS de um navegador real (Chrome)** ao fazer as requisições. O FFmpeg entra apenas para **remuxar os arquivos localmente** — ele não toca na rede, então o bloqueio não se aplica.
 
-#### How it works
+#### Como funciona
 
-1. The program detects/uses the **curl-impersonate** binary — **v2.x** format (`curl-impersonate.exe` + `curl_<browser><version>.bat` profiles; the old v1.x format, `curl_chrome*.exe`, is also supported).
+1. O programa detecta/usa o binário **curl-impersonate** — formato **v2.x** (`curl-impersonate.exe` + `curl_<browser><version>.bat` profiles; the old v1.x format, `curl_chrome*.exe`, is also supported).
 2. It downloads the master playlist and the segment playlist with the mimicked TLS (profile `chrome146` by default, with a fallback list).
 3. It downloads the **segments** (and AES-128 keys / init segments, if any) in parallel, with retries.
 4. It generates a **local playlist** pointing to the downloaded files and FFmpeg remuxes to `.mp4` (with the same mode fallback: `-c copy` → `aac_adtstoasc` → `-c:a aac`).
 
-#### How to enable
+#### Como ativar
 
-- **Automatically:** on `403`, the program asks if you want to try curl-impersonate mode.
-- **Forced:** run with `npm run download:curl` (or `node src/index.js --curl-impersonate`, or `--ci`).
+- **Automaticamente:** on `403`, the program asks if you want to try curl-impersonate mode.
+- **Forçado:** run with `npm run download:curl` (or `node src/index.js --curl-impersonate`, or `--ci`).
 
-#### Installing curl-impersonate (Windows)
+#### Instalação do curl-impersonate (Windows)
 
 1. Go to <https://github.com/lexiforest/curl-impersonate/releases> (original project: <https://github.com/lwthiker/curl-impersonate>) and download the Windows package (e.g. `curl-impersonate-win64.zip`).
 2. Extract the ZIP — the **v2.x** format ships `curl-impersonate.exe` + several `curl_chromeNNN.bat` / `curl_edgeNNN.bat` / `curl_firefoxNNN.bat` profiles.
@@ -843,7 +860,7 @@ If you paste a CDN URL (`...cdn.mdstrm.com/...`) or a player URL without the var
 
 ---
 
-### Where the video is saved
+### Onde o vídeo é salvo
 
 - By default, in the Windows user **Downloads** folder (obtained programmatically via `os.homedir()` — no username is hardcoded).
 - You can type another folder in the prompt; if it doesn't exist, the program creates it.
@@ -862,68 +879,7 @@ Audio conversion is only used **when necessary**.
 
 ---
 
-### ⚡ Turbo mode (faster downloads)
-
-By default the download uses **1 connection** (FFmpeg) — the speed limit is per-connection on the server. **Turbo** splits the file into parts and downloads **multiple parallel connections** (IDM/aria2 style), bypassing that limit:
-
-```powershell
-node src/index.js --turbo                 # 8 parallel connections (default)
-node src/index.js --turbo --chunks 16     # 16 connections
-```
-
-Works on **direct URLs**: YouTube (progressive and adaptive — video+audio download **at the same time**), social networks and `.mp4`/`.webm` files. Does not apply to HLS (`.m3u8`) or DASH (`.mpd`).
-
-- If the server **doesn't support** ranged downloads (no `Accept-Ranges`), turbo detects it and **falls back automatically** to the normal flow — no error.
-- Can also be enabled by default in `config.json`: `{ "turbo": true, "turboChunks": 8 }`.
-- In **Electron**, it's a "⚡ Turbo" checkbox in each tab.
-
-### 🧠 Smart Turbo (adaptive concurrency)
-
-**Smart Turbo** adjusts the number of connections **during** the download, guided by a benchmark (`tests/performance/BASELINE.md`): it ramps up (2→4→8→12) while the per-connection throughput holds, and **backs off** on throttling (drop > 30% of per-connection with stalled total) or 429/5xx errors — without inducing server blocks. On fast links it finds the ceiling of your connection; on limited servers it stops wasting connections.
-
-```powershell
-node src/index.js --turbo --chunks 12            # fixed pool (previous behavior)
-node src/index.js --turbo --smart-turbo          # adaptive (max 12)
-node src/index.js --turbo --no-smart-turbo       # explicit rollback via CLI
-```
-
-- Default: **off** (fixed pool). `--no-smart-turbo` disables even with config active (rollback).
-- Typical gain: **2–10x** on fast connections (the ceiling becomes your link, not the per-connection throttling).
-
-### 🎬 YouTube downloads (best resolution)
-
-```powershell
-npm run download:youtube
-```
-
-Paste a YouTube video URL (`https://www.youtube.com/watch?v=...` or `https://youtu.be/...`). The program lists the **available qualities** (2160p/1440p/1080p/720p/...) and downloads the chosen one at the **best available resolution** — for 4K videos it downloads the video and the best audio separately and **merges them with FFmpeg** (`-c copy`, lossless).
-
-> ℹ️ YouTube resolution is resolved by **yt-dlp** (standalone binary, downloaded automatically on install via the `youtube-dl-exec` package — no Python needed). yt-dlp keeps the signature deciphering logic, the `n` parameter transform, proof-of-origin tokens (POT) and the new YouTube SABR streaming up to date. The generated links are downloaded by the local FFmpeg with the same fallback modes as the rest of the program.
-
-### 🔐 Private / authenticated content (login)
-
-Yes, you can download **private** videos (e.g. "unlisted"/private YouTube, restricted Facebook/Instagram posts) **as long as you have authenticated access** — the program uses the cookies from your session:
-
-1. **Export the cookies** from your browser while logged in:
-   - Install the **"Get cookies.txt LOCALLY"** extension (Chrome/Edge/Firefox)
-   - Open the video page, click the extension and export the `cookies.txt`
-2. **Use the file** (must be in the project folder):
-
-   ```powershell
-   node src/index.js --cookies cookies.txt
-   ```
-
-3. **Or extract straight from the browser** (no export needed):
-
-   ```powershell
-   node src/index.js --cookies-from-browser chrome
-   ```
-
-> ⚠️ **Limitations:** (1) content protected by **DRM** (Widevine/PlayReady, common on streaming services) remains unsupported; (2) accounts with **2FA** sometimes require browser extraction instead of cookies.txt; (3) only use content you have the right to access.
-
----
-
-### Token security
+### Segurança dos tokens
 
 - Sensitive URL parameters (`token`, `access_token`, `authorization`, `auth`, `sid`, `uid`, `signature`, `sig`, `key`, etc.) have their values **masked** (`***`) in every display.
 - The full URL is **never** written to logs. The `downloads.log` (created in the project folder) only records date, file name, quality used, and the **masked** URL.
@@ -932,16 +888,16 @@ Yes, you can download **private** videos (e.g. "unlisted"/private YouTube, restr
 
 ---
 
-### Interrupting with Ctrl+C
+### Interromper com Ctrl+C
 
-Press `Ctrl+C` at any time:
+Pressione `Ctrl+C` a qualquer momento:
 
-- **During the prompt**: exits the program.
-- **During the download**: sends the stop command to FFmpeg (graceful shutdown, the file is closed correctly) and, if needed, force-kills after a few seconds. **No orphan processes left behind.** Partial files are removed.
+- **Durante o prompt**: encerra o programa.
+- **Durante o download**: envia o comando de parada ao FFmpeg (graceful shutdown, the file is closed correctly) and, if needed, force-kills after a few seconds. **No orphan processes left behind.** Partial files are removed.
 
 ---
 
-### Project structure
+### Estrutura do projeto
 
 ```
 streamgrab/
@@ -1075,7 +1031,7 @@ npm run release          # Windows build + SHA-256 checksums
 npm run update:ytdlp     # updates the yt-dlp binary (all local copies)
 ```
 
-> Requires `npm install` first (the `postinstall` downloads FFmpeg/Electron/yt-dlp). PR CI: `.github/workflows/ci.yml` (lint + tests + build). Manual release: push a `v*` tag — `.github/workflows/release.yml` builds the installer, checksums and publishes the GitHub Release.
+> Requer `npm install` first (the `postinstall` downloads FFmpeg/Electron/yt-dlp). PR CI: `.github/workflows/ci.yml` (lint + tests + build). Manual release: push a `v*` tag — `.github/workflows/release.yml` builds the installer, checksums and publishes the GitHub Release.
 
 ### Limitations (by design)
 
