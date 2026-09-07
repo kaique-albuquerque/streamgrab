@@ -95,7 +95,28 @@ function validateVersion(binPath) {
   return version;
 }
 
+/** Verifica se o yt-dlp já é um binário standalone (não Python zipapp). */
+function isStandaloneBinary(binPath) {
+  try {
+    const stat = fs.statSync(binPath);
+    // Binário standalone tem >5MB; Python zipapp tem ~3MB
+    if (stat.size < 5_000_000) return false;
+    const r = spawnSync(binPath, ['--version'], { encoding: 'utf8', windowsHide: true, timeout: 10000 });
+    return r.status === 0 && /\d{4}\.\d{2}\.\d{2}/.test(r.stdout);
+  } catch {
+    return false;
+  }
+}
+
 export async function main() {
+  // Verifica se já tem binário standalone instalado
+  const primary = path.join(PROJECT_ROOT, 'node_modules', 'youtube-dl-exec', 'bin', `yt-dlp${EXE}`);
+  if (fs.existsSync(primary) && isStandaloneBinary(primary)) {
+    const ver = spawnSync(primary, ['--version'], { encoding: 'utf8', windowsHide: true, timeout: 10000 });
+    console.log(`[update:ytdlp] Binário standalone já instalado: ${ver.stdout.trim()}`);
+    return;
+  }
+
   console.log('\n[update:ytdlp] Buscando release mais recente do yt-dlp...');
   const headers = { 'user-agent': UA };
   if (process.env.GH_TOKEN) {

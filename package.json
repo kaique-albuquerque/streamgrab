@@ -48,7 +48,7 @@
     "audit": "npm audit --omit=dev 2>&1 || echo '[audit] Vulnerabilities found — review above'",
     "format": "prettier --write .",
     "ffmpeg:install": "node scripts/install-ffmpeg.mjs",
-    "pack:resources": "node scripts/package-resources.mjs",
+    "pack:resources": "node scripts/update-ytdlp.mjs && node scripts/package-resources.mjs",
     "update:ytdlp": "node scripts/update-ytdlp.mjs",
     "dist": "npm run pack:resources && electron-builder --win",
     "dist:dir": "npm run pack:resources && electron-builder --win --dir",
