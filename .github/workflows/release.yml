@@ -72,6 +72,11 @@ jobs:
         run: npm ci 2>&1
         timeout-minutes: 10
 
+      - name: Instalar FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: node scripts/install-ffmpeg.mjs 2>&1
+        timeout-minutes: 5
+
       - name: Verificar binários obrigatórios
         run: |
           echo "=== ffmpeg ==="
@@ -117,9 +122,11 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Instalar FFmpeg (brew)
-        run: brew install ffmpeg 2>&1
-        timeout-minutes: 5
+      - name: Instalar FFmpeg (brew) + copiar para vendor
+        run: |
+          brew install ffmpeg 2>&1
+          node scripts/install-ffmpeg.mjs 2>&1
+        timeout-minutes: 8
 
       - name: Instalar dependências (npm ci)
         run: npm ci 2>&1
@@ -159,9 +166,11 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Instalar FFmpeg (brew)
-        run: brew install ffmpeg 2>&1
-        timeout-minutes: 5
+      - name: Instalar FFmpeg (brew) + copiar para vendor
+        run: |
+          brew install ffmpeg 2>&1
+          node scripts/install-ffmpeg.mjs 2>&1
+        timeout-minutes: 8
 
       - name: Instalar dependências (npm ci)
         run: npm ci 2>&1
@@ -205,12 +214,12 @@ jobs:
           node-version: 22
           cache: npm
 
-      # FFmpeg ANTES de npm ci — o postinstall (install-ffmpeg.mjs) copia
-      # o binário do PATH para vendor/ffmpeg/. Sem isso, o postinstall
-      # não encontra FFmpeg e pack:resources falha.
-      - name: Instalar FFmpeg (apt)
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg 2>&1
-        timeout-minutes: 5
+      # FFmpeg ANTES de npm ci — copia o binário do sistema para vendor/ffmpeg/
+      - name: Instalar FFmpeg (apt) + copiar para vendor
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg 2>&1
+          node scripts/install-ffmpeg.mjs 2>&1
+        timeout-minutes: 8
 
       - name: Instalar dependências (npm ci)
         run: npm ci 2>&1

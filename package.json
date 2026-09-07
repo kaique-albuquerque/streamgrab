@@ -51,8 +51,7 @@
     "dist:mac": "npm run pack:resources && electron-builder --mac",
     "dist:mac:dir": "npm run pack:resources && electron-builder --mac --dir",
     "dist:linux": "npm run pack:resources && electron-builder --linux",
-    "release": "npm run pack:resources && electron-builder --win --mac --linux && node scripts/checksums.mjs",
-    "postinstall": "node scripts/install-ffmpeg.mjs && node scripts/install-electron.mjs"
+    "release": "npm run pack:resources && electron-builder --win --mac --linux && node scripts/checksums.mjs"
   },
   "engines": {
     "node": ">=20"
