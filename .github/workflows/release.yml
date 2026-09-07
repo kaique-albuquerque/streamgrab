@@ -98,8 +98,19 @@ jobs:
         run: npm run pack:resources 2>&1
         timeout-minutes: 5
 
+      - name: Verificar Electron antes do build
+        run: |
+          echo "=== Electron ==="
+          ls -la node_modules/electron/dist/ 2>&1 || echo "Electron dist MISSING"
+          cat node_modules/electron/path.txt 2>&1 || echo "path.txt MISSING"
+          echo "=== node_modules/electron ==="
+          ls node_modules/electron/ 2>&1
+        shell: bash
+
       - name: Electron-builder (win)
         run: npx electron-builder --win 2>&1
+        env:
+          DEBUG: electron-builder,electron-builder:*
         timeout-minutes: 15
 
       - name: Listar artefatos gerados
@@ -184,6 +195,11 @@ jobs:
           node scripts/install-ffmpeg.mjs 2>&1
         timeout-minutes: 8
 
+      - name: Limpar cache npm (evitar conflito x64/arm)
+        run: |
+          rm -rf ~/.npm/_cacache
+          npm cache clean --force 2>&1 || true
+
       - name: Instalar dependências (npm ci)
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
@@ -252,6 +268,13 @@ jobs:
       - name: Empacotar binários (pack:resources)
         run: npm run pack:resources 2>&1
         timeout-minutes: 5
+
+      - name: Verificar Electron antes do build
+        run: |
+          echo "=== Electron ==="
+          ls -la node_modules/electron/dist/ 2>&1 || echo "Electron dist MISSING"
+          cat node_modules/electron/path.txt 2>&1 || echo "path.txt MISSING"
+        shell: bash
 
       - name: Build instaladores Linux
         run: npx electron-builder --linux --x64 2>&1
