@@ -80,7 +80,7 @@ jobs:
         with:
           name: release-windows
           path: |
-            dist/*.msi
+            dist/*.exe
             dist/*.blockmap
             dist/*.yml
 
@@ -218,7 +218,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/*.msi
+            dist/*.exe
             dist/*.pkg
             dist/*.AppImage
             dist/*.deb

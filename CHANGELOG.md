@@ -8,6 +8,13 @@ arquitetônica (`0.1.x` — base; `1.0.0` — versão considerada estável).
 
 ## [Não publicado]
 
+## [1.2.1] - 2026-09-07
+
+### Corrigido
+
+- **Release Windows:** trocado target de `MSI` para `NSIS` — o MSI precisa do WiX Toolset
+  que não está disponível no runner do GitHub Actions.
+
 ## [1.2.0] - 2026-09-04
 
 ### Corrigido
