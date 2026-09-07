@@ -31,6 +31,10 @@ export function detectExtensionFromUrl(value) {
 }
 
 export function resolvePreferredExtension(state) {
+  // YouTube/sociais sempre geram MP4 apos mux — ignorar o container nativo
+  // (ex: webm para VP9) que o yt-dlp reporta.
+  const st = String(state.media?.sourceType || '').toLowerCase();
+  if (st === 'youtube' || st === 'social' || st === 'ytdlp') return '.mp4';
   const container = String(state.media?.container || '').trim().toLowerCase();
   if (container && /^[a-z0-9]{1,12}$/.test(container)) return `.${container}`;
   return detectExtensionFromUrl(state.selectedQuality || state.sourceUrl || state.fields.url.value.trim()) || '.mp4';
