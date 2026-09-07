@@ -42,7 +42,7 @@ export async function runYtDlpDownload({ url, formatId, output, headers = {}, au
   const options = {
     format: formatId || 'best',
     output,
-    merge_output_format: 'mp4', // Forca saida MP4 (yt-dlp usa webm p/ VP9)
+    mergeOutputFormat: 'mp4', // Forca saida MP4 (yt-dlp usa webm p/ VP9)
     noPlaylist: true,
     noWarnings: true,
     noCheckCertificates: true,

@@ -52,31 +52,35 @@ export async function runStreamDownload(url, output, headers, signal, onProgress
     // P11.1: YouTube/CDNs podem retornar HTTP 200 com conteudo que NAO e video
     // (m3u8/HLS manifest, HTML de erro, JSON). Detectamos lendo os
     // primeiros bytes do stream antes de baixar o arquivo inteiro.
-    const firstReader = res.body.getReader();
-    const { value: firstChunk } = await firstReader.read();
+    // Importante: ler com APENAS UM reader para nao travar o stream.
+    const reader = res.body.getReader();
+    const { value: firstChunk } = await reader.read();
     if (!firstChunk || firstChunk.length === 0) {
+      reader.cancel().catch(() => {});
       return { ok: false, code: 'EMPTY_RESPONSE', error: 'Resposta vazia do servidor.' };
     }
     const preview = new TextDecoder('utf-8', { fatal: false }).decode(firstChunk.slice(0, 1024));
     // Detecta m3u8/HLS manifest (extensao errada ou mime errado)
     if (/^\s*#EXTM3U/i.test(preview)) {
+      reader.cancel().catch(() => {});
       return { ok: false, code: 'HLS_MANIFEST', error: `Servidor retornou manifest HLS (m3u8) em vez de video. URL pode ter expirado ou a CDN serviu formato adaptativo. Conteudo: ${preview.slice(0, 200).replace(/\s+/g, ' ').trim()}` };
     }
     // Detecta HTML de erro (login required, 403, etc)
     if (/^\s*<!DOCTYPE|^\s*<html/i.test(preview)) {
+      reader.cancel().catch(() => {});
       return { ok: false, code: 'HTML_ERROR', error: `Servidor retornou HTML em vez de video. Conteudo: ${preview.slice(0, 200).replace(/\s+/g, ' ').trim()}` };
     }
     // Detecta JSON de erro
     if (/^\s*\{[\s"]*(?:error|message|status)/i.test(preview)) {
+      reader.cancel().catch(() => {});
       return { ok: false, code: 'JSON_ERROR', error: `Servidor retornou JSON de erro em vez de video. Conteudo: ${preview.slice(0, 200).replace(/\s+/g, ' ').trim()}` };
     }
-    // Reconstrói o stream com o primeiro chunk preservado
+    // Reconstrói o stream com o primeiro chunk preservado, usando o MESMO reader
     const bodyWithPrefix = new ReadableStream({
       start(controller) {
         controller.enqueue(firstChunk);
-        const reader2 = res.body.getReader();
         function pump() {
-          reader2.read().then(({ done, value }) => {
+          reader.read().then(({ done, value }) => {
             if (done) { controller.close(); return; }
             controller.enqueue(value);
             pump();
