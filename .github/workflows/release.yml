@@ -81,6 +81,8 @@ jobs:
 
       - name: Instalar yt-dlp
         run: node scripts/update-ytdlp.mjs 2>&1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         timeout-minutes: 5
 
       - name: Verificar binários obrigatórios
@@ -160,6 +162,8 @@ jobs:
 
       - name: Instalar yt-dlp
         run: node scripts/update-ytdlp.mjs 2>&1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         timeout-minutes: 5
 
       - name: Instalar Electron
@@ -225,6 +229,8 @@ jobs:
 
       - name: Instalar yt-dlp
         run: node scripts/update-ytdlp.mjs 2>&1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         timeout-minutes: 5
 
       - name: Instalar Electron
@@ -297,6 +303,8 @@ jobs:
 
       - name: Instalar yt-dlp
         run: node scripts/update-ytdlp.mjs 2>&1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         timeout-minutes: 5
 
       - name: Instalar Electron

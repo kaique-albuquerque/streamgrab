@@ -56,7 +56,11 @@ export function targetPaths(projectRoot = PROJECT_ROOT) {
 
 /** Baixa o asset para um arquivo temporário. */
 async function downloadToTemp(url) {
-  const res = await fetch(url, { headers: { 'user-agent': UA } });
+  const headers = { 'user-agent': UA };
+  if (process.env.GH_TOKEN) {
+    headers.Authorization = `Bearer ${process.env.GH_TOKEN}`;
+  }
+  const res = await fetch(url, { headers });
   if (!res.ok) {
     throw new Error(`Falha ao baixar o yt-dlp (HTTP ${res.status} ${res.statusText}).`);
   }
@@ -80,7 +84,11 @@ function validateVersion(binPath) {
 
 export async function main() {
   console.log('\n[update:ytdlp] Buscando release mais recente do yt-dlp...');
-  const res = await fetch(GITHUB_API_URL, { headers: { 'user-agent': UA } });
+  const headers = { 'user-agent': UA };
+  if (process.env.GH_TOKEN) {
+    headers.Authorization = `Bearer ${process.env.GH_TOKEN}`;
+  }
+  const res = await fetch(GITHUB_API_URL, { headers });
   if (!res.ok) {
     throw new Error(
       `Falha ao consultar releases do yt-dlp (HTTP ${res.status}). ` +
