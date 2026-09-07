@@ -11,8 +11,8 @@ directories:
   output: dist
   buildResources: build
 
-# O electron-builder encontra o Electron automaticamente em node_modules.
-# electronDist removido porque causava conflito de caminho em Windows/Linux.
+# Usa o Electron já baixado pelo npm (evita re-download).
+electronDist: node_modules/electron/dist
 
 files:
   - "electron/**"
