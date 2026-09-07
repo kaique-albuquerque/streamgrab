@@ -10,6 +10,10 @@
  *      { paused: true } | { cancelled: true }
  */
 
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
 import { resolveSourceAdapter, resolveSourceAdapterAsync } from '../../source-adapters.js';
 import { startDownload, startMuxDownload } from '../../ffmpeg.js';
 import { CurlImpersonateTransport } from '../../transports/curl.js';
@@ -20,9 +24,10 @@ import { resolveTransportWithAutoInstall } from '../mdstrm-routing.js';
 import { setJobCheckpoint } from '../models.js';
 import { selectStrategyDecision } from '../../strategy/selector.js';
 
-import { safePathname, isMdstrmPlayerUrl } from './helpers.js';
+import { safePathname, isMdstrmPlayerUrl, abortOutcome, makeFfmpegProgress } from './helpers.js';
 import { isYouTubeUrl } from '../../utils.js';
 import { runYtDlpDownload } from '../../transports/ytdlp-runner.js';
+import { downloadParallelRanges, probeRangeSupport } from '../../transports/range.js';
 import {
   runStreamDownload,
   runFfmpegDownload,
@@ -66,7 +71,7 @@ export function createDefaultExecutor({
       return adapter.prepareDownload({ url, analysis, selectedUrl, headers, auth, audioLanguage, allAudio });
     },
 
-    async run({ job, prepared, output, headers, mode, signal, onProgress, atomic, onLog = () => {}, featureFlags = {} }) {
+    async run({ job, prepared, output, headers, mode, signal, onProgress, atomic, onLog = () => {}, featureFlags = {}, turbo = false }) {
       const sourceType = job._sourceType || job.meta?.sourceType || '';
       if (prepared.strategy === 'mux') {
         // P11.1: YouTube adaptive URLs (googlevideo.com) retornam manifests
@@ -93,6 +98,16 @@ export function createDefaultExecutor({
           } catch (err) {
             // Se yt-dlp falhar, loga e cai no fallback fetch (runMuxDownload)
             onLog?.(`[yt-dlp] mux fallback para fetch direto: ${err?.message || err}`);
+          }
+        }
+        // P6.2: mux com turbo — baixa video e audio em paralelo com
+        // multi-part Range se o servidor suportar
+        if (turbo) {
+          onLog?.('[turbo] mux strategy: tentando download paralelo dos streams');
+          const result = await runTurboMuxDownload(prepared, output, headers, signal, onProgress, onLog);
+          if (result?.ok) return result;
+          if (result && !result.ok) {
+            onLog?.(`[turbo] mux falhou, fallback para runMuxDownload: ${result.error}`);
           }
         }
         return runMuxDownload(prepared, output, headers, signal, onProgress);
@@ -174,7 +189,101 @@ export function createDefaultExecutor({
         }
         return runFfmpegDownload(url, output, headers, signal, onProgress, sourceType, mode, Number(job.meta?.durationMs || 0), ffmpegStartDownload);
       }
+      // P6.2: turbo para downloads diretos (arquivos HTTP com Range suportado)
+      if (turbo) {
+        const turboResult = await tryTurboDownload(url, output, headers, signal, onProgress, onLog);
+        if (turboResult) return turboResult;
+      }
       return runStreamDownload(url, output, headers, signal, onProgress, atomic);
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Turbo helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Tenta baixar uma URL direta com turbo (HTTP Range paralelo).
+ * Fallback silencioso para runStreamDownload se Range nao for suportado.
+ */
+async function tryTurboDownload(url, output, headers, signal, onProgress, onLog) {
+  try {
+    await probeRangeSupport(url, { headers, signal, timeoutMs: 5000 });
+  } catch (err) {
+    onLog?.(`[turbo] servidor nao suporta Range (${err?.message || err}) — fallback sequencial`);
+    return null; // fallback silencioso
+  }
+  onLog?.('[turbo] servidor aceita Range — baixando em paralelo');
+  const result = await downloadParallelRanges({
+    url,
+    output,
+    headers,
+    signal,
+    concurrency: 8,
+    onProgress: (p) => onProgress?.({ ...p, stage: 'downloading' }),
+  });
+  return result.ok ? { ok: true } : null;
+}
+
+/**
+ * Mux com turbo: baixa video e audio via HTTP Range paralelo, depois
+ * mux com FFmpeg (mesmo fallback do runMuxDownload).
+ */
+async function runTurboMuxDownload(prepared, output, headers, signal, onProgress, onLog) {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sg-turbo-mux-'));
+  const videoTmp = path.join(tmpDir, 'video.mp4');
+  const audioTmp = path.join(tmpDir, 'audio.m4a');
+
+  const muxHeaders = { ...headers };
+  if (prepared.videoUrl?.includes('googlevideo.com') || prepared.audioUrl?.includes('googlevideo.com')) {
+    muxHeaders['Referer'] = muxHeaders['Referer'] || 'https://www.youtube.com/';
+    muxHeaders['Origin'] = muxHeaders['Origin'] || 'https://www.youtube.com';
+  }
+
+  try {
+    // Tenta video com turbo, fallback sequencial
+    const videoResult = await tryTurboDownload(prepared.videoUrl, videoTmp, muxHeaders, signal,
+      (u) => onProgress({ ...u, stage: 'downloading', message: 'Baixando video (turbo)' }),
+      onLog,
+    ) || await runStreamDownload(prepared.videoUrl, videoTmp, muxHeaders, signal,
+      (u) => onProgress({ ...u, stage: 'downloading' }),
+    );
+    if (!videoResult?.ok) return videoResult;
+
+    if (signal?.aborted) return abortOutcome(signal);
+
+    // Tenta audio com turbo, fallback sequencial
+    const audioResult = await tryTurboDownload(prepared.audioUrl, audioTmp, muxHeaders, signal,
+      (u) => onProgress({ ...u, stage: 'downloading', message: 'Baixando audio (turbo)' }),
+      onLog,
+    ) || await runStreamDownload(prepared.audioUrl, audioTmp, muxHeaders, signal,
+      (u) => onProgress({ ...u, stage: 'downloading' }),
+    );
+    if (!audioResult?.ok) return audioResult;
+
+    if (signal?.aborted) return abortOutcome(signal);
+
+    // Mux com FFmpeg
+    onProgress?.({ stage: 'merging', percent: 90, message: 'Juntando video e audio com FFmpeg' });
+    const { promise, stop } = startMuxDownload({
+      videoInput: videoTmp,
+      audioInput: audioTmp,
+      output,
+      onProgress: makeFfmpegProgress((u) => onProgress?.({ ...u, stage: 'merging' }), 0),
+    });
+    const onAbort = () => stop();
+    signal?.addEventListener('abort', onAbort, { once: true });
+    try {
+      const result = await promise;
+      if (signal?.aborted) return abortOutcome(signal);
+      if (result.ok) return { ok: true };
+      const detail = result.stderr ? ` stderr=${result.stderr.slice(0, 500)}` : '';
+      return { ok: false, code: 'MUX_FAILED', error: `ffmpeg mux saiu com codigo ${result.code ?? 'desconhecido'}${detail}` };
+    } finally {
+      signal?.removeEventListener('abort', onAbort);
+    }
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignora */ }
+  }
 }
