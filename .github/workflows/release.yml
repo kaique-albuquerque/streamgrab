@@ -112,7 +112,7 @@ jobs:
         shell: bash
 
       - name: Electron-builder (win)
-        run: npx electron-builder --win 2>&1
+        run: npx electron-builder --win --publish never 2>&1
         timeout-minutes: 20
 
       - name: Listar artefatos gerados
@@ -165,7 +165,7 @@ jobs:
         timeout-minutes: 5
 
       - name: Build instalador PKG x64
-        run: npx electron-builder --mac --x64 2>&1
+        run: npx electron-builder --mac --x64 --publish never 2>&1
         timeout-minutes: 15
 
       - name: Listar artefatos gerados
@@ -224,7 +224,7 @@ jobs:
         shell: bash
 
       - name: Build instalador PKG arm64
-        run: npx electron-builder --mac --arm64 2>&1
+        run: npx electron-builder --mac --arm64 --publish never 2>&1
         timeout-minutes: 15
 
       - name: Listar artefatos gerados
@@ -288,15 +288,7 @@ jobs:
         shell: bash
 
       - name: Build instaladores Linux
-        run: |
-          npx electron-builder --linux --x64 2>&1 | tee /tmp/electron-builder.log
-          echo "=== EXIT CODE: $? ==="
-        shell: bash
-        timeout-minutes: 20
-
-      - name: Salvar log do builder para debug
-        if: failure()
-        run: cat /tmp/electron-builder.log 2>&1 || echo "log not found"
+        run: npx electron-builder --linux --x64 --publish never 2>&1
 
       - name: Listar artefatos gerados
         run: ls -lh dist/ 2>&1 || echo "dist vazio"
