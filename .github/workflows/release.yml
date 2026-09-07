@@ -68,12 +68,32 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Instalar dependências
-        run: npm ci
+      - name: Instalar dependências (npm ci)
+        run: npm ci 2>&1
+        timeout-minutes: 10
 
-      - name: Build instalador MSI
-        run: npm run dist
+      - name: Verificar binários obrigatórios
+        run: |
+          echo "=== ffmpeg ==="
+          ls -la vendor/ffmpeg/ffmpeg.exe 2>&1 || echo "MISSING"
+          echo "=== yt-dlp ==="
+          ls -la node_modules/youtube-dl-exec/bin/yt-dlp* 2>&1 || echo "MISSING"
+          echo "=== extraResources pre ==="
+          ls -la build/extraResources/bin/ 2>&1 || echo "empty"
+        shell: bash
+        timeout-minutes: 1
+
+      - name: Empacotar binários (pack:resources)
+        run: npm run pack:resources 2>&1
+        timeout-minutes: 5
+
+      - name: Electron-builder (win)
+        run: npx electron-builder --win 2>&1
         timeout-minutes: 15
+
+      - name: Listar artefatos gerados
+        run: ls -lh dist/ 2>&1 || echo "dist vazio"
+        shell: bash
 
       - name: Publicar artefatos Windows
         uses: actions/upload-artifact@v4
@@ -97,15 +117,25 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Instalar FFmpeg
-        run: brew install ffmpeg
+      - name: Instalar FFmpeg (brew)
+        run: brew install ffmpeg 2>&1
+        timeout-minutes: 5
 
-      - name: Instalar dependências
-        run: npm ci
+      - name: Instalar dependências (npm ci)
+        run: npm ci 2>&1
+        timeout-minutes: 10
+
+      - name: Empacotar binários (pack:resources)
+        run: npm run pack:resources 2>&1
+        timeout-minutes: 5
 
       - name: Build instalador PKG x64
-        run: npm run pack:resources && npx electron-builder --mac --x64
+        run: npx electron-builder --mac --x64 2>&1
         timeout-minutes: 15
+
+      - name: Listar artefatos gerados
+        run: ls -lh dist/ 2>&1 || echo "dist vazio"
+        shell: bash
 
       - name: Publicar artefatos macOS x64
         uses: actions/upload-artifact@v4
@@ -129,15 +159,29 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Instalar FFmpeg
-        run: brew install ffmpeg
+      - name: Instalar FFmpeg (brew)
+        run: brew install ffmpeg 2>&1
+        timeout-minutes: 5
 
-      - name: Instalar dependências
-        run: npm ci
+      - name: Instalar dependências (npm ci)
+        run: npm ci 2>&1
+        timeout-minutes: 10
+
+      - name: Empacotar binários (pack:resources)
+        run: npm run pack:resources 2>&1
+        timeout-minutes: 5
+
+      - name: Verificar binários empacotados
+        run: ls -lh build/extraResources/bin/ 2>&1
+        shell: bash
 
       - name: Build instalador PKG arm64
-        run: npm run pack:resources && npx electron-builder --mac --arm64
+        run: npx electron-builder --mac --arm64 2>&1
         timeout-minutes: 15
+
+      - name: Listar artefatos gerados
+        run: ls -lh dist/ 2>&1 || echo "dist vazio"
+        shell: bash
 
       - name: Publicar artefatos macOS arm64
         uses: actions/upload-artifact@v4
@@ -164,17 +208,25 @@ jobs:
       # FFmpeg ANTES de npm ci — o postinstall (install-ffmpeg.mjs) copia
       # o binário do PATH para vendor/ffmpeg/. Sem isso, o postinstall
       # não encontra FFmpeg e pack:resources falha.
-      - name: Instalar FFmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Instalar FFmpeg (apt)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg 2>&1
+        timeout-minutes: 5
 
-      - name: Instalar dependências
-        run: npm ci
+      - name: Instalar dependências (npm ci)
+        run: npm ci 2>&1
+        timeout-minutes: 10
 
-      # AppImage precisa de libfuse2 no runtime, mas para CRIAR basta
-      # o mksquashfs (já presente no ubuntu-latest).
+      - name: Empacotar binários (pack:resources)
+        run: npm run pack:resources 2>&1
+        timeout-minutes: 5
+
       - name: Build instaladores Linux
-        run: npm run pack:resources && npx electron-builder --linux --x64
+        run: npx electron-builder --linux --x64 2>&1
         timeout-minutes: 15
+
+      - name: Listar artefatos gerados
+        run: ls -lh dist/ 2>&1 || echo "dist vazio"
+        shell: bash
 
       - name: Publicar artefatos Linux
         uses: actions/upload-artifact@v4
