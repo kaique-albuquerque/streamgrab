@@ -10,7 +10,7 @@
 **Learning:** Custom auth headers are widely used by streaming providers and proxies. Header redaction regexes must match generic token, secret, auth, session, key, and signature patterns in header names, and inline text redaction must use word/whitespace bounds to avoid consuming surrounding text.
 **Prevention:** Include generic token, key, auth, and session keywords in `SENSITIVE_HEADER_NAMES` and test inline header redaction against multi-token strings.
 
-## 2026-09-02 - Unescaped Stream Variant Metadata Rendered via innerHTML Injected XSS in Electron
-**Vulnerability:** In `electron/renderer/video-tabs.js`, `renderQualities` constructed quality selector buttons by interpolating unescaped media format attributes (`resolution`, `codecs`) into `innerHTML`.
-**Learning:** Video playlists and yt-dlp metadata from remote/untrusted sources can contain injected HTML/script tags in resolution labels, codecs, or format notes.
-**Prevention:** Always build DOM elements using `document.createElement` and assign text using `textContent` when displaying untrusted media stream attributes in Electron renderer.
+## 2026-09-02 - Unvalidated Reveal Roots Registration Allowed Path Traversal in File Open IPC Handlers
+**Vulnerability:** The local `registerRevealRoot` helper in `electron/main.js` accepted any string input without validating whether it was a safe absolute path. Relative paths or paths with traversal segments (`..`) could be registered in `allowedRevealRoots`, bypassing folder restriction checks in `app:open-file`, `app:show-in-folder`, and `app:export-logs`.
+**Learning:** Helper functions that add permitted root directories to security allowlists must strictly validate input paths using `isSafeAbsolutePath` before registration.
+**Prevention:** Export a centralized `registerRevealRoot` function in `electron/security.js` that checks `isSafeAbsolutePath` before populating the `allowedRevealRoots` set.
