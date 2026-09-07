@@ -234,3 +234,17 @@ test('core-errors: StreamGrabError redige parametros sensiveis em detail', () =>
   const report = friendlyReport(err);
   assert.equal(report.detail, err.detail);
 });
+
+test('core-errors: StreamGrabError redige parametros sensiveis em message e suggestedAction', () => {
+  const err = new StreamGrabError('Falha ao baixar https://example.com/v.m3u8?token=secret456&sid=xyz', {
+    suggestedAction: 'Tente com a URL https://example.com/v.m3u8?access_token=secret789',
+  });
+  assert.ok(!err.message.includes('secret456'));
+  assert.ok(err.message.includes('token=***'));
+  assert.ok(!err.suggestedAction.includes('secret789'));
+  assert.ok(err.suggestedAction.includes('access_token=***'));
+
+  const report = friendlyReport(err);
+  assert.equal(report.message, err.message);
+  assert.equal(report.suggestedAction, err.suggestedAction);
+});

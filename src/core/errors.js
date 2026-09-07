@@ -30,13 +30,14 @@ const SYS_RETRYABLE_CODES = new Set([
 
 export class StreamGrabError extends Error {
   constructor(message, { code = 'STREAMGRAB_ERROR', detail = '', retryable = false, status = 0, suggestedAction = '', cause } = {}) {
-    super(message);
+    const cleanMessage = typeof message === 'string' ? redactText(message) : message;
+    super(cleanMessage);
     this.name = this.constructor.name;
     this.code = code;
     this.detail = typeof detail === 'string' ? redactText(detail) : detail;
     this.retryable = Boolean(retryable);
     this.status = Number(status) || 0;
-    this.suggestedAction = suggestedAction;
+    this.suggestedAction = typeof suggestedAction === 'string' ? redactText(suggestedAction) : suggestedAction;
     if (cause !== undefined) this.cause = cause;
   }
 
