@@ -17,7 +17,7 @@
 
 ![Analisar URL](assets/analise-url.gif)
 
-![Download de vídeo](assets/download-video.gif)
+![Download de vídeo](assets/download-platform.gif)
 
 #### App Electron (interface gráfica)
 

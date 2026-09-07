@@ -696,10 +696,11 @@ async function runDashSegmentedDownload(
         const result = await promise;
         if (signal?.aborted) return abortOutcome(signal);
         if (result.ok) return { ok: true };
+        const detail = result.stderr ? ` stderr=${result.stderr.slice(0, 500)}` : '';
         return {
           ok: false,
           code: 'MUX_FAILED',
-          error: `ffmpeg mux saiu com codigo ${result.code ?? 'desconhecido'}`,
+          error: `ffmpeg mux saiu com codigo ${result.code ?? 'desconhecido'}${detail}`,
         };
       } finally {
         signal?.removeEventListener('abort', onAbort);
@@ -730,6 +731,17 @@ async function runMuxDownload(prepared, output, headers, signal, onProgress) {
     if (!video.ok || !audio.ok) {
       return { ok: false, code: 'MUX_DOWNLOAD_FAILED', error: 'Falha ao baixar video/audio separados.' };
     }
+    // Validação: arquivos vazios causam ffmpeg exit code estranho (ex: 183).
+    const [videoStat, audioStat] = await Promise.all([
+      fs.promises.stat(videoTmp).catch(() => null),
+      fs.promises.stat(audioTmp).catch(() => null),
+    ]);
+    if (!videoStat || videoStat.size === 0) {
+      return { ok: false, code: 'MUX_DOWNLOAD_FAILED', error: 'Arquivo de video vazio apos download.' };
+    }
+    if (!audioStat || audioStat.size === 0) {
+      return { ok: false, code: 'MUX_DOWNLOAD_FAILED', error: 'Arquivo de audio vazio apos download.' };
+    }
     onProgress?.({ stage: 'merging', percent: 90, message: 'Juntando video e audio com FFmpeg' });
     const { promise, stop } = startMuxDownload({
       videoInput: videoTmp,
@@ -743,7 +755,8 @@ async function runMuxDownload(prepared, output, headers, signal, onProgress) {
       const result = await promise;
       if (signal?.aborted) return abortOutcome(signal);
       if (result.ok) return { ok: true };
-      return { ok: false, code: 'MUX_FAILED', error: `ffmpeg mux saiu com codigo ${result.code ?? 'desconhecido'}` };
+      const detail = result.stderr ? ` stderr=${result.stderr.slice(0, 500)}` : '';
+      return { ok: false, code: 'MUX_FAILED', error: `ffmpeg mux saiu com codigo ${result.code ?? 'desconhecido'}${detail}` };
     } finally {
       signal?.removeEventListener('abort', onAbort);
     }

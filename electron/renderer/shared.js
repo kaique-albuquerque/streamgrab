@@ -127,7 +127,7 @@ export function markAllPreviousAsDone(state, currentStep) {
 export function refreshResolvedOutput(state, defaultOutputDir) {
   const dir = state.fields.outputDir.value.trim() || defaultOutputDir || '';
   const outputName = resolveDesiredFilename(state);
-  const output = dir ? `${dir}\\${outputName}` : outputName;
+  const output = dir ? `${dir}/${outputName}` : outputName;
   state.fields.resolvedOutput.textContent = output || 'Ainda nao definida';
 }
 

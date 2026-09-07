@@ -376,7 +376,7 @@ export function createVideoTabsController({ appState, dom, onQueueRefresh, onHis
 
     const outputDir = (state.fields.outputDir.value.trim() || appState.defaultOutputDir || '').trim();
     const filename = resolveDesiredFilename(state);
-    const fullOutput = outputDir ? `${outputDir}\\${filename}` : filename;
+    const fullOutput = outputDir ? `${outputDir}/${filename}` : filename;
     const conflict = appState.activeOutputs.get(fullOutput);
 
     if (conflict && conflict !== state.taskId) {
