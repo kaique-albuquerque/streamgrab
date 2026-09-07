@@ -70,6 +70,8 @@ jobs:
 
       - name: Instalar dependências (npm ci)
         run: npm ci 2>&1
+        env:
+          YOUTUBE_DL_SKIP_DOWNLOAD: 1
         timeout-minutes: 15
 
       - name: Instalar FFmpeg (Windows)
@@ -77,15 +79,9 @@ jobs:
         run: node scripts/install-ffmpeg.mjs 2>&1
         timeout-minutes: 5
 
-      - name: Instalar dependências de build (Windows)
-        run: |
-          # NSIS - electron-builder baixa automaticamente
-          echo "Verificando ambiente..."
-          where npx 2>&1
-        shell: cmd
-        timeout-minutes: 2
-
-      # Electron já é baixado pelo npm ci
+      - name: Instalar yt-dlp
+        run: node scripts/update-ytdlp.mjs 2>&1
+        timeout-minutes: 5
 
       - name: Verificar binários obrigatórios
         run: |
@@ -144,17 +140,27 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Instalar FFmpeg (brew) + copiar para vendor
+      - name: Instalar FFmpeg (brew)
+        run: brew install ffmpeg 2>&1
+        timeout-minutes: 5
+
+      - name: Copiar FFmpeg para vendor/ffmpeg/
         run: |
-          brew install ffmpeg 2>&1
-          node scripts/install-ffmpeg.mjs 2>&1
-        timeout-minutes: 8
+          mkdir -p vendor/ffmpeg
+          cp "$(which ffmpeg)" vendor/ffmpeg/ffmpeg
+          chmod +x vendor/ffmpeg/ffmpeg
+        timeout-minutes: 1
 
       - name: Instalar dependências (npm ci)
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          YOUTUBE_DL_SKIP_DOWNLOAD: 1
         run: npm ci 2>&1
         timeout-minutes: 10
+
+      - name: Instalar yt-dlp
+        run: node scripts/update-ytdlp.mjs 2>&1
+        timeout-minutes: 5
 
       - name: Instalar Electron
         run: node scripts/install-electron.mjs 2>&1
@@ -194,11 +200,16 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Instalar FFmpeg (brew) + copiar para vendor
+      - name: Instalar FFmpeg (brew)
+        run: brew install ffmpeg 2>&1
+        timeout-minutes: 5
+
+      - name: Copiar FFmpeg para vendor/ffmpeg/
         run: |
-          brew install ffmpeg 2>&1
-          node scripts/install-ffmpeg.mjs 2>&1
-        timeout-minutes: 8
+          mkdir -p vendor/ffmpeg
+          cp "$(which ffmpeg)" vendor/ffmpeg/ffmpeg
+          chmod +x vendor/ffmpeg/ffmpeg
+        timeout-minutes: 1
 
       - name: Limpar cache npm (evitar conflito x64/arm)
         run: |
@@ -208,8 +219,13 @@ jobs:
       - name: Instalar dependências (npm ci)
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          YOUTUBE_DL_SKIP_DOWNLOAD: 1
         run: npm ci 2>&1
         timeout-minutes: 10
+
+      - name: Instalar yt-dlp
+        run: node scripts/update-ytdlp.mjs 2>&1
+        timeout-minutes: 5
 
       - name: Instalar Electron
         run: node scripts/install-electron.mjs 2>&1
@@ -254,11 +270,17 @@ jobs:
           cache: npm
 
       # FFmpeg ANTES de npm ci — copia o binário do sistema para vendor/ffmpeg/
-      - name: Instalar FFmpeg (apt) + copiar para vendor
+      - name: Instalar FFmpeg (apt)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg 2>&1
+        timeout-minutes: 3
+
+      - name: Copiar FFmpeg para vendor/ffmpeg/
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg 2>&1
-          node scripts/install-ffmpeg.mjs 2>&1
-        timeout-minutes: 8
+          mkdir -p vendor/ffmpeg
+          cp "$(which ffmpeg)" vendor/ffmpeg/ffmpeg
+          chmod +x vendor/ffmpeg/ffmpeg
+          ls -lh vendor/ffmpeg/
+        timeout-minutes: 1
 
       - name: Instalar dependências de build (Linux)
         run: |
@@ -269,8 +291,13 @@ jobs:
       - name: Instalar dependências (npm ci)
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          YOUTUBE_DL_SKIP_DOWNLOAD: 1
         run: npm ci 2>&1
         timeout-minutes: 10
+
+      - name: Instalar yt-dlp
+        run: node scripts/update-ytdlp.mjs 2>&1
+        timeout-minutes: 5
 
       - name: Instalar Electron
         run: node scripts/install-electron.mjs 2>&1
