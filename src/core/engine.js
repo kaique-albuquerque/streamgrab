@@ -340,28 +340,48 @@ async function runStreamDownload(url, output, headers, signal, onProgress, atomi
     if (!res.ok || !res.body) {
       return { ok: false, code: 'HTTP_ERROR', error: `HTTP ${res.status}`, status: res.status };
     }
-    // P11.1: YouTube e outros CDNs podem retornar 200 com HTML/texto em vez de
-    // video quando a URL expira ou e bloqueada. Detecta cedo para evitar
-    // baixar MBs de lixo que falham no ffmpeg (moov atom not found).
-    const contentType = (res.headers.get('content-type') || '').toLowerCase();
-    const isTextResponse = contentType.includes('text/') || contentType.includes('application/json') || contentType.includes('application/xml');
-    if (isTextResponse && !contentType.includes('mp2t')) {
-      // Le os primeiros bytes para confirmar que nao e video
-      const peek = res.body.getReader();
-      const { value: firstChunk } = await peek.read();
-      await peek.cancel().catch(() => {});
-      const preview = firstChunk ? new TextDecoder('utf-8', { fatal: false }).decode(firstChunk.slice(0, 512)) : '';
-      // Se parece com HTML/JSON/XML, rejeita
-      if (/^[\s]*[<{![]|^\s*\{|"error"|"message"|"status"/i.test(preview)) {
-        const snippet = preview.slice(0, 200).replace(/\s+/g, ' ').trim();
-        return { ok: false, code: 'INVALID_RESPONSE', error: `Resposta nao e video (content-type=${contentType}): ${snippet}`, status: res.status };
-      }
+    // P11.1: YouTube/CDNs podem retornar HTTP 200 com conteudo que NAO e video
+    // (m3u8/HLS manifest, HTML de erro, JSON). O header content-type muitas vezes
+    // mente (diz 'video/mp4' quando o body e texto). Detectamos lendo os
+    // primeiros bytes do stream antes de baixar o arquivo inteiro.
+    const firstReader = res.body.getReader();
+    const { value: firstChunk } = await firstReader.read();
+    if (!firstChunk || firstChunk.length === 0) {
+      return { ok: false, code: 'EMPTY_RESPONSE', error: 'Resposta vazia do servidor.' };
     }
+    const preview = new TextDecoder('utf-8', { fatal: false }).decode(firstChunk.slice(0, 1024));
+    // Detecta m3u8/HLS manifest (extendsão errada ou mime errado)
+    if (/^\s*#EXTM3U/i.test(preview)) {
+      return { ok: false, code: 'HLS_MANIFEST', error: `Servidor retornou manifest HLS (m3u8) em vez de video. URL pode ter expirado ou a CDN serviu formato adaptativo. Conteudo: ${preview.slice(0, 200).replace(/\s+/g, ' ').trim()}` };
+    }
+    // Detecta HTML de erro (login required, 403, etc)
+    if (/^\s*<!DOCTYPE|^\s*<html/i.test(preview)) {
+      return { ok: false, code: 'HTML_ERROR', error: `Servidor retornou HTML em vez de video. Conteudo: ${preview.slice(0, 200).replace(/\s+/g, ' ').trim()}` };
+    }
+    // Detecta JSON de erro
+    if (/^\s*\{[\s"]*(?:error|message|status)/i.test(preview)) {
+      return { ok: false, code: 'JSON_ERROR', error: `Servidor retornou JSON de erro em vez de video. Conteudo: ${preview.slice(0, 200).replace(/\s+/g, ' ').trim()}` };
+    }
+    // Reconstrói o stream com o primeiro chunk preservado
+    const bodyWithPrefix = new ReadableStream({
+      start(controller) {
+        controller.enqueue(firstChunk);
+        const reader2 = res.body.getReader();
+        function pump() {
+          reader2.read().then(({ done, value }) => {
+            if (done) { controller.close(); return; }
+            controller.enqueue(value);
+            pump();
+          }).catch((e) => controller.error(e));
+        }
+        pump();
+      }
+    });
     total = Number(res.headers.get('content-length') || 0);
     await fs.promises.mkdir(path.dirname(output), { recursive: true });
     const fh = await fs.promises.open(output, 'w');
     try {
-      const reader = res.body.getReader();
+      const reader = bodyWithPrefix.getReader();
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
