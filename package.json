@@ -2,6 +2,10 @@
   "name": "streamgrab",
   "version": "1.2.1",
   "description": "Universal video downloader for HLS, DASH, YouTube and other supported sources.",
+  "author": {
+    "name": "Kaique Albuquerque",
+    "email": "kaique.g.dias14@gmail.com"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/kaique-albuquerque/streamgrab.git"
