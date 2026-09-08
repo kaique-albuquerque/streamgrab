@@ -11,17 +11,15 @@
 ### 📸 Demo
 
 <!-- Grava suas telas com Kap (macOS) ou ScreenToGif (Windows), salve em assets/ -->
-<!-- Recomendações: 10fps, 800px largura, <2MB por GIF, 10-15 segundos máximo -->
+<!-- Recomendações: 8-10fps, 800px largura, ate 10MB por GIF, 10-15 segundos máximo -->
 
-#### Uso no terminal
+#### Uso no App Electron (interface gráfica) para download hls
 
-![Analisar URL](assets/analise_url.gif)
+![Download via HLS (plataforma)](assets/download_platform.gif)
 
-![Download de vídeo](assets/download_platform.gif)
+#### Uso no App Electron (interface gráfica) para download youtube/social media/etc
 
-#### App Electron (interface gráfica)
-
-![Interface Electron](assets/electron-app.gif)
+![Download via YouTube](assets/download_youtube.gif)
 
 ---
 

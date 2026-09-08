@@ -28,12 +28,13 @@ ffmpeg -i gravacao.mp4 -vf "fps=10,scale=800:-1:flags=lanczos" -c:v gif saida.gi
 ### 4. Coloque os arquivos aqui
 
 Nomeie seguindo o padrão usado no README:
-- `analise-url.gif` — demonstração da análise de URL
-- `download-video.gif` — demonstração do download
+- `download_platform.gif` — demonstração do download via HLS (plataforma)
+- `download_youtube.gif` — demonstração do download via YouTube
 - `electron-app.gif` — interface gráfica do Electron
 
 ## Arquivos atuais
 
 | Arquivo | Descrição |
 |---------|-----------|
-| (adicione seus GIFs aqui) | |
+| download_platform.gif | Download via HLS (plataforma) |
+| download_youtube.gif | Download via YouTube |
