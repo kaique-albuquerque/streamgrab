@@ -1,16 +1,11 @@
 {
   "name": "streamgrab",
-<<<<<<< HEAD
   "version": "1.4.1",
   "description": "Universal video downloader for HLS, DASH, YouTube and other supported sources.",
   "author": {
     "name": "Kaique Albuquerque",
     "email": "kaique.g.dias14@gmail.com"
   },
-=======
-  "version": "1.2.1",
-  "description": "Universal video downloader for HLS, DASH, YouTube and other supported sources.",
->>>>>>> origin/main~
   "repository": {
     "type": "git",
     "url": "https://github.com/kaique-albuquerque/streamgrab.git"
@@ -51,29 +46,18 @@
     "electron:dev": "electron .",
     "electron:install": "node scripts/install-electron.mjs",
     "ffmpeg:install": "node scripts/install-ffmpeg.mjs",
-<<<<<<< HEAD
     "format": "prettier --write .",
     "git": "node scripts/git-menu.mjs",
     "lint": "eslint .",
     "pack:resources": "node scripts/update-ytdlp.mjs && node scripts/package-resources.mjs",
+    "postinstall": "node scripts/install-ffmpeg.mjs && node scripts/install-electron.mjs",
     "release": "npm run pack:resources && electron-builder --win --mac --linux && node scripts/checksums.mjs",
     "streamgrab": "node bin/streamgrab.mjs",
     "test": "node --experimental-test-module-mocks --test \"tests/unit/*.test.js\" \"tests/integration/*.test.js\" && node tests/e2e/curl-e2e.mjs",
     "test:e2e": "node tests/e2e/curl-e2e.mjs",
     "test:integration": "node --experimental-test-module-mocks --test \"tests/integration/*.test.js\"",
     "test:unit": "node --experimental-test-module-mocks --test \"tests/unit/*.test.js\"",
-    "update:ytdlp": "node scripts/update-ytdlp.mjs" 
-=======
-    "pack:resources": "node scripts/package-resources.mjs",
-    "update:ytdlp": "node scripts/update-ytdlp.mjs",
-    "dist": "npm run pack:resources && electron-builder --win",
-    "dist:dir": "npm run pack:resources && electron-builder --win --dir",
-    "dist:mac": "npm run pack:resources && electron-builder --mac",
-    "dist:mac:dir": "npm run pack:resources && electron-builder --mac --dir",
-    "dist:linux": "npm run pack:resources && electron-builder --linux",
-    "release": "npm run pack:resources && electron-builder --win --mac --linux && node scripts/checksums.mjs",
-    "postinstall": "node scripts/install-ffmpeg.mjs && node scripts/install-electron.mjs"
->>>>>>> origin/main~
+    "update:ytdlp": "node scripts/update-ytdlp.mjs"
   },
   "engines": {
     "node": ">=20"
