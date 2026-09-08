@@ -71,7 +71,7 @@ export function createDefaultExecutor({
       return adapter.prepareDownload({ url, analysis, selectedUrl, headers, auth, audioLanguage, allAudio });
     },
 
-    async run({ job, prepared, output, headers, mode, signal, onProgress, atomic, onLog = () => {}, featureFlags = {}, turbo = false }) {
+    async run({ job, prepared, output, headers, mode, signal, onProgress, atomic, onLog = () => {}, featureFlags = {}, turbo = false, turboChunks = 8 }) {
       const sourceType = job._sourceType || job.meta?.sourceType || '';
       if (prepared.strategy === 'mux') {
         // P11.1: YouTube adaptive URLs (googlevideo.com) retornam manifests
@@ -104,7 +104,7 @@ export function createDefaultExecutor({
         // multi-part Range se o servidor suportar
         if (turbo) {
           onLog?.('[turbo] mux strategy: tentando download paralelo dos streams');
-          const result = await runTurboMuxDownload(prepared, output, headers, signal, onProgress, onLog);
+          const result = await runTurboMuxDownload(prepared, output, headers, signal, onProgress, onLog, turboChunks);
           if (result?.ok) return result;
           if (result && !result.ok) {
             onLog?.(`[turbo] mux falhou, fallback para runMuxDownload: ${result.error}`);
@@ -191,7 +191,7 @@ export function createDefaultExecutor({
       }
       // P6.2: turbo para downloads diretos (arquivos HTTP com Range suportado)
       if (turbo) {
-        const turboResult = await tryTurboDownload(url, output, headers, signal, onProgress, onLog);
+        const turboResult = await tryTurboDownload(url, output, headers, signal, onProgress, onLog, turboChunks);
         if (turboResult) return turboResult;
       }
       return runStreamDownload(url, output, headers, signal, onProgress, atomic);
@@ -207,7 +207,7 @@ export function createDefaultExecutor({
  * Tenta baixar uma URL direta com turbo (HTTP Range paralelo).
  * Fallback silencioso para runStreamDownload se Range nao for suportado.
  */
-async function tryTurboDownload(url, output, headers, signal, onProgress, onLog) {
+async function tryTurboDownload(url, output, headers, signal, onProgress, onLog, turboChunks = 8) {
   try {
     await probeRangeSupport(url, { headers, signal, timeoutMs: 5000 });
   } catch (err) {
@@ -220,7 +220,7 @@ async function tryTurboDownload(url, output, headers, signal, onProgress, onLog)
     output,
     headers,
     signal,
-    concurrency: 8,
+    concurrency: normalizeTurboChunks(turboChunks),
     onProgress: (p) => onProgress?.({ ...p, stage: 'downloading' }),
   });
   return result.ok ? { ok: true } : null;
@@ -230,7 +230,7 @@ async function tryTurboDownload(url, output, headers, signal, onProgress, onLog)
  * Mux com turbo: baixa video e audio via HTTP Range paralelo, depois
  * mux com FFmpeg (mesmo fallback do runMuxDownload).
  */
-async function runTurboMuxDownload(prepared, output, headers, signal, onProgress, onLog) {
+async function runTurboMuxDownload(prepared, output, headers, signal, onProgress, onLog, turboChunks = 8) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sg-turbo-mux-'));
   const videoTmp = path.join(tmpDir, 'video.mp4');
   const audioTmp = path.join(tmpDir, 'audio.m4a');
@@ -246,6 +246,7 @@ async function runTurboMuxDownload(prepared, output, headers, signal, onProgress
     const videoResult = await tryTurboDownload(prepared.videoUrl, videoTmp, muxHeaders, signal,
       (u) => onProgress({ ...u, stage: 'downloading', message: 'Baixando video (turbo)' }),
       onLog,
+      turboChunks,
     ) || await runStreamDownload(prepared.videoUrl, videoTmp, muxHeaders, signal,
       (u) => onProgress({ ...u, stage: 'downloading' }),
     );
@@ -257,6 +258,7 @@ async function runTurboMuxDownload(prepared, output, headers, signal, onProgress
     const audioResult = await tryTurboDownload(prepared.audioUrl, audioTmp, muxHeaders, signal,
       (u) => onProgress({ ...u, stage: 'downloading', message: 'Baixando audio (turbo)' }),
       onLog,
+      turboChunks,
     ) || await runStreamDownload(prepared.audioUrl, audioTmp, muxHeaders, signal,
       (u) => onProgress({ ...u, stage: 'downloading' }),
     );
@@ -286,4 +288,9 @@ async function runTurboMuxDownload(prepared, output, headers, signal, onProgress
   } finally {
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignora */ }
   }
+}
+
+function normalizeTurboChunks(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.min(32, Math.max(1, Math.floor(n))) : 8;
 }

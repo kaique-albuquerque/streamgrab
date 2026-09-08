@@ -146,7 +146,7 @@ export class DownloadEngine {
     return serializeJob(job);
   }
 
-  async _runJob(job, { selectedUrl, destination, headers = {}, auth = {}, forceYouTube = false, mode, audioLanguage, allAudio, turbo } = {}) {
+  async _runJob(job, { selectedUrl, destination, headers = {}, auth = {}, forceYouTube = false, mode, audioLanguage, allAudio, turbo, turboChunks } = {}) {
     try {
       const analyzed = await this._analyze(job, { selectedUrl, headers, auth, forceYouTube });
       const { adapter, raw } = analyzed;
@@ -160,7 +160,7 @@ export class DownloadEngine {
       });
       const outputPath = this._resolveOutput(job, prepared, destination);
       job.meta.output = outputPath;
-      await this._downloadLoop(job, adapter, prepared, { headers, mode, turbo });
+      await this._downloadLoop(job, adapter, prepared, { headers, mode, turbo, turboChunks });
       this._complete(job);
     } catch (err) {
       this._handleFailure(job, err);
@@ -242,7 +242,7 @@ export class DownloadEngine {
     return output;
   }
 
-  async _downloadLoop(job, adapter, preparedInitial, { headers, mode, turbo }) {
+  async _downloadLoop(job, adapter, preparedInitial, { headers, mode, turbo, turboChunks }) {
     transitionJob(job, 'downloading');
     setJobTaskState(job, 'downloading');
     job._startedAt = Date.now();
@@ -276,6 +276,7 @@ export class DownloadEngine {
         onLog: (message) => this._emit('log', { jobId: job.id, message }),
         featureFlags: job.meta?.featureFlags || this.settings?.get?.('features') || {},
         turbo: Boolean(turbo),
+        turboChunks,
       });
 
       if (result?.paused) {

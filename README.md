@@ -15,7 +15,7 @@
 
 #### Uso no terminal
 
-![Analisar URL](assets/analise-url.gif)
+![Analisar URL](assets/analise_url.gif)
 
 ![Download de vídeo](assets/download_platform.gif)
 
