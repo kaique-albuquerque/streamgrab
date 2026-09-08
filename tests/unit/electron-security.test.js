@@ -21,6 +21,7 @@ import {
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
+  registerRevealRoot,
 } from '../../electron/security.js';
 
 // ---------------------------------------------------------------------------
@@ -163,6 +164,17 @@ test('sanitizeHeaders lida com entradas nulas, não-objetos e limita tamanho', (
   const longValue = 'a'.repeat(5000);
   const clean = sanitizeHeaders({ 'X-Long': longValue });
   assert.equal(clean['X-Long'].length, 4096);
+});
+
+test('isPathWithin rejeita raízes vazias, em branco, relativas ou caminhos inválidos', () => {
+  assert.equal(isPathWithin('/etc/passwd', ''), false);
+  assert.equal(isPathWithin('/etc/passwd', '   '), false);
+  assert.equal(isPathWithin('/etc/passwd', 'relative/dir'), false);
+  assert.equal(isPathWithin('relative/file.txt', '/home/a'), false);
+  assert.equal(isPathWithin('/etc/../passwd', '/etc'), false);
+  assert.equal(isPathWithin('/etc/passwd', '/etc/../tmp'), false);
+  assert.equal(isPathWithin(null, '/home/a'), false);
+  assert.equal(isPathWithin('/home/a', null), false);
 });
 
 // ---------------------------------------------------------------------------
@@ -433,6 +445,22 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
+});
+
+test('registerRevealRoot só aceita caminhos absolutos seguros e sem traversal', () => {
+  const roots = new Set();
+  assert.equal(registerRevealRoot('C:\\Users\\teste\\Downloads', roots), true);
+  assert.equal(roots.has('C:\\Users\\teste\\Downloads'), true);
+
+  assert.equal(registerRevealRoot('/home/user/Downloads', roots), true);
+  assert.equal(roots.has('/home/user/Downloads'), true);
+
+  assert.equal(registerRevealRoot('C:\\Users\\teste\\..\\Windows', roots), false);
+  assert.equal(registerRevealRoot('/home/user/../etc', roots), false);
+  assert.equal(registerRevealRoot('relative/path', roots), false);
+  assert.equal(registerRevealRoot('', roots), false);
+  assert.equal(registerRevealRoot(null, roots), false);
+  assert.equal(registerRevealRoot('C:\\Downloads', null), false);
 });
 
 // ---------------------------------------------------------------------------
