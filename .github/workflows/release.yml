@@ -24,9 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -49,12 +49,24 @@ jobs:
         shell: bash {0}
         timeout-minutes: 10
 
-      - name: Upload test logs
+      - name: Upload test logs (tentativa 1)
+        id: upload-logs
+        continue-on-error: true
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results
           path: test-results.log
+          if-no-files-found: ignore
+          retention-days: 5
+
+      - name: Upload test logs (retry)
+        if: always() && steps.upload-logs.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: test-results.log
+          if-no-files-found: ignore
           retention-days: 5
 
   # ── Windows ────────────────────────────────────────────────────────────
@@ -63,9 +75,9 @@ jobs:
     needs: [test]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -121,11 +133,37 @@ jobs:
           ls -lh dist/ 2>&1 || echo "dist vazio"
           echo "=== exit code: $? ==="
         shell: bash
-      - name: Publicar artefatos Windows
-        uses: actions/upload-artifact@v4
+      # NOTA (robustez): o upload-artifact falhava no FinalizeArtifact com 403
+      # transitório do storage do Azure APÓS enviar 100% dos bytes — matava o
+      # job depois de ~40 min de build. Como o GitHub não tem retry nativo de
+      # steps, usamos o padrão tentativa + retry condicional:
+      #  - 1ª tentativa com continue-on-error (não derruba o job)
+      #  - retry só executa se a 1ª falhar, com overwrite: true (remove
+      #    artefato parcial/fantasma do server antes de reenviar)
+      # v7 roda em Node 24 (v4 rodava Node 20, deprecado).
+      - name: Publicar artefatos Windows (tentativa 1)
+        id: upload-windows
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
         with:
           name: release-windows
+          if-no-files-found: error
+          overwrite: true
           path: |
+            dist/*.exe
+            dist/*.msi
+            dist/*.blockmap
+            dist/*.yml
+
+      - name: Publicar artefatos Windows (retry)
+        if: steps.upload-windows.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-windows
+          if-no-files-found: error
+          overwrite: true
+          path: |
+            dist/*.exe
             dist/*.msi
             dist/*.blockmap
             dist/*.yml
@@ -136,9 +174,9 @@ jobs:
     needs: [test]
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -184,10 +222,26 @@ jobs:
         run: ls -lh dist/ 2>&1 || echo "dist vazio"
         shell: bash
 
-      - name: Publicar artefatos macOS x64
-        uses: actions/upload-artifact@v4
+      - name: Publicar artefatos macOS x64 (tentativa 1)
+        id: upload-macos-x64
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
         with:
           name: release-macos-x64
+          if-no-files-found: error
+          overwrite: true
+          path: |
+            dist/*.pkg
+            dist/*.blockmap
+            dist/*.yml
+
+      - name: Publicar artefatos macOS x64 (retry)
+        if: steps.upload-macos-x64.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-macos-x64
+          if-no-files-found: error
+          overwrite: true
           path: |
             dist/*.pkg
             dist/*.blockmap
@@ -199,9 +253,9 @@ jobs:
     needs: [test]
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -255,10 +309,26 @@ jobs:
       - name: Listar artefatos gerados
         run: ls -lh dist/ 2>&1 || echo "dist vazio"
         shell: bash
-      - name: Publicar artefatos macOS arm64
-        uses: actions/upload-artifact@v4
+      - name: Publicar artefatos macOS arm64 (tentativa 1)
+        id: upload-macos-arm64
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
         with:
           name: release-macos-arm64
+          if-no-files-found: error
+          overwrite: true
+          path: |
+            dist/*.pkg
+            dist/*.blockmap
+            dist/*.yml
+
+      - name: Publicar artefatos macOS arm64 (retry)
+        if: steps.upload-macos-arm64.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-macos-arm64
+          if-no-files-found: error
+          overwrite: true
           path: |
             dist/*.pkg
             dist/*.blockmap
@@ -270,9 +340,9 @@ jobs:
     needs: [test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -331,10 +401,27 @@ jobs:
       - name: Listar artefatos gerados
         run: ls -lh dist/ 2>&1 || echo "dist vazio"
         shell: bash
-      - name: Publicar artefatos Linux
-        uses: actions/upload-artifact@v4
+      - name: Publicar artefatos Linux (tentativa 1)
+        id: upload-linux
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
         with:
           name: release-linux
+          if-no-files-found: error
+          overwrite: true
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.blockmap
+            dist/*.yml
+
+      - name: Publicar artefatos Linux (retry)
+        if: steps.upload-linux.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-linux
+          if-no-files-found: error
+          overwrite: true
           path: |
             dist/*.AppImage
             dist/*.deb
@@ -348,14 +435,17 @@ jobs:
     if: always() && !cancelled()
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
 
+      # Robustez: se o upload de um build falhou por erro transitório (403 do
+      # storage), este step NÃO deve derrubar a publicação — o publish tem
+      # fail_on_unmatched_files: false e publica o que houver.
       - name: Baixar artefatos da release
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: release-*
           path: dist
@@ -364,6 +454,20 @@ jobs:
 
       - name: Listar artefatos baixados
         run: ls -lh dist/ 2>/dev/null || echo "Nenhum artefato encontrado"
+
+      # Segurança: nunca publica uma release vazia (ex.: todos os uploads
+      # falharam por erro transitório). Falla ANTES do softprops criar a tag
+      # de release sem conteúdo.
+      - name: Verificar artefatos para publicar
+        run: |
+          shopt -s nullglob
+          files=(dist/*.exe dist/*.msi dist/*.pkg dist/*.AppImage dist/*.deb)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::Nenhum instalador encontrado em dist/ — release não será publicada (uploads falharam?)."
+            exit 1
+          fi
+          echo "${#files[@]} instalador(es) encontrados:"
+          ls -lh "${files[@]}"
 
       - name: Checksums SHA-256
         run: node scripts/checksums.mjs
@@ -374,6 +478,7 @@ jobs:
         with:
           files: |
             dist/*.exe
+            dist/*.msi
             dist/*.pkg
             dist/*.AppImage
             dist/*.deb

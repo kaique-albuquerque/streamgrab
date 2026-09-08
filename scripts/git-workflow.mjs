@@ -109,13 +109,13 @@ async function viewWorkflowStatus() {
 
 async function cancelWorkflow() {
   console.log('\nWorkflows em execução:');
-  const output = runGh(['run', 'list', '--status', 'in_progress', '--json', 'databaseId,name'], { capture: true });
-  if (!output) {
+  const workflowOutput = runGh(['run', 'list', '--status', 'in_progress', '--json', 'databaseId,name'], { capture: true });
+  if (!workflowOutput) {
     console.log('Nenhum workflow em execução.');
     return;
   }
 
-  console.log(output);
+  console.log(workflowOutput);
   const id = (await rl.question('ID do workflow para cancelar (Enter cancela): ')).trim();
   if (!id) return;
 
@@ -149,31 +149,140 @@ async function createRelease() {
 }
 
 async function viewRelease() {
-  console.log('\nÚltimas releases:');
+  const localTags = runGit(['tag', '--sort=-version:refname'], { capture: true });
+  console.log('\nReleases locais (tags):');
+  if (localTags) {
+    localTags.split('\n').map((tag) => tag.trim()).filter(Boolean).forEach((tag) => console.log(`  - ${tag}`));
+  } else {
+    console.log('  Nenhuma tag local encontrada.');
+  }
+
+  console.log('\nReleases remotas (GitHub):');
   runGh(['release', 'list', '--limit', '5']);
 }
 
-async function deleteTag() {
-  const output = runGit(['tag', '--sort=-version:refname'], { capture: true });
-  if (!output) {
+function viewTags() {
+  const localOutput = runGit(['tag', '--sort=-version:refname'], { capture: true });
+  const remoteOutput = runGit(['ls-remote', '--tags', '--refs', 'origin'], { capture: true });
+
+  console.log('\nTags locais:');
+  if (localOutput) {
+    localOutput.split('\n').map((tag) => tag.trim()).filter(Boolean).forEach((tag) => console.log(`  - ${tag}`));
+  } else {
+    console.log('  Nenhuma tag local encontrada.');
+  }
+
+  console.log('\nTags remotas (origin):');
+  if (remoteOutput) {
+    remoteOutput
+      .split('\n')
+      .map((line) => line.trim().split(/\s+/)[1]?.replace('refs/tags/', ''))
+      .filter(Boolean)
+      .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+      .forEach((tag) => console.log(`  - ${tag}`));
+  } else {
+    console.log('  Nenhuma tag remota encontrada ou não foi possível consultar origin.');
+  }
+}
+
+async function deleteMultipleReleases() {
+  const releaseOutput = runGh(
+    ['release', 'list', '--limit', '100', '--json', 'tagName,name,isDraft,isPrerelease'],
+    { capture: true },
+  );
+  if (!releaseOutput) {
+    console.log('Não foi possível consultar as releases do GitHub.');
+    return;
+  }
+
+  let releases;
+  try {
+    releases = JSON.parse(releaseOutput);
+  } catch {
+    console.log('Não foi possível interpretar a lista de releases.');
+    return;
+  }
+
+  console.log('\nReleases do GitHub:');
+  releases.forEach((release, index) => {
+    const kind = release.isDraft ? 'rascunho' : release.isPrerelease ? 'pré-release' : 'release';
+    console.log(`  ${index + 1}. ${release.tagName} - ${release.name || release.tagName} (${kind})`);
+  });
+
+  const selection = (await rl.question('Escolha as releases (ex: 1,3,5 ou todas; Enter cancela): ')).trim();
+  if (!selection) return;
+
+  let indexes;
+  if (selection.toLowerCase() === 'todas') {
+    indexes = releases.map((_, index) => index);
+  } else {
+    indexes = selection
+      .split(/[\s,]+/)
+      .filter(Boolean)
+      .map(Number)
+      .filter((number) => Number.isInteger(number) && number >= 1 && number <= releases.length)
+      .map((number) => number - 1);
+  }
+
+  indexes = [...new Set(indexes)];
+  if (!indexes.length) {
+    console.log('Nenhuma release válida foi selecionada.');
+    return;
+  }
+
+  const selectedReleases = indexes.map((index) => releases[index]);
+  console.log('\nReleases selecionadas:');
+  selectedReleases.forEach((release) => console.log(`  - ${release.tagName} - ${release.name || release.tagName}`));
+  if (!(await confirm(`Excluir ${selectedReleases.length} release(s)? As tags serão mantidas.`))) return;
+
+  for (const release of selectedReleases) {
+    if (runGh(['release', 'delete', release.tagName, '--yes'])) {
+      console.log(`Release ${release.tagName} excluída.`);
+    }
+  }
+}
+
+async function deleteMultipleTags() {
+  const tagOutput = runGit(['tag', '--sort=-version:refname'], { capture: true });
+  if (!tagOutput) {
     console.log('Nenhuma tag encontrada.');
     return;
   }
 
-  const tags = output.split('\n').map((t) => t.trim()).filter(Boolean);
+  const tags = tagOutput.split('\n').map((t) => t.trim()).filter(Boolean);
   console.log('\nTags locais:');
   tags.forEach((tag, i) => console.log(`  ${i + 1}. ${tag}`));
 
-  const choice = Number((await rl.question('Escolha a tag para remover (Enter cancela): ')).trim());
-  if (!Number.isInteger(choice) || choice < 1 || choice > tags.length) return;
+  const selection = (await rl.question('Escolha as tags (ex: 1,3,5 ou todas; Enter cancela): ')).trim();
+  if (!selection) return;
 
-  const selected = tags[choice - 1];
-  if (!(await confirm(`Remover tag local "${selected}"?`))) return;
+  let indexes;
+  if (selection.toLowerCase() === 'todas') {
+    indexes = tags.map((_, index) => index);
+  } else {
+    indexes = selection
+      .split(/[\s,]+/)
+      .filter(Boolean)
+      .map(Number)
+      .filter((number) => Number.isInteger(number) && number >= 1 && number <= tags.length)
+      .map((number) => number - 1);
+  }
 
-  runGit(['tag', '-d', selected]);
+  indexes = [...new Set(indexes)];
+  if (!indexes.length) {
+    console.log('Nenhuma tag válida foi selecionada.');
+    return;
+  }
 
-  if (await confirm(`Remover tag remota "${selected}" do GitHub?`)) {
-    runGit(['push', 'origin', '--delete', selected]);
+  const selectedTags = indexes.map((index) => tags[index]);
+  console.log('\nTags selecionadas:');
+  selectedTags.forEach((tag) => console.log(`  - ${tag}`));
+  if (!(await confirm(`Remover ${selectedTags.length} tag(s) localmente?`))) return;
+
+  selectedTags.forEach((tag) => runGit(['tag', '-d', tag]));
+
+  if (await confirm('Remover também as tags selecionadas do GitHub?')) {
+    selectedTags.forEach((tag) => runGit(['push', 'origin', '--delete', tag]));
   }
 }
 
@@ -185,15 +294,17 @@ async function showMenu() {
   const latestTag = await getLatestTag();
   console.log(`Última tag: ${latestTag || 'nenhuma'}\n`);
 
-  console.log('  1. Criar e enviar tag (trigger release)');
-  console.log('  2. Remover tag');
+  console.log('  1. Cancelar workflow');
+  console.log('  2. Criar e enviar tag (trigger release)');
   console.log('  3. Criar release manual');
-  console.log('  4. Ver workflows recentes');
-  console.log('  5. Ver workflows em execução');
-  console.log('  6. Cancelar workflow');
-  console.log('  7. Ver releases');
-  console.log('  8. Ver status');
-  console.log('  9. Ver histórico');
+  console.log('  5. Excluir releases');
+  console.log('  6. Excluir tags');
+  console.log('  7. Ver histórico');
+  console.log('  8. Ver releases locais e remotas');
+  console.log('  9. Ver status');
+  console.log(' 10. Ver tags locais e remotas');
+  console.log(' 11. Ver workflows em execução');
+  console.log(' 12. Ver workflows recentes');
   console.log('  0. Sair');
   return (await rl.question('\nEscolha uma opção: ')).trim();
 }
@@ -205,15 +316,17 @@ async function main() {
       console.log('');
 
       if (choice === '0' || choice.toLowerCase() === 'sair') break;
-      if (choice === '1') await createAndPushTag();
-      else if (choice === '2') await deleteTag();
+      if (choice === '1') await cancelWorkflow();
+      else if (choice === '2') await createAndPushTag();
       else if (choice === '3') await createRelease();
-      else if (choice === '4') viewWorkflows();
-      else if (choice === '5') viewWorkflowStatus();
-      else if (choice === '6') await cancelWorkflow();
-      else if (choice === '7') viewRelease();
-      else if (choice === '8') runGit(['status', '--short', '--branch']);
-      else if (choice === '9') runGit(['log', '--oneline', '--decorate', '-10']);
+      else if (choice === '5') await deleteMultipleReleases();
+      else if (choice === '6') await deleteMultipleTags();
+      else if (choice === '7') runGit(['log', '--oneline', '--decorate', '-10']);
+      else if (choice === '8') viewRelease();
+      else if (choice === '9') runGit(['status', '--short', '--branch']);
+      else if (choice === '10') viewTags();
+      else if (choice === '11') viewWorkflowStatus();
+      else if (choice === '12') viewWorkflows();
       else console.log('Opção inválida.');
 
       if (choice !== '0') {

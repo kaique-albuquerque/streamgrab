@@ -28,6 +28,11 @@ export async function resolveTransportWithAutoInstall({ headers = {}, projectRoo
   const transport = CurlImpersonateTransport.resolve({ headers });
   if (transport) return transport;
 
+  if (process.platform !== 'win32') {
+    onLog('[mdstrm] curl-impersonate não está disponível automaticamente nesta plataforma — usando transporte padrão');
+    return null;
+  }
+
   onLog('[mdstrm] curl-impersonate ausente — tentando instalacao automatica');
   try {
     await installCurlImpersonate({
