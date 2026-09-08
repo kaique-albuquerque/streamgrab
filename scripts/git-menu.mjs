@@ -62,33 +62,107 @@ async function createBranch() {
   runGit(['switch', '-c', name]);
 }
 
-async function stashChanges() {
-  const message = (await rl.question('Descrição do stash (opcional): ')).trim();
-  const args = ['stash', 'push'];
-  if (message) args.push('-m', message);
-  runGit(args);
+async function deleteBranch() {
+  const branch = currentBranch();
+  const outputText = runGit(['branch', '--format=%(refname:short)'], { capture: true });
+  if (outputText === false) return;
+  const branches = outputText.split('\n').map((item) => item.trim()).filter((item) => item && item !== branch);
+  if (!branches.length) {
+    console.log('Não há outra branch local para excluir.');
+    return;
+  }
+
+  console.log('\nBranches locais disponíveis para exclusão:');
+  branches.forEach((item, index) => console.log(`  ${index + 1}. ${item}`));
+  const choice = Number((await rl.question('Escolha a branch (Enter cancela): ')).trim());
+  if (!Number.isInteger(choice) || choice < 1 || choice > branches.length) return;
+
+  const selected = branches[choice - 1];
+  if (!(await confirm(`Excluir a branch local "${selected}"?`))) return;
+  runGit(['branch', '-d', selected]);
+}
+
+async function deleteRemoteBranch() {
+  const remoteText = runGit(['remote'], { capture: true });
+  if (remoteText === false) return;
+  const remotes = remoteText.split('\n').map((item) => item.trim()).filter(Boolean);
+  if (!remotes.length) {
+    console.log('Nenhum remoto configurado.');
+    return;
+  }
+
+  console.log('\nRemotos:');
+  remotes.forEach((item, index) => console.log(`  ${index + 1}. ${item}`));
+  const remoteChoice = Number((await rl.question('Escolha o remoto (Enter cancela): ')).trim());
+  if (!Number.isInteger(remoteChoice) || remoteChoice < 1 || remoteChoice > remotes.length) return;
+  const remote = remotes[remoteChoice - 1];
+
+  const outputText = runGit(['for-each-ref', `refs/remotes/${remote}/`, '--format=%(refname:strip=3)'], { capture: true });
+  if (outputText === false) return;
+  const branches = outputText
+    .split('\n')
+    .map((item) => item.trim())
+    .filter((item) => item && item !== 'HEAD');
+  if (!branches.length) {
+    console.log(`Nenhuma branch encontrada no remoto ${remote}.`);
+    return;
+  }
+
+  console.log(`\nBranches remotas em ${remote}:`);
+  branches.forEach((item, index) => console.log(`  ${index + 1}. ${item}`));
+  const branchChoice = Number((await rl.question('Escolha a branch (Enter cancela): ')).trim());
+  if (!Number.isInteger(branchChoice) || branchChoice < 1 || branchChoice > branches.length) return;
+
+  const selected = branches[branchChoice - 1];
+  if (!(await confirm(`Excluir a branch remota ${remote}/${selected}?`))) return;
+  runGit(['push', remote, '--delete', selected]);
+}
+
+async function setUpstream() {
+  const branch = currentBranch();
+  if (branch === '(HEAD detached)') {
+    console.log('Não é possível associar uma branch enquanto o HEAD está destacado.');
+    return;
+  }
+
+  const remoteText = runGit(['remote'], { capture: true });
+  if (remoteText === false) return;
+  const remotes = remoteText.split('\n').map((item) => item.trim()).filter(Boolean);
+  if (!remotes.length) {
+    console.log('Nenhum remoto configurado.');
+    return;
+  }
+
+  console.log('\nRemotos:');
+  remotes.forEach((item, index) => console.log(`  ${index + 1}. ${item}`));
+  const remoteChoice = Number((await rl.question('Escolha o remoto (Enter cancela): ')).trim());
+  if (!Number.isInteger(remoteChoice) || remoteChoice < 1 || remoteChoice > remotes.length) return;
+
+  const remote = remotes[remoteChoice - 1];
+  if (!(await confirm(`Associar a branch "${branch}" ao remoto ${remote}?`))) return;
+  runGit(['push', '--set-upstream', remote, branch]);
 }
 
 async function showMenu() {
   console.clear();
   console.log('StreamGrab - Git');
   console.log(`Branch atual: ${currentBranch()}\n`);
-  console.log('  1. Ver status');
-  console.log('  2. Ver diff');
-  console.log('  3. Adicionar todas as alterações');
-  console.log('  4. Fazer commit');
-  console.log('  5. Fazer pull');
-  console.log('  6. Fazer push');
-  console.log('  7. Ver histórico');
-  console.log('  8. Trocar de branch');
-  console.log('  9. Buscar atualizações (fetch)');
-  console.log(' 10. Ver diff preparado (staged)');
-  console.log(' 11. Listar branches');
-  console.log(' 12. Criar nova branch');
-  console.log(' 13. Ver remotos');
-  console.log(' 14. Ver histórico gráfico');
-  console.log(' 15. Guardar alterações (stash)');
-  console.log(' 16. Listar stash');
+  console.log('  1. Adicionar todas as alterações');
+  console.log('  2. Associar branch ao remoto');
+  console.log('  3. Buscar atualizações (fetch)');
+  console.log('  4. Criar nova branch');
+  console.log('  5. Excluir branch local');
+  console.log('  6. Excluir branch remota');
+  console.log('  7. Fazer commit');
+  console.log('  8. Fazer pull');
+  console.log('  9. Fazer push');
+  console.log(' 10. Listar branches');
+  console.log(' 11. Listar stash');
+  console.log(' 12. Trocar de branch');
+  console.log(' 13. Ver diff');
+  console.log(' 14. Ver histórico');
+  console.log(' 15. Ver remotos');
+  console.log(' 16. Ver status');
   console.log('  0. Sair');
   return (await rl.question('\nEscolha uma opção: ')).trim();
 }
@@ -100,26 +174,26 @@ async function main() {
       console.log('');
 
       if (choice === '0' || choice.toLowerCase() === 'sair') break;
-      if (choice === '1') runGit(['status', '--short', '--branch']);
-      else if (choice === '2') runGit(['diff']);
-      else if (choice === '3') {
+      if (choice === '1') {
         if (await confirm('Adicionar todas as alterações ao stage?')) runGit(['add', '-A']);
-      } else if (choice === '4') await commitChanges();
-      else if (choice === '5') {
-        if (await confirm('Executar git pull?')) runGit(['pull']);
-      } else if (choice === '6') {
-        if (await confirm('Executar git push?')) runGit(['push']);
-      } else if (choice === '7') runGit(['log', '--oneline', '--decorate', '-10']);
-      else if (choice === '8') await selectBranch();
-      else if (choice === '9') {
+      } else if (choice === '2') await setUpstream();
+      else if (choice === '3') {
         if (await confirm('Buscar atualizações dos remotos?')) runGit(['fetch', '--all', '--prune']);
-      } else if (choice === '10') runGit(['diff', '--cached']);
-      else if (choice === '11') runGit(['branch', '-a']);
-      else if (choice === '12') await createBranch();
-      else if (choice === '13') runGit(['remote', '-v']);
-      else if (choice === '14') runGit(['log', '--oneline', '--graph', '--decorate', '--all', '-20']);
-      else if (choice === '15') await stashChanges();
-      else if (choice === '16') runGit(['stash', 'list']);
+      } else if (choice === '4') await createBranch();
+      else if (choice === '5') await deleteBranch();
+      else if (choice === '6') await deleteRemoteBranch();
+      else if (choice === '7') await commitChanges();
+      else if (choice === '8') {
+        if (await confirm('Executar git pull?')) runGit(['pull']);
+      } else if (choice === '9') {
+        if (await confirm('Executar git push?')) runGit(['push']);
+      } else if (choice === '10') runGit(['branch', '-a']);
+      else if (choice === '11') runGit(['stash', 'list']);
+      else if (choice === '12') await selectBranch();
+      else if (choice === '13') runGit(['diff']);
+      else if (choice === '14') runGit(['log', '--oneline', '--decorate', '-10']);
+      else if (choice === '15') runGit(['remote', '-v']);
+      else if (choice === '16') runGit(['status', '--short', '--branch']);
       else console.log('Opção inválida.');
 
       if (choice !== '0') {
