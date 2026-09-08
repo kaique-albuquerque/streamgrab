@@ -4,7 +4,8 @@ downloads.log
 *.log
 saida-test/
 vendor/
-build/
+build/*
+!build/icon.ico
 dist/
 *.tmp
 .DS_Store
