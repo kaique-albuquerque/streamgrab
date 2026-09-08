@@ -33,6 +33,8 @@ jobs:
 
       - name: Instalar dependências
         run: npm ci
+        env:
+          YOUTUBE_DL_SKIP_DOWNLOAD: 1
 
       # Três camadas de proteção contra hang:
       #  1. --test-timeout=30000  → Node mata qualquer teste individual > 30s
