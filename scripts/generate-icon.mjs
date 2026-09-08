@@ -1,21 +1,24 @@
-// Script to generate a simple .ico and .png icon for builds
+// Script to generate icons for all platforms
+// macOS: needs at least 512x512 (we generate 1024x1024)
+// Windows: needs at least 256x256
+// Linux: needs PNG
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 
-const size = 256;
+const size = 1024;
 
-// ── Gerar PNG 256x256 (funciona para Linux e conversão para Windows) ──
+// ── Gerar PNG 1024x1024 ──
 function createPNG(w, h, r, g, b) {
   const raw = [];
   for (let y = 0; y < h; y++) {
     raw.push(0); // filter: None
     for (let x = 0; x < w; x++) {
-      const cx = w / 2, cy = h / 2, radius = w / 2 - 4;
+      const cx = w / 2, cy = h / 2, radius = w / 2 - 8;
       const dx = x - cx, dy = y - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist <= radius) {
-        if (dist > radius - 3) {
+        if (dist > radius - 6) {
           raw.push(30, 60, 120, 255);
         } else {
           const t = dist / radius;
