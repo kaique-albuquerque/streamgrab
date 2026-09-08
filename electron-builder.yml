@@ -37,12 +37,14 @@ win:
       arch:
         - x64
   artifactName: StreamGrab-${version}-${arch}.${ext}
+  icon: build/icon.ico
 
 mac:
   target:
     - target: pkg
   artifactName: StreamGrab-${version}-${arch}.${ext}
   category: public.app-category.video
+  icon: build/icon.png
 
 linux:
   target:
@@ -54,4 +56,5 @@ linux:
         - x64
   artifactName: StreamGrab-${version}-${arch}.${ext}
   category: AudioVideo
+  icon: build/icon.png
 
