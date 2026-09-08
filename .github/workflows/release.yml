@@ -156,6 +156,7 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           YOUTUBE_DL_SKIP_DOWNLOAD: 1
+          FFMPEG_SKIP_DOWNLOAD: 1
         run: npm ci 2>&1
         timeout-minutes: 10
 
@@ -223,6 +224,7 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           YOUTUBE_DL_SKIP_DOWNLOAD: 1
+          FFMPEG_SKIP_DOWNLOAD: 1
         run: npm ci 2>&1
         timeout-minutes: 10
 
@@ -296,6 +298,7 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           YOUTUBE_DL_SKIP_DOWNLOAD: 1
+          FFMPEG_SKIP_DOWNLOAD: 1
         run: npm ci 2>&1
         timeout-minutes: 10
 

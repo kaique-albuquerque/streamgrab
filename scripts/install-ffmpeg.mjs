@@ -45,6 +45,12 @@ const SEVEN_ZIP_URL =
 console.log('\n[ffmpeg] Verificando instalação local do FFmpeg...');
 const installStartedAt = Date.now();
 
+// Permite pular a instalação (ex: CI já copiou o binário manualmente)
+if (process.env.FFMPEG_SKIP_DOWNLOAD === '1') {
+  console.log('[ffmpeg] FFMPEG_SKIP_DOWNLOAD=1 — pulando instalação.');
+  process.exit(0);
+}
+
 if (isLocalFfmpegReady()) {
   const ver = runLocal(['-version']);
   console.log(`[ffmpeg] Já instalado: ${BIN_PATH}`);
@@ -268,16 +274,24 @@ function installLocalFromPath(binaryPath) {
   }
 
   fs.mkdirSync(VENDOR_DIR, { recursive: true });
-  fs.copyFileSync(binaryPath, BIN_PATH);
-  fs.chmodSync(BIN_PATH, 0o755);
-  fs.writeFileSync(INSTALLED_MARKER, JSON.stringify({
-    installedAt: new Date().toISOString(),
-    source: binaryPath,
-    binary: BIN_PATH,
-    version: getVersionLine(binaryPath) || 'unknown',
-  }, null, 2));
-  fs.writeFileSync(INSTALLED_VERSION, `${getVersionLine(binaryPath) || 'unknown'}\n`);
-  console.log(`[ffmpeg] Cópia local preparada em: ${BIN_PATH}`);
+  
+  try {
+    fs.copyFileSync(binaryPath, BIN_PATH);
+    fs.chmodSync(BIN_PATH, 0o755);
+    fs.writeFileSync(INSTALLED_MARKER, JSON.stringify({
+      installedAt: new Date().toISOString(),
+      source: binaryPath,
+      binary: BIN_PATH,
+      version: getVersionLine(binaryPath) || 'unknown',
+    }, null, 2));
+    fs.writeFileSync(INSTALLED_VERSION, `${getVersionLine(binaryPath) || 'unknown'}\n`);
+    console.log(`[ffmpeg] Cópia local preparada em: ${BIN_PATH}`);
+  } catch (err) {
+    // Se a cópia falhar (ex: permissão negada no CI), apenas avise.
+    // O script usará o binário do sistema diretamente.
+    console.log(`[ffmpeg] Não foi possível copiar: ${err.message}`);
+    console.log(`[ffmpeg] Usando binário do sistema diretamente: ${binaryPath}`);
+  }
 }
 
 /** Localiza um executável 7-Zip no PATH. */
