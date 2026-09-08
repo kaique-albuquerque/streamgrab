@@ -23,6 +23,8 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     timeout-minutes: 12
+<<<<<<< HEAD
+=======
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +36,45 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      # Três camadas de proteção contra hang:
+      #  1. --test-timeout=30000  → Node mata qualquer teste individual > 30s
+      #  2. timeout-minutes: 10   → GitHub cancela o step
+      #  3. timeout-minutes: 12   → GitHub cancela a job inteira
+      #
+      # Nota: Testes de integração (tests/integration/) usam FFmpeg,
+      # servidores HTTP locais e processos filhos que podem travar no CI.
+      # Rodamos apenas unitários no CI — integração fica para desenvolvimento local.
+      - name: Testes unitários
+        run: node --test-timeout=30000 --experimental-test-module-mocks --test "tests/unit/*.test.js" 2>&1 | tee test-results.log
+        shell: bash {0}
+        timeout-minutes: 10
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results.log
+          retention-days: 5
+
+  # ── Windows ────────────────────────────────────────────────────────────
+  build-windows:
+    name: Build installer (Windows)
+    needs: [test]
+    runs-on: windows-latest
+>>>>>>> origin/main~
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+<<<<<<< HEAD
       # Três camadas de proteção contra hang:
       #  1. --test-timeout=30000  → Node mata qualquer teste individual > 30s
       #  2. timeout-minutes: 10   → GitHub cancela o step
@@ -119,13 +160,18 @@ jobs:
           ls -lh dist/ 2>&1 || echo "dist vazio"
           echo "=== exit code: $? ==="
         shell: bash
+=======
+      - name: Build instalador MSI
+        run: npm run dist
+        timeout-minutes: 15
+>>>>>>> origin/main~
 
       - name: Publicar artefatos Windows
         uses: actions/upload-artifact@v4
         with:
           name: release-windows
           path: |
-            dist/*.exe
+            dist/*.msi
             dist/*.blockmap
             dist/*.yml
 
@@ -153,6 +199,7 @@ jobs:
           chmod +x vendor/ffmpeg/ffmpeg
         timeout-minutes: 1
 
+<<<<<<< HEAD
       - name: Instalar dependências (npm ci)
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
@@ -182,6 +229,12 @@ jobs:
         run: ls -lh dist/ 2>&1 || echo "dist vazio"
         shell: bash
 
+=======
+      - name: Build instalador PKG x64
+        run: npm run pack:resources && npx electron-builder --mac --x64
+        timeout-minutes: 15
+
+>>>>>>> origin/main~
       - name: Publicar artefatos macOS x64
         uses: actions/upload-artifact@v4
         with:
@@ -204,6 +257,7 @@ jobs:
           node-version: 22
           cache: npm
 
+<<<<<<< HEAD
       - name: Instalar FFmpeg (brew)
         run: brew install ffmpeg 2>&1
         timeout-minutes: 5
@@ -252,6 +306,17 @@ jobs:
       - name: Listar artefatos gerados
         run: ls -lh dist/ 2>&1 || echo "dist vazio"
         shell: bash
+=======
+      - name: Instalar FFmpeg
+        run: brew install ffmpeg
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Build instalador PKG arm64
+        run: npm run pack:resources && npx electron-builder --mac --arm64
+        timeout-minutes: 15
+>>>>>>> origin/main~
 
       - name: Publicar artefatos macOS arm64
         uses: actions/upload-artifact@v4
@@ -275,6 +340,7 @@ jobs:
           node-version: 22
           cache: npm
 
+<<<<<<< HEAD
       # FFmpeg ANTES de npm ci — copia o binário do sistema para vendor/ffmpeg/
       - name: Instalar FFmpeg (apt)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg 2>&1
@@ -328,6 +394,22 @@ jobs:
       - name: Listar artefatos gerados
         run: ls -lh dist/ 2>&1 || echo "dist vazio"
         shell: bash
+=======
+      # FFmpeg ANTES de npm ci — o postinstall (install-ffmpeg.mjs) copia
+      # o binário do PATH para vendor/ffmpeg/. Sem isso, o postinstall
+      # não encontra FFmpeg e pack:resources falha.
+      - name: Instalar FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Instalar dependências
+        run: npm ci
+
+      # AppImage precisa de libfuse2 no runtime, mas para CRIAR basta
+      # o mksquashfs (já presente no ubuntu-latest).
+      - name: Build instaladores Linux
+        run: npm run pack:resources && npx electron-builder --linux --x64
+        timeout-minutes: 15
+>>>>>>> origin/main~
 
       - name: Publicar artefatos Linux
         uses: actions/upload-artifact@v4
