@@ -6,6 +6,17 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 [Semantic Versioning](https://semver.org/lang/pt-BR/) com série **0.x** durante a migração
 arquitetônica (`0.1.x` — base; `1.0.0` — versão considerada estável).
 
+## [Unreleased]
+
+### Corrigido
+
+- **YouTube baixando áudio separado (.m4a):** o yt-dlp não encontrava o FFmpeg do
+  projeto e pulava o merge de vídeo+áudio (aviso "ffmpeg is not installed"),
+  salvando `.mp4` sem som e `.m4a` soltos na pasta de saída. Agora
+  `runYtDlpDownload` repassa o caminho do FFmpeg (`--ffmpeg-location`) —
+  empacotado (extraResources) ou `vendor/ffmpeg/` — para o yt-dlp juntar os
+  streams no mesmo arquivo MP4.
+
 ## [1.3.0] - 2026-09-07
 
 ### Adicionado

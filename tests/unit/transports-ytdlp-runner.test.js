@@ -50,6 +50,31 @@ test('runYtDlpDownload: sucesso retorna ok:true e passa as opcoes', async () => 
   assert.equal(opts.noPlaylist, true);
   assert.equal(opts.noWarnings, true);
   assert.equal(opts.userAgent, 'Mozilla/5.0');
+  // Fix: FFmpeg do projeto repassado ao yt-dlp para o merge video+audio
+  // funcionar (sem isso sai .mp4 sem som + .m4a separados).
+  assert.ok(opts.ffmpegLocation, 'ffmpegLocation deve ser repassado ao yt-dlp');
+});
+
+test('runYtDlpDownload: ffmpegPath explicito sobrescreve e "ffmpeg" nu omitido', async () => {
+  const captured = [];
+  fakeCalls.impl = async (_url, options) => {
+    captured.push(options);
+    return { downloaded: true };
+  };
+
+  await runYtDlpDownload({
+    url: 'https://youtube.com/watch?v=abc',
+    output: '/tmp/out.mp4',
+    ffmpegPath: '/caminho/custom/ffmpeg',
+  });
+  assert.equal(captured[0].ffmpegLocation, '/caminho/custom/ffmpeg');
+
+  await runYtDlpDownload({
+    url: 'https://youtube.com/watch?v=abc',
+    output: '/tmp/out.mp4',
+    ffmpegPath: 'ffmpeg', // dependencia do PATH — nao deve setar a flag
+  });
+  assert.equal(captured[1].ffmpegLocation, undefined, '"ffmpeg" nu nao deve virar --ffmpeg-location');
 });
 
 test('runYtDlpDownload: auth cookies repassados', async () => {

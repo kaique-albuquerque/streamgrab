@@ -12,6 +12,7 @@
 
 import { getYtDlpExec } from '../core/binaries.js';
 import { YtDlpError, CancelledError } from '../core/errors.js';
+import { getFfmpegCommand } from '../ffmpeg/service.js';
 
 function toYtDlpError(err) {
   const yerr = new YtDlpError(`Falha no download via yt-dlp: ${err?.message || String(err)}`, {
@@ -30,14 +31,20 @@ function toYtDlpError(err) {
  * @param {string} params.output — caminho final do arquivo.
  * @param {object} [params.headers] — user-agent opcional.
  * @param {object} [params.auth] — cookiesFile/cookiesFromBrowser opcionais.
+ * @param {string} [params.ffmpegPath] — caminho do FFmpeg repassado ao yt-dlp
+ *   (`--ffmpeg-location`); default: `getFfmpegCommand()` (vendor/extraResources/PATH).
  * @param {AbortSignal} [params.signal] — cancela (mata o processo, se exposto).
  * @param {Function} [params.onProgress] — `({bytesDownloaded, totalBytes, percent, message})`.
  * @returns {Promise<{ok: true, [key: string]: any}>}
  * @throws YtDlpError em falha; CancelledError em abort.
  */
-export async function runYtDlpDownload({ url, formatId, output, headers = {}, auth = {}, signal, onProgress } = {}) {
+export async function runYtDlpDownload({ url, formatId, output, headers = {}, auth = {}, signal, onProgress, ffmpegPath } = {}) {
   if (!url) throw new TypeError('runYtDlpDownload: url e obrigatoria');
   if (!output) throw new TypeError('runYtDlpDownload: output e obrigatorio');
+
+  // FFmpeg concreto (vendor/ffmpeg, extraResources ou PATH) para o yt-dlp
+  // poder juntar video+audio no final do download adaptativo.
+  const resolvedFfmpegPath = ffmpegPath || getFfmpegCommand();
 
   const options = {
     format: formatId || 'best',
@@ -46,6 +53,12 @@ export async function runYtDlpDownload({ url, formatId, output, headers = {}, au
     noPlaylist: true,
     noWarnings: true,
     noCheckCertificates: true,
+    // O yt-dlp so junta video+audio se achar o FFmpeg. Sem isso, no app
+    // empacotado (PATH minimo) ele baixa os dois streams separados (.mp4 sem
+    // som + .m4a) e pula o merge com o aviso "ffmpeg is not installed".
+    // Somente seta quando existe um caminho concreto (vendor/extraResources);
+    // "ffmpeg" nu indica dependencia do PATH e nao precisa da flag.
+    ...(resolvedFfmpegPath && resolvedFfmpegPath !== 'ffmpeg' ? { ffmpegLocation: resolvedFfmpegPath } : {}),
   };
   const userAgent = headers?.['user-agent'] || headers?.['User-Agent'];
   if (userAgent) options.userAgent = userAgent;
