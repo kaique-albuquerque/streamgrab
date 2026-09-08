@@ -8,16 +8,24 @@
 
 ---
 
-<<<<<<< HEAD
 ### 📸 Demo
 
 <!-- Grava suas telas com Kap (macOS) ou ScreenToGif (Windows), salve em assets/ -->
 <!-- Recomendações: 8-10fps, 800px largura, ate 10MB por GIF, 10-15 segundos máximo -->
-=======
+
+#### Uso no App Electron (interface gráfica) para download HLS
+
+![Download via HLS](assets/download_platform.gif)
+
+#### Uso no App Electron para YouTube e redes sociais
+
+![Download via YouTube](assets/download_youtube.gif)
+
+---
+
 <!-- Portuguese translation retained for reference; English is the public README. -->
 <!--
 ## A história
->>>>>>> origin/main~
 
 #### Uso no App Electron (interface gráfica) para download hls
 
@@ -29,8 +37,6 @@
 
 ---
 
-<<<<<<< HEAD
-=======
 ### Requisitos
 
 - **Node.js 20+** — [nodejs.org](https://nodejs.org)
@@ -553,7 +559,6 @@ Use apenas para conteúdo que você tem o direito de baixar.
 
 -->
 
->>>>>>> origin/main~
 # English
 
 ## The story

@@ -53,6 +53,22 @@ async function selectBranch() {
   runGit(['switch', branches[choice - 1]]);
 }
 
+async function createBranch() {
+  const name = (await rl.question('Nome da nova branch: ')).trim();
+  if (!/^[A-Za-z0-9._/-]+$/.test(name)) {
+    console.log('Nome de branch inválido.');
+    return;
+  }
+  runGit(['switch', '-c', name]);
+}
+
+async function stashChanges() {
+  const message = (await rl.question('Descrição do stash (opcional): ')).trim();
+  const args = ['stash', 'push'];
+  if (message) args.push('-m', message);
+  runGit(args);
+}
+
 async function showMenu() {
   console.clear();
   console.log('StreamGrab - Git');
@@ -65,6 +81,14 @@ async function showMenu() {
   console.log('  6. Fazer push');
   console.log('  7. Ver histórico');
   console.log('  8. Trocar de branch');
+  console.log('  9. Buscar atualizações (fetch)');
+  console.log(' 10. Ver diff preparado (staged)');
+  console.log(' 11. Listar branches');
+  console.log(' 12. Criar nova branch');
+  console.log(' 13. Ver remotos');
+  console.log(' 14. Ver histórico gráfico');
+  console.log(' 15. Guardar alterações (stash)');
+  console.log(' 16. Listar stash');
   console.log('  0. Sair');
   return (await rl.question('\nEscolha uma opção: ')).trim();
 }
@@ -87,6 +111,15 @@ async function main() {
         if (await confirm('Executar git push?')) runGit(['push']);
       } else if (choice === '7') runGit(['log', '--oneline', '--decorate', '-10']);
       else if (choice === '8') await selectBranch();
+      else if (choice === '9') {
+        if (await confirm('Buscar atualizações dos remotos?')) runGit(['fetch', '--all', '--prune']);
+      } else if (choice === '10') runGit(['diff', '--cached']);
+      else if (choice === '11') runGit(['branch', '-a']);
+      else if (choice === '12') await createBranch();
+      else if (choice === '13') runGit(['remote', '-v']);
+      else if (choice === '14') runGit(['log', '--oneline', '--graph', '--decorate', '--all', '-20']);
+      else if (choice === '15') await stashChanges();
+      else if (choice === '16') runGit(['stash', 'list']);
       else console.log('Opção inválida.');
 
       if (choice !== '0') {
