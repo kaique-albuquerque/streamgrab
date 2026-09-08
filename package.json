@@ -48,6 +48,7 @@
     "ffmpeg:install": "node scripts/install-ffmpeg.mjs",
     "format": "prettier --write .",
     "git": "node scripts/git-menu.mjs",
+    "git:workflow": "node scripts/git-workflow.mjs",
     "lint": "eslint .",
     "pack:resources": "node scripts/update-ytdlp.mjs && node scripts/package-resources.mjs",
     "postinstall": "node scripts/install-ffmpeg.mjs && node scripts/install-electron.mjs",
