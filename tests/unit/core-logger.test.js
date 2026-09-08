@@ -88,6 +88,21 @@ test('core-logger: redact recursivo em objetos (chaves sensiveis)', () => {
   assert.equal(out.title, 'Aula');
 });
 
+test('core-logger: redact redige numeros, arrays e objetos sob chaves sensiveis', () => {
+  const out = redact({
+    password: 123456,
+    token: ['secret1', 'secret2'],
+    auth: { username: 'admin', key: 'secret' },
+    nullKey: null,
+    title: 'OK',
+  });
+  assert.equal(out.password, '***');
+  assert.equal(out.token, '***');
+  assert.equal(out.auth, '***');
+  assert.equal(out.nullKey, null);
+  assert.equal(out.title, 'OK');
+});
+
 test('core-logger: redact preserva primitivos e arrays', () => {
   assert.equal(redact(42), 42);
   assert.equal(redact(true), true);
