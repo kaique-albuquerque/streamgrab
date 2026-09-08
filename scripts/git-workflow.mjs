@@ -153,6 +153,30 @@ async function viewRelease() {
   runGh(['release', 'list', '--limit', '5']);
 }
 
+async function deleteTag() {
+  const output = runGit(['tag', '--sort=-version:refname'], { capture: true });
+  if (!output) {
+    console.log('Nenhuma tag encontrada.');
+    return;
+  }
+
+  const tags = output.split('\n').map((t) => t.trim()).filter(Boolean);
+  console.log('\nTags locais:');
+  tags.forEach((tag, i) => console.log(`  ${i + 1}. ${tag}`));
+
+  const choice = Number((await rl.question('Escolha a tag para remover (Enter cancela): ')).trim());
+  if (!Number.isInteger(choice) || choice < 1 || choice > tags.length) return;
+
+  const selected = tags[choice - 1];
+  if (!(await confirm(`Remover tag local "${selected}"?`))) return;
+
+  runGit(['tag', '-d', selected]);
+
+  if (await confirm(`Remover tag remota "${selected}" do GitHub?`)) {
+    runGit(['push', 'origin', '--delete', selected]);
+  }
+}
+
 async function showMenu() {
   console.clear();
   console.log('StreamGrab - Git Workflow');
@@ -162,13 +186,14 @@ async function showMenu() {
   console.log(`Última tag: ${latestTag || 'nenhuma'}\n`);
 
   console.log('  1. Criar e enviar tag (trigger release)');
-  console.log('  2. Criar release manual');
-  console.log('  3. Ver workflows recentes');
-  console.log('  4. Ver workflows em execução');
-  console.log('  5. Cancelar workflow');
-  console.log('  6. Ver releases');
-  console.log('  7. Ver status');
-  console.log('  8. Ver histórico');
+  console.log('  2. Remover tag');
+  console.log('  3. Criar release manual');
+  console.log('  4. Ver workflows recentes');
+  console.log('  5. Ver workflows em execução');
+  console.log('  6. Cancelar workflow');
+  console.log('  7. Ver releases');
+  console.log('  8. Ver status');
+  console.log('  9. Ver histórico');
   console.log('  0. Sair');
   return (await rl.question('\nEscolha uma opção: ')).trim();
 }
@@ -181,13 +206,14 @@ async function main() {
 
       if (choice === '0' || choice.toLowerCase() === 'sair') break;
       if (choice === '1') await createAndPushTag();
-      else if (choice === '2') await createRelease();
-      else if (choice === '3') viewWorkflows();
-      else if (choice === '4') viewWorkflowStatus();
-      else if (choice === '5') await cancelWorkflow();
-      else if (choice === '6') viewRelease();
-      else if (choice === '7') runGit(['status', '--short', '--branch']);
-      else if (choice === '8') runGit(['log', '--oneline', '--decorate', '-10']);
+      else if (choice === '2') await deleteTag();
+      else if (choice === '3') await createRelease();
+      else if (choice === '4') viewWorkflows();
+      else if (choice === '5') viewWorkflowStatus();
+      else if (choice === '6') await cancelWorkflow();
+      else if (choice === '7') viewRelease();
+      else if (choice === '8') runGit(['status', '--short', '--branch']);
+      else if (choice === '9') runGit(['log', '--oneline', '--decorate', '-10']);
       else console.log('Opção inválida.');
 
       if (choice !== '0') {
