@@ -126,7 +126,7 @@ jobs:
         with:
           name: release-windows
           path: |
-            dist/*.msi
+            dist/*.exe
             dist/*.blockmap
             dist/*.yml
 

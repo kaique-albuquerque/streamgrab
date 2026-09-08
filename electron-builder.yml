@@ -33,10 +33,10 @@ compression: normal
 
 win:
   target:
-    - target: msi
+    - target: nsis
       arch:
         - x64
-  artifactName: StreamGrab-${version}-${arch}.${ext}
+  artifactName: StreamGrab-${version}-Setup-${arch}.${ext}
 
 mac:
   target:
