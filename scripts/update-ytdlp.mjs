@@ -39,30 +39,47 @@ export function parseVersion(stdout) {
 /** Escolhe o asset de download correto para a plataforma (puro, testável). */
 export function pickAsset(assets, { platform = process.platform } = {}) {
   const list = Array.isArray(assets) ? assets : [];
-  const wanted = platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
+  const assetMap = {
+    win32: 'yt-dlp.exe',
+    darwin: 'yt-dlp_macos',
+    linux: 'yt-dlp_linux',
+  };
+  const wanted = assetMap[platform] || 'yt-dlp';
   const asset = list.find((a) => a?.name === wanted);
   return asset?.browser_download_url || null;
 }
 
-/** Destinos do binário (arquivos que existem no projeto). */
-export function targetPaths(projectRoot = PROJECT_ROOT) {
+/** Destinos do binário (cria diretórios se necessário). O primeiro é sempre
+ *  node_modules/youtube-dl-exec/bin/ (obrigatório para pack:resources). */
+function targetPaths(projectRoot = PROJECT_ROOT) {
+  const primary = path.join(projectRoot, 'node_modules', 'youtube-dl-exec', 'bin', `yt-dlp${EXE}`);
   const targets = [
-    path.join(projectRoot, 'node_modules', 'youtube-dl-exec', 'bin', `yt-dlp${EXE}`),
+    primary,
     path.join(projectRoot, 'tools', `yt-dlp${EXE}`),
     path.join(projectRoot, 'build', 'extraResources', 'bin', `yt-dlp${EXE}`),
   ];
-  return targets.filter((p) => fs.existsSync(p));
+  // Cria o diretório do destino primário se não existir
+  const dir = path.dirname(primary);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return [primary, ...targets.slice(1).filter((p) => fs.existsSync(p))];
 }
 
 /** Baixa o asset para um arquivo temporário. */
 async function downloadToTemp(url) {
-  const res = await fetch(url, { headers: { 'user-agent': UA } });
+  const headers = { 'user-agent': UA };
+  if (process.env.GH_TOKEN) {
+    headers.Authorization = `Bearer ${process.env.GH_TOKEN}`;
+  }
+  const res = await fetch(url, { headers });
   if (!res.ok) {
     throw new Error(`Falha ao baixar o yt-dlp (HTTP ${res.status} ${res.statusText}).`);
   }
   const tmp = path.join(os.tmpdir(), `yt-dlp-${Date.now()}${EXE}`);
   const buf = Buffer.from(await res.arrayBuffer());
   fs.writeFileSync(tmp, buf);
+  fs.chmodSync(tmp, 0o755);
   return tmp;
 }
 
@@ -78,9 +95,34 @@ function validateVersion(binPath) {
   return version;
 }
 
+/** Verifica se o yt-dlp já é um binário standalone (não Python zipapp). */
+function isStandaloneBinary(binPath) {
+  try {
+    const stat = fs.statSync(binPath);
+    // Binário standalone tem >5MB; Python zipapp tem ~3MB
+    if (stat.size < 5_000_000) return false;
+    const r = spawnSync(binPath, ['--version'], { encoding: 'utf8', windowsHide: true, timeout: 10000 });
+    return r.status === 0 && /\d{4}\.\d{2}\.\d{2}/.test(r.stdout);
+  } catch {
+    return false;
+  }
+}
+
 export async function main() {
+  // Verifica se já tem binário standalone instalado
+  const primary = path.join(PROJECT_ROOT, 'node_modules', 'youtube-dl-exec', 'bin', `yt-dlp${EXE}`);
+  if (fs.existsSync(primary) && isStandaloneBinary(primary)) {
+    const ver = spawnSync(primary, ['--version'], { encoding: 'utf8', windowsHide: true, timeout: 10000 });
+    console.log(`[update:ytdlp] Binário standalone já instalado: ${ver.stdout.trim()}`);
+    return;
+  }
+
   console.log('\n[update:ytdlp] Buscando release mais recente do yt-dlp...');
-  const res = await fetch(GITHUB_API_URL, { headers: { 'user-agent': UA } });
+  const headers = { 'user-agent': UA };
+  if (process.env.GH_TOKEN) {
+    headers.Authorization = `Bearer ${process.env.GH_TOKEN}`;
+  }
+  const res = await fetch(GITHUB_API_URL, { headers });
   if (!res.ok) {
     throw new Error(
       `Falha ao consultar releases do yt-dlp (HTTP ${res.status}). ` +

@@ -6,6 +6,44 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 [Semantic Versioning](https://semver.org/lang/pt-BR/) com série **0.x** durante a migração
 arquitetônica (`0.1.x` — base; `1.0.0` — versão considerada estável).
 
+## [1.3.0] - 2026-09-07
+
+### Adicionado
+
+- **Turbo no Electron/engine (HTTP Range paralelo):** o botão turbo agora funciona
+  no app Electron. A fila de downloads propaga `job.meta.turbo` para o engine,
+  que usa `downloadParallelRanges` quando ativado. Fallback automático para
+  download sequencial se o servidor não suportar Range.
+  - YouTube/sociais: yt-dlp → turbo mux (vídeo + áudio paralelo) → fallback
+  - Downloads diretos: probe Range → 8 partes paralelas → fallback sequencial
+
+- **Compatibilidade QuickTime (macOS):** YouTube 1080p agora força codec H.264
+  (`vcodec*=avc1`) em vez de VP9, garantindo reprodução no QuickTime Player.
+
+### Corrigido
+
+- **YouTube salvando como .webm:** forçado `mergeOutputFormat: 'mp4'` no yt-dlp
+  e extensão `.mp4` no renderer para YouTube/redes sociais.
+
+- **YouTube mux download:** URLs adaptativas do YouTube (googlevideo.com) que
+  retornavam m3u8 em vez de vídeo agora baixam via yt-dlp diretamente.
+
+- **ReadableStream locked:** `runStreamDownload` criava 2 readers no mesmo
+  stream — agora usa 1 único reader para validação de conteúdo + download.
+  Detecção precoce de m3u8/HTML/JSON antes de baixar o arquivo inteiro.
+
+- **Engine refatorado:** módulo dividido em `engine/helpers.js` (pure utils),
+  `engine/runners.js` (download executors), `engine/executor.js` (adapter +
+  turbo), `engine/index.js` (DownloadEngine).
+
+### Alterado
+
+- **Paths cross-platform:** barras invertidas hardcoded (`\\`) nos renderers
+  substituídas por `/` (compatível Windows/macOS/Linux).
+
+- **yt-dlp runner:** opção `merge_output_format` corrigida para `mergeOutputFormat`
+  (camelCase exigido pelo `youtube-dl-exec`).
+
 ## [Não publicado]
 
 ## [1.2.1] - 2026-09-07

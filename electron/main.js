@@ -298,6 +298,7 @@ function enqueueDownload({ url, filename, outputDir, selectedUrl, title, turbo, 
       sourceUrl: url,
       taskId: taskId || '',
       turbo: Boolean(turbo),
+      turboChunks: Number(services.settings.get('turboChunks')) || 8,
       headers: downloadHeaders,
       auth: {
         cookiesFile: cookiesFile || config.cookiesFile || '',
@@ -495,7 +496,7 @@ ipcMain.handle('settings:update', async (_event, rawPayload) => {
   if (!services) return null;
   const clean = validateSettingsPayload(rawPayload);
   if (!clean) return null;
-  return services.applySettings(clean);
+  return { ok: true, settings: services.applySettings(clean) };
 });
 
 ipcMain.handle('settings:reset', async () => {

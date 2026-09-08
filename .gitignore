@@ -7,6 +7,7 @@ vendor/
 build/
 dist/
 *.tmp
+.DS_Store
 
 # Relatorios temporarios de testes/benchmarks/lint (P4-P9) — nunca commitar.
 # Nao e um ignore global de *.txt: sao padroes especificos por prefixo.
@@ -22,3 +23,4 @@ test-output*.txt
 
 # Pasta padrao p/ relatorios futuros de testes (npm test > test-results/...)
 test-results/
+

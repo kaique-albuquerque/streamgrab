@@ -23,6 +23,8 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     timeout-minutes: 12
+<<<<<<< HEAD
+=======
     steps:
       - uses: actions/checkout@v4
 
@@ -60,6 +62,7 @@ jobs:
     name: Build installer (Windows)
     needs: [test]
     runs-on: windows-latest
+>>>>>>> origin/main~
     steps:
       - uses: actions/checkout@v4
 
@@ -71,9 +74,97 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+<<<<<<< HEAD
+      # Três camadas de proteção contra hang:
+      #  1. --test-timeout=30000  → Node mata qualquer teste individual > 30s
+      #  2. timeout-minutes: 10   → GitHub cancela o step
+      #  3. timeout-minutes: 12   → GitHub cancela a job inteira
+      #
+      # Nota: Testes de integração (tests/integration/) usam FFmpeg,
+      # servidores HTTP locais e processos filhos que podem travar no CI.
+      # Rodamos apenas unitários no CI — integração fica para desenvolvimento local.
+      - name: Testes unitários
+        run: node --test-timeout=30000 --experimental-test-module-mocks --test "tests/unit/*.test.js" 2>&1 | tee test-results.log
+        shell: bash {0}
+        timeout-minutes: 10
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results.log
+          retention-days: 5
+
+  # ── Windows ────────────────────────────────────────────────────────────
+  build-windows:
+    name: Build installer (Windows)
+    needs: [test]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências (npm ci)
+        run: npm ci 2>&1
+        env:
+          YOUTUBE_DL_SKIP_DOWNLOAD: 1
+        timeout-minutes: 15
+
+      - name: Instalar FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: node scripts/install-ffmpeg.mjs 2>&1
+        timeout-minutes: 5
+
+      - name: Instalar yt-dlp
+        run: node scripts/update-ytdlp.mjs 2>&1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        timeout-minutes: 5
+
+      - name: Verificar binários obrigatórios
+        run: |
+          echo "=== ffmpeg ==="
+          ls -la vendor/ffmpeg/ffmpeg.exe 2>&1 || echo "MISSING"
+          echo "=== yt-dlp ==="
+          ls -la node_modules/youtube-dl-exec/bin/yt-dlp* 2>&1 || echo "MISSING"
+          echo "=== extraResources pre ==="
+          ls -la build/extraResources/bin/ 2>&1 || echo "empty"
+        shell: bash
+        timeout-minutes: 1
+
+      - name: Empacotar binários (pack:resources)
+        run: npm run pack:resources 2>&1
+        timeout-minutes: 5
+
+      - name: Verificar Electron antes do build
+        run: |
+          echo "=== Electron ==="
+          ls -la node_modules/electron/dist/ 2>&1 || echo "Electron dist MISSING"
+          cat node_modules/electron/path.txt 2>&1 || echo "path.txt MISSING"
+          echo "=== node_modules/electron ==="
+          ls node_modules/electron/ 2>&1
+        shell: bash
+
+      - name: Electron-builder (win)
+        run: npx electron-builder --win --publish never 2>&1
+        timeout-minutes: 20
+
+      - name: Listar artefatos gerados
+        run: |
+          echo "=== listando dist/ ==="
+          ls -lh dist/ 2>&1 || echo "dist vazio"
+          echo "=== exit code: $? ==="
+        shell: bash
+=======
       - name: Build instalador MSI
         run: npm run dist
         timeout-minutes: 15
+>>>>>>> origin/main~
 
       - name: Publicar artefatos Windows
         uses: actions/upload-artifact@v4
@@ -97,16 +188,53 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Instalar FFmpeg
-        run: brew install ffmpeg
+      - name: Instalar FFmpeg (brew)
+        run: brew install ffmpeg 2>&1
+        timeout-minutes: 5
 
-      - name: Instalar dependências
-        run: npm ci
+      - name: Copiar FFmpeg para vendor/ffmpeg/
+        run: |
+          mkdir -p vendor/ffmpeg
+          cp "$(which ffmpeg)" vendor/ffmpeg/ffmpeg
+          chmod +x vendor/ffmpeg/ffmpeg
+        timeout-minutes: 1
 
+<<<<<<< HEAD
+      - name: Instalar dependências (npm ci)
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          YOUTUBE_DL_SKIP_DOWNLOAD: 1
+        run: npm ci 2>&1
+        timeout-minutes: 10
+
+      - name: Instalar yt-dlp
+        run: node scripts/update-ytdlp.mjs 2>&1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        timeout-minutes: 5
+
+      - name: Instalar Electron
+        run: node scripts/install-electron.mjs 2>&1
+        timeout-minutes: 10
+
+      - name: Empacotar binários (pack:resources)
+        run: npm run pack:resources 2>&1
+        timeout-minutes: 5
+
+      - name: Build instalador PKG x64
+        run: npx electron-builder --mac --x64 --publish never 2>&1
+        timeout-minutes: 15
+
+      - name: Listar artefatos gerados
+        run: ls -lh dist/ 2>&1 || echo "dist vazio"
+        shell: bash
+
+=======
       - name: Build instalador PKG x64
         run: npm run pack:resources && npx electron-builder --mac --x64
         timeout-minutes: 15
 
+>>>>>>> origin/main~
       - name: Publicar artefatos macOS x64
         uses: actions/upload-artifact@v4
         with:
@@ -129,6 +257,56 @@ jobs:
           node-version: 22
           cache: npm
 
+<<<<<<< HEAD
+      - name: Instalar FFmpeg (brew)
+        run: brew install ffmpeg 2>&1
+        timeout-minutes: 5
+
+      - name: Copiar FFmpeg para vendor/ffmpeg/
+        run: |
+          mkdir -p vendor/ffmpeg
+          cp "$(which ffmpeg)" vendor/ffmpeg/ffmpeg
+          chmod +x vendor/ffmpeg/ffmpeg
+        timeout-minutes: 1
+
+      - name: Limpar cache npm (evitar conflito x64/arm)
+        run: |
+          rm -rf ~/.npm/_cacache
+          npm cache clean --force 2>&1 || true
+
+      - name: Instalar dependências (npm ci)
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          YOUTUBE_DL_SKIP_DOWNLOAD: 1
+        run: npm ci 2>&1
+        timeout-minutes: 10
+
+      - name: Instalar yt-dlp
+        run: node scripts/update-ytdlp.mjs 2>&1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        timeout-minutes: 5
+
+      - name: Instalar Electron
+        run: node scripts/install-electron.mjs 2>&1
+        timeout-minutes: 10
+
+      - name: Empacotar binários (pack:resources)
+        run: npm run pack:resources 2>&1
+        timeout-minutes: 5
+
+      - name: Verificar binários empacotados
+        run: ls -lh build/extraResources/bin/ 2>&1
+        shell: bash
+
+      - name: Build instalador PKG arm64
+        run: npx electron-builder --mac --arm64 --publish never 2>&1
+        timeout-minutes: 15
+
+      - name: Listar artefatos gerados
+        run: ls -lh dist/ 2>&1 || echo "dist vazio"
+        shell: bash
+=======
       - name: Instalar FFmpeg
         run: brew install ffmpeg
 
@@ -138,6 +316,7 @@ jobs:
       - name: Build instalador PKG arm64
         run: npm run pack:resources && npx electron-builder --mac --arm64
         timeout-minutes: 15
+>>>>>>> origin/main~
 
       - name: Publicar artefatos macOS arm64
         uses: actions/upload-artifact@v4
@@ -161,6 +340,61 @@ jobs:
           node-version: 22
           cache: npm
 
+<<<<<<< HEAD
+      # FFmpeg ANTES de npm ci — copia o binário do sistema para vendor/ffmpeg/
+      - name: Instalar FFmpeg (apt)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg 2>&1
+        timeout-minutes: 3
+
+      - name: Copiar FFmpeg para vendor/ffmpeg/
+        run: |
+          mkdir -p vendor/ffmpeg
+          cp "$(which ffmpeg)" vendor/ffmpeg/ffmpeg
+          chmod +x vendor/ffmpeg/ffmpeg
+          ls -lh vendor/ffmpeg/
+        timeout-minutes: 1
+
+      - name: Instalar dependências de build (Linux)
+        run: |
+          sudo apt-get install -y -qq dpkg-dev fakeroot rpm 2>&1
+          which mksquashfs 2>&1 || sudo apt-get install -y -qq squashfs-tools 2>&1
+        timeout-minutes: 5
+
+      - name: Instalar dependências (npm ci)
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          YOUTUBE_DL_SKIP_DOWNLOAD: 1
+        run: npm ci 2>&1
+        timeout-minutes: 10
+
+      - name: Instalar yt-dlp
+        run: node scripts/update-ytdlp.mjs 2>&1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        timeout-minutes: 5
+
+      - name: Instalar Electron
+        run: node scripts/install-electron.mjs 2>&1
+        timeout-minutes: 10
+
+      - name: Empacotar binários (pack:resources)
+        run: npm run pack:resources 2>&1
+        timeout-minutes: 5
+
+      - name: Verificar Electron antes do build
+        run: |
+          echo "=== Electron ==="
+          ls -la node_modules/electron/dist/ 2>&1 || echo "Electron dist MISSING"
+          cat node_modules/electron/path.txt 2>&1 || echo "path.txt MISSING"
+        shell: bash
+
+      - name: Build instaladores Linux
+        run: npx electron-builder --linux --x64 --publish never 2>&1
+
+      - name: Listar artefatos gerados
+        run: ls -lh dist/ 2>&1 || echo "dist vazio"
+        shell: bash
+=======
       # FFmpeg ANTES de npm ci — o postinstall (install-ffmpeg.mjs) copia
       # o binário do PATH para vendor/ffmpeg/. Sem isso, o postinstall
       # não encontra FFmpeg e pack:resources falha.
@@ -175,6 +409,7 @@ jobs:
       - name: Build instaladores Linux
         run: npm run pack:resources && npx electron-builder --linux --x64
         timeout-minutes: 15
+>>>>>>> origin/main~
 
       - name: Publicar artefatos Linux
         uses: actions/upload-artifact@v4

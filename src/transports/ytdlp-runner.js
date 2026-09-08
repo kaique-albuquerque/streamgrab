@@ -42,6 +42,7 @@ export async function runYtDlpDownload({ url, formatId, output, headers = {}, au
   const options = {
     format: formatId || 'best',
     output,
+    mergeOutputFormat: 'mp4', // Forca container MP4
     noPlaylist: true,
     noWarnings: true,
     noCheckCertificates: true,

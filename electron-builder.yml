@@ -11,7 +11,7 @@ directories:
   output: dist
   buildResources: build
 
-# Usa o Electron já baixado pelo npm (evita re-download no cache do builder).
+# Usa o Electron já baixado pelo npm (evita re-download).
 electronDist: node_modules/electron/dist
 
 files:

@@ -1,7 +1,11 @@
 {
   "name": "streamgrab",
-  "version": "1.2.1",
+  "version": "1.4.1",
   "description": "Universal video downloader for HLS, DASH, YouTube and other supported sources.",
+  "author": {
+    "name": "Kaique Albuquerque",
+    "email": "kaique.g.dias14@gmail.com"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/kaique-albuquerque/streamgrab.git"
@@ -26,33 +30,34 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "streamgrab": "node bin/streamgrab.mjs",
     "analyze": "node bin/streamgrab.mjs analyze",
+    "audit": "npm audit --omit=dev 2>&1 || echo '[audit] Vulnerabilities found — review above'",
+    "curl:install": "node scripts/install-curl-impersonate.mjs",
+    "dist": "npm run pack:resources && electron-builder --win",
+    "dist:dir": "npm run pack:resources && electron-builder --win --dir",
+    "dist:linux": "npm run pack:resources && electron-builder --linux",
+    "dist:mac": "npm run pack:resources && electron-builder --mac",
+    "dist:mac:dir": "npm run pack:resources && electron-builder --mac --dir",
     "download": "node bin/streamgrab.mjs download",
     "download:curl": "node src/index.js --curl-impersonate",
     "download:turbo": "node src/index.js --turbo",
     "download:turbo:smart": "node src/index.js --turbo --smart-turbo",
-    "curl:install": "node scripts/install-curl-impersonate.mjs",
     "download:youtube": "node src/index.js --youtube",
     "electron:dev": "electron .",
     "electron:install": "node scripts/install-electron.mjs",
-    "test": "node --experimental-test-module-mocks --test \"tests/unit/*.test.js\" \"tests/integration/*.test.js\" && node tests/e2e/curl-e2e.mjs",
-    "test:unit": "node --experimental-test-module-mocks --test \"tests/unit/*.test.js\"",
-    "test:integration": "node --experimental-test-module-mocks --test \"tests/integration/*.test.js\"",
-    "test:e2e": "node tests/e2e/curl-e2e.mjs",
-    "lint": "eslint .",
-    "audit": "npm audit --omit=dev 2>&1 || echo '[audit] Vulnerabilities found — review above'",
-    "format": "prettier --write .",
     "ffmpeg:install": "node scripts/install-ffmpeg.mjs",
-    "pack:resources": "node scripts/package-resources.mjs",
-    "update:ytdlp": "node scripts/update-ytdlp.mjs",
-    "dist": "npm run pack:resources && electron-builder --win",
-    "dist:dir": "npm run pack:resources && electron-builder --win --dir",
-    "dist:mac": "npm run pack:resources && electron-builder --mac",
-    "dist:mac:dir": "npm run pack:resources && electron-builder --mac --dir",
-    "dist:linux": "npm run pack:resources && electron-builder --linux",
+    "format": "prettier --write .",
+    "git": "node scripts/git-menu.mjs",
+    "lint": "eslint .",
+    "pack:resources": "node scripts/update-ytdlp.mjs && node scripts/package-resources.mjs",
+    "postinstall": "node scripts/install-ffmpeg.mjs && node scripts/install-electron.mjs",
     "release": "npm run pack:resources && electron-builder --win --mac --linux && node scripts/checksums.mjs",
-    "postinstall": "node scripts/install-ffmpeg.mjs && node scripts/install-electron.mjs"
+    "streamgrab": "node bin/streamgrab.mjs",
+    "test": "node --experimental-test-module-mocks --test \"tests/unit/*.test.js\" \"tests/integration/*.test.js\" && node tests/e2e/curl-e2e.mjs",
+    "test:e2e": "node tests/e2e/curl-e2e.mjs",
+    "test:integration": "node --experimental-test-module-mocks --test \"tests/integration/*.test.js\"",
+    "test:unit": "node --experimental-test-module-mocks --test \"tests/unit/*.test.js\"",
+    "update:ytdlp": "node scripts/update-ytdlp.mjs"
   },
   "engines": {
     "node": ">=20"
