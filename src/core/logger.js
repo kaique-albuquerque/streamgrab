@@ -50,7 +50,8 @@ export function redact(value) {
   if (typeof value === 'object') {
     const out = {};
     for (const [key, val] of Object.entries(value)) {
-      out[key] = SENSITIVE_OBJECT_KEYS.test(key) && typeof val === 'string' ? '***' : redact(val);
+      // Sentinel Security: Redact any non-nullish sensitive property (strings, numbers, arrays, objects)
+      out[key] = SENSITIVE_OBJECT_KEYS.test(key) && val !== null && val !== undefined ? '***' : redact(val);
     }
     return out;
   }
