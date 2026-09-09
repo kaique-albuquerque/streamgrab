@@ -10,556 +10,19 @@
 
 ### 📸 Demo
 
-<!-- Grava suas telas com Kap (macOS) ou ScreenToGif (Windows), salve em assets/ -->
-<!-- Recomendações: 8-10fps, 800px largura, ate 10MB por GIF, 10-15 segundos máximo -->
+<!-- Record your screen with Kap (macOS) or ScreenToGif (Windows), then save the GIFs in assets/. -->
+<!-- Recommendations: 8-10 FPS, 800px width, up to 10 MB per GIF, 10-15 seconds max. -->
 
-#### Uso no App Electron (interface gráfica) para download HLS
+#### Electron app usage for HLS downloads
 
 ![Download via HLS](assets/download_platform.gif)
 
-#### Uso no App Electron para YouTube e redes sociais
+#### Electron app usage for YouTube and social media
 
 ![Download via YouTube](assets/download_youtube.gif)
 
 ---
 
-<!-- Portuguese translation retained for reference; English is the public README. -->
-<!--
-## A história
-
-#### Uso no App Electron (interface gráfica) para download hls
-
-![Download via HLS (plataforma)](assets/download_platform.gif)
-
-#### Uso no App Electron (interface gráfica) para download youtube/social media/etc
-
-![Download via YouTube](assets/download_youtube.gif)
-
----
-
-### Requisitos
-
-- **Node.js 20+** — [nodejs.org](https://nodejs.org)
-- **Windows 10/11** (também funciona em macOS/Linux)
-- **FFmpeg** — no Windows é baixado **automaticamente** pelo `npm install` (para `vendor/ffmpeg/`). Em macOS/Linux, instale manualmente e adicione ao PATH.
-
-> 💡 O `npm install` roda scripts (`postinstall`) que validam o Electron e o FFmpeg. No Windows, o FFmpeg é baixado e instalado localmente em `vendor/ffmpeg/`. Em macOS/Linux, o instalador apenas espera que `ffmpeg` já exista no PATH. Para reparar o Electron manualmente: `npm run electron:install`. Para instalar/atualizar o FFmpeg local no Windows: `npm run ffmpeg:install`.
-
----
-
-### Instalação
-
-```powershell
-cd streamgrab
-npm install
-```
-
-Linux:
-
-```bash
-sudo apt install ffmpeg unzip
-npm install
-```
-
-macOS:
-
-```bash
-brew install ffmpeg
-npm install
-```
-
-> O programa em si **não usa dependências de runtime** — dá para rodar direto com `node src/index.js` sem `npm install`. O `npm install` instala apenas o **ntl** (menu opcional de scripts) como dependência de desenvolvimento. Exceção: para downloads do **YouTube** e de **redes sociais**, o `npm install` também baixa o binário standalone do **yt-dlp** (pacote `youtube-dl-exec`) na primeira instalação.
-
-> **Redes sociais:** além de YouTube, o adaptador social (motor yt-dlp) cobre **Facebook, Instagram, TikTok, X/Twitter, Reddit, Twitch, Vimeo, Dailymotion, LinkedIn, Bilibili, VK** e os demais sites suportados pelo yt-dlp (a lista muda com frequência — consulte a documentação do yt-dlp). Basta colar a URL do post/vídeo — o programa detecta a plataforma automaticamente e oferece as qualidades disponíveis. Conteúdo privado/login funciona com cookies (veja a seção [Conteúdo privado / autenticado](#-conteúdo-privado--autenticado-login)) e conteúdo com DRM não é suportado.
-
----
-
-### Como executar
-
-**Recomendado (contorna CDNs com bloqueio de cliente não-navegador, como a Mídia Stream):**
-
-```powershell
-npm run download:curl
-```
-
-Básico (fluxo interativo):
-
-```powershell
-node src/index.js
-```
-
-Ou use o binário `streamgrab` (disponível no PATH quando instalado via npm) com subcomandos:
-
-```powershell
-streamgrab <url>                      # interativo (compatibilidade)
-streamgrab analyze <url> [--json]     # análise não-interativa da URL
-streamgrab download <url> [--output <dir>] [--turbo] [--chunks <n>]  # download não-interativo
-streamgrab help                       # ajuda dos subcomandos
-```
-
-#### Exemplo de uso completo
-
-```
-==============================================
-   StreamGrab — HLS / DASH / YouTube / Redes
-==============================================
-
-Verificando FFmpeg...
-FFmpeg OK.
-
-URL do .m3u8: https://exemplo.com/aula/playlist.m3u8?cP=1997000&access_token=abc&sid=xyz
-URL reconhecida: https://exemplo.com/aula/playlist.m3u8?cP=1997000&access_token=***&sid=***
-
-Analisando playlist...
-
-Qualidades encontradas:
-  1. 1920x1080 (1080p)  ~1.75 Mbps
-  2. 1280x720 (720p)  ~0.90 Mbps
-  3. 854x480 (480p)  ~0.50 Mbps
-  4. 640x360 (360p)  ~0.30 Mbps
-  5. 426x240 (240p)  ~0.15 Mbps
-  0. Cancelar
-
-Escolha (Enter = melhor disponível): 2
-Variant escolhida: https://exemplo.com/aula/720p/index.m3u8?access_token=***
-
-Nome do arquivo (sem extensão): Aula 01
-Pasta de saída (Enter = C:\Users\SeuUsuario\Downloads):
-Salvando em: C:\Users\SeuUsuario\Downloads\Aula 01.mp4
-
-Baixando — modo: cópia direta (-c copy)
-Baixando...  Tempo: 00:12:43  Tamanho: 184.0 MB  Velocidade: 6.2x
-✅ Download concluído!
-Arquivo salvo em: C:\Users\SeuUsuario\Downloads\Aula 01.mp4
-```
-
-#### Argumentos de linha de comando
-
-```powershell
-node src/index.js --referer "https://exemplo.com/" --origin "https://exemplo.com" --user-agent "Mozilla/5.0 ..."
-```
-
-- `--referer <URL>` — envia o header `Referer`
-- `--origin <URL>` — envia o header `Origin`
-- `--user-agent "<UA>"` — envia o header `User-Agent`
-- `--curl-impersonate` / `--ci` — força o modo curl-impersonate
-- `--cookies <arquivo>` — usa um `cookies.txt` (formato Netscape) para conteúdo autenticado (YouTube privado, redes sociais com login)
-- `--cookies-from-browser <navegador>` — extrai cookies automaticamente do navegador (`chrome`, `edge`, `firefox`, `brave`, `opera`, `vivaldi`, `chromium`...)
-- `--turbo` — download paralelo por partes (HTTP Range) em URLs diretas (YouTube/redes sociais/arquivos). Mais rápido: várias conexões ao mesmo tempo
-- `--chunks <n>` — número de conexões do modo turbo (padrão: 8)
-- `--smart-turbo` / `--no-smart-turbo` — liga/desliga o Smart Turbo (concurrency adaptativa)
-- `--youtube` — força o adaptador do YouTube (usado por `npm run download:youtube`)
-- `--help` — mostra a ajuda
-
-Os mesmos headers podem ser definidos em um arquivo `config.json` na pasta do projeto (veja `config.example.json`). Os valores informados na linha de comando têm prioridade sobre o arquivo.
-
----
-
-### 🔐 Conteúdo privado / autenticado (login)
-
-Sim, dá para baixar vídeos **privados** (ex.: "não listado"/privado no YouTube, post restrito no Facebook/Instagram) **desde que você tenha acesso autenticado** — o programa usa os cookies da sua sessão:
-
-1. **Exporte os cookies** do navegador enquanto estiver logado no site:
-   - Instale a extensão **"Get cookies.txt LOCALLY"** (Chrome/Edge/Firefox)
-   - Abra a página do vídeo, clique na extensão e exporte o `cookies.txt`
-2. **Use o arquivo** de uma destas formas:
-
-   ```powershell
-   # Linha de comando (o arquivo deve estar na pasta do projeto)
-   node src/index.js --cookies cookies.txt
-
-   # Ou no config.json (aplicado a todas as execuções)
-   # { "cookiesFile": "cookies.txt" }
-   ```
-
-3. **Ou extraia direto do navegador** (sem exportar nada):
-
-   ```powershell
-   node src/index.js --cookies-from-browser chrome
-   ```
-
-O programa então analisa e baixa usando a sua sessão. Se o conteúdo exigir login e não houver cookies, ele avisa com instruções.
-
-> ⚠️ **Limitações:** (1) conteúdo protegido por **DRM** (Widevine/PlayReady, comum em serviços de streaming) continua não suportado; (2) contas com **verificação em duas etapas (2FA)** às vezes exigem extração do navegador em vez de cookies.txt; (3) use apenas conteúdo ao qual você tem direito de acesso.
-
----
-
-### ⚡ Modo turbo (download mais rápido)
-
-Por padrão o download usa **1 conexão** (FFmpeg) — o limite de velocidade fica no servidor por conexão. O **turbo** divide o arquivo em partes e baixa **várias conexões em paralelo** (estilo IDM/aria2), contornando esse limite:
-
-```powershell
-node src/index.js --turbo                 # 8 conexões paralelas (padrão)
-node src/index.js --turbo --chunks 16     # 16 conexões
-```
-
-Funciona em **URLs diretas**: YouTube (progressivo e adaptativo — vídeo+áudio baixam **ao mesmo tempo**), redes sociais e arquivos `.mp4`/`.webm`. Não se aplica a HLS (`.m3u8`) nem DASH (`.mpd`).
-
-- Se o servidor **não suportar** download por partes (sem `Accept-Ranges`), o turbo detecta e **volta automaticamente** ao fluxo normal — sem erro.
-- Também pode ser ligado por padrão no `config.json`: `{ "turbo": true, "turboChunks": 8 }`.
-- No **Electron**, é uma caixa "⚡ Turbo" em cada aba.
-
-### 🧠 Smart Turbo (concurrency adaptativa)
-
-O **Smart Turbo** (P6.2) ajusta o número de conexões **durante** o download, orientado por benchmark (`tests/performance/BASELINE.md`): sobe em rampa (2→4→8→12) enquanto o throughput por conexão se mantém, e **reduz com backoff** ao detectar throttling (queda > 30% do por-conexão com total estagnado) ou erros 429/5xx — sem induzir bloqueios no servidor. Em links rápidos ele encontra o teto do seu link; em servidores limitados, para de desperdiçar conexões.
-
-```powershell
-node src/index.js --turbo --chunks 12            # pool fixo (comportamento anterior)
-node src/index.js --turbo --smart-turbo          # adaptativo (max 12)
-node src/index.js --turbo --no-smart-turbo       # rollback explícito por CLI
-```
-
-No `config.json`/settings:
-
-```jsonc
-{ "turbo": true, "turboChunks": 12, "smartTurbo": true }
-// ou com opções: { "smartTurbo": { "min": 2, "max": 8, "windowMs": 800 } }
-```
-
-- Padrão: **desligado** (pool fixo). `--no-smart-turbo` desliga mesmo com config ativa (rollback).
-- A cada janela de medição (default 1200 ms) o pool decide: subir (rampa/crescimento sustentado), reduzir (throttling/erros) ou manter.
-
-> 💡 Ganho típico: **2–10x** em conexões rápidas (o teto vira o seu link, não o throttling por conexão do servidor).
-
----
-
-### 🎬 Download do YouTube (melhor resolução)
-
-```powershell
-npm run download:youtube
-```
-
-Cole uma URL de vídeo do YouTube (ex.: `https://www.youtube.com/watch?v=...` ou `https://youtu.be/...`). O programa lista as **qualidades encontradas** (2160p/1440p/1080p/720p/...) e baixa a escolhida na **melhor resolução disponível** — para vídeos 4K, baixa o vídeo e o melhor áudio separadamente e **junta com o FFmpeg** (`-c copy`, sem perda de qualidade).
-
-```
-Qualidades encontradas:
-  1. 2160p  ~13.47 Mbps
-  2. 2160p  ~9.02 Mbps
-  3. 1440p  ~5.67 Mbps
-  4. 1080p  ~3.04 Mbps
-  ...
-  0. Cancelar
-
-Escolha (Enter = melhor disponivel): 
-```
-
-> ℹ️ A resolução do YouTube é resolvida pelo **yt-dlp** (binário standalone, baixado automaticamente na instalação pelo pacote `youtube-dl-exec` — sem precisar de Python). O yt-dlp mantém atualizada a lógica de decifração de assinaturas, transformação do parâmetro `n`, tokens de prova de origem (POT) e o novo streaming SABR do YouTube, que quebram implementações caseiras com frequência. Os links gerados são baixados pelo FFmpeg local, com os mesmos modos de fallback do restante do programa.
-
----
-
-### Como obter uma Request URL `.m3u8` pelo DevTools
-
-1. Acesse a plataforma e **inicie a reprodução** da aula no navegador (Chrome/Edge).
-2. Pressione `F12` para abrir o DevTools.
-3. Vá para a aba **Network** (Rede).
-4. No campo de filtro, digite `m3u8` (ou `media`).
-5. Dê **play/pause** no vídeo (ou recarregue a página) para gerar as requisições.
-6. Clique na requisição que termina em `.m3u8` — ela pode aparecer como `index.m3u8`, `master.m3u8`, `playlist.m3u8` etc.
-7. Clique com o botão direito → **Copy → Copy request URL** e cole no programa.
-
-> 💡 **Os tokens expiram rápido** (minutos, às vezes segundos). Cole a URL e execute o download logo em seguida. Se o download falhar com 403, obtenha uma URL nova.
-
----
-
-### Master playlist × Variant playlist
-
-| Tipo | O que contém | Exemplo de linha |
-|---|---|---|
-| **Master** | Lista de variantes (resoluções) | `#EXT-X-STREAM-INF:BANDWIDTH=1753000,RESOLUTION=1920x1080` |
-| **Variant** | Os segmentos `.ts`/`.m4s` do vídeo em si | `#EXTINF:6.000000,` |
-
-- Se você colar uma **master**, o programa lista as resoluções encontradas (1080p, 720p, 480p…) e deixa você escolher, ou escolhe a **melhor disponível** (Enter).
-- Se você colar uma **variant**, o programa usa diretamente.
-- URLs relativas dentro da playlist são resolvidas corretamente contra a master (`new URL(childUrl, masterUrl)`).
-
----
-
-### Como escolher 1080p
-
-Cole a master `.m3u8` → quando aparecer a lista de qualidades, digite o número da opção `1920x1080` (ou aperte **Enter** para a melhor disponível, que normalmente já é a 1080p).
-
-Se a plataforma não oferecer 1080p na lista, nenhuma opção vai "criar" essa resolução — o download usa o que está disponível.
-
----
-
-### O que significa o erro 403
-
-O servidor **recusou a requisição**. As causas mais comuns:
-
-1. **Token expirado** — a URL temporária deixou de valer. Obtenha uma nova Request URL no DevTools.
-2. **Headers ausentes** — o servidor exige headers iguais aos do navegador (`Referer`, `Origin`, `User-Agent`). Configure-os em `config.json` ou pelos argumentos `--referer`/`--origin`/`--user-agent`.
-3. **CDN com bloqueio de cliente não-navegador** — alguns CDNs (ex.: **mediastre.am / MediastreamCDN**, usado pela plataforma Mídia Stream) usam *fingerprinting TLS*: o servidor identifica que a requisição não veio de um navegador real (Chrome/Firefox) e responde `403` mesmo com tokens válidos e headers corretos. **Nesse caso o download via FFmpeg é recusado pelo próprio servidor** — mas o modo curl-impersonate resolve (veja abaixo), desde que você use a **URL do player** (com `at=web-app` + as variáveis `uid/sid/pid/av` do console), não a URL crua do CDN (que dá `403` até no navegador).
-
-O programa **não** tenta burlar nada disso: sem token novo ou sem acesso do servidor, não há download.
-
----
-
-### Modo curl-impersonate (contornar bloqueio de cliente não-navegador)
-
-Para CDNs com *fingerprinting TLS* (item 3 acima), o programa oferece um modo extra que **imita o TLS de um navegador real (Chrome)** ao fazer as requisições. O FFmpeg entra apenas para **remuxar os arquivos localmente** — ele não toca na rede, então o bloqueio não se aplica.
-
-#### Como funciona
-
-1. O programa detecta/usa o binário **curl-impersonate** — formato **v2.x** (`curl-impersonate.exe` + perfis `curl_<browser><versão>.bat`; o formato antigo v1.x, `curl_chrome*.exe`, também é suportado).
-2. Ele baixa a master playlist e a playlist de segmentos com o TLS imitado (perfil `chrome146` por padrão, com lista de fallback).
-3. Baixa os **segmentos** (e chaves AES-128 / init segments, se houver) em paralelo, com tentativas.
-4. Gera uma **playlist local** apontando para os arquivos baixados e o FFmpeg faz o remux para `.mp4` (com o mesmo fallback de modos: `-c copy` → `aac_adtstoasc` → `-c:a aac`).
-
-#### Como ativar
-
-- **Automaticamente:** ao receber `403`, o programa pergunta se você quer tentar o modo curl-impersonate.
-- **Forçado:** rode com `npm run download:curl` (ou `node src/index.js --curl-impersonate`, ou `--ci`).
-
-#### Instalação do curl-impersonate (Windows)
-
-1. Acesse <https://github.com/lexiforest/curl-impersonate/releases> (projeto original: <https://github.com/lwthiker/curl-impersonate>) e baixe o pacote para Windows (ex.: `curl-impersonate-win64.zip`).
-2. Extraia o ZIP — o formato **v2.x** traz `curl-impersonate.exe` + vários `curl_chromeNNN.bat` / `curl_edgeNNN.bat` / `curl_firefoxNNN.bat`.
-3. Copie a pasta para **uma** destas opções:
-   - dentro deste projeto, em `streamgrab\tools\`; ou
-   - adicione a pasta ao PATH do Windows.
-4. Rode novamente com `npm run download:curl`.
-
-> ⚠️ **Importante:** o curl-impersonate **não** contorna DRM (Widevine etc.) e **não** automatiza login nem captura cookies — ele apenas faz a conexão TLS parecer um navegador, usando a mesma URL que você já tem acesso. **Confira os termos de uso da plataforma** antes de usar, pois o download pode não ser permitido por ela.
-
----
-
-### Fluxo mdstrm / MediastreamCDN (plataforma Mídia Stream)
-
-O player da Mídia Stream (`mdstrm.com`) protege os vídeos com um **token curto (OTE) + vars de sessão** que são gerados quando a página carrega. **Copiar a URL de um `.m3u8` direto do DevTools dá `403` para tudo** (até para um navegador real), porque as variáveis (`pid`, `sid`, `uid`, `access_token`) daquela URL são amarradas à sessão do player e expiram/ficam inválidas fora dela.
-
-#### ✅ O programa converte automaticamente
-
-Se você colar uma URL do CDN (`...cdn.mdstrm.com/...`) ou uma URL do player sem as variáveis, o programa **detecta sozinho** e converte para a URL do player — buscando as variáveis frescas na página pública do embed (`mdstrm.com/embed/<videoId>`), sem login nem cookies:
-
-```
-[mdstrm] URL da Mídia Stream detectada (videoId 6a03573096d73ba91827573a).
-[mdstrm] Buscando credenciais do player no embed público para gerar tokens frescos...
-[mdstrm] URL do player gerada: https://mdstrm.com/video/6a03573096d73ba91827573a.m3u8?at=web-app&uid=***&sid=***&pid=***&av=v7.0.86
-```
-
-**Basta colar a URL que você copiou do DevTools e dar Enter** — o restante é automático. Lembre de usar `--curl-impersonate` (ou `npm run download:curl`).
-
-#### Manual (opcional, se a conversão automática falhar)
-
-1. Abra a página do vídeo na plataforma (ex.: `https://mdstrm.com/embed/<videoId>`) **ou** a página da aula no site.
-2. No DevTools, console, leia as variáveis do player: `MDSTRMUID`, `MDSTRMSID`, `MDSTRMPID`, `VERSION` (ex.: `v7.0.86`).
-3. Monte a URL do player:
-
-   ```
-   https://mdstrm.com/video/<videoId>.m3u8?at=web-app&uid=<MDSTRMUID>&sid=<MDSTRMSID>&pid=<MDSTRMPID>&av=<VERSION>
-   ```
-
-4. Cole **essa** URL no programa (com `--curl-impersonate`). O servidor responde com a master playlist contendo **tokens frescos** por variante; o programa baixa tudo e remuxa para `.mp4`.
-
-> 💡 Os tokens gerados duram algumas horas; se der `403` no meio, o próprio programa refaz a conversão na próxima execução.
-> 🔒 **Limite honesto:** DRM (Widevine/PlayReady) não é contornado — isso só funciona com vídeos de streaming HLS comum.
-
----
-
-### Onde o vídeo é salvo
-
-- Por padrão, na pasta **Downloads do usuário** do Windows (obtida programaticamente via `os.homedir()` — nenhum nome de usuário é fixado no código).
-- Você pode digitar outra pasta no prompt; se ela não existir, o programa a cria.
-- O nome do arquivo é **sanitizado** (caracteres inválidos do Windows como `< > : " / \ | ? *` são substituídos) e a extensão `.mp4` é adicionada automaticamente.
-- Se o arquivo já existir, o programa pergunta: **S**obrescrever / **N**ovo nome / **C**ancelar.
-
----
-
-### Qualidade e compatibilidade do MP4
-
-1. Primeira tentativa: `-c copy` — **sem recodificação**, sem perda de qualidade (remux direto).
-2. Se o MP4 apresentar incompatibilidade de áudio, tenta `-c copy -bsf:a aac_adtstoasc` (correção de container, ainda sem recodificar).
-3. Por último, tenta `-c:v copy -c:a aac` (reconverte apenas o áudio para AAC, preservando o vídeo).
-
-A conversão de áudio só é usada **quando necessário**.
-
----
-
-### Segurança dos tokens
-
-- Parâmetros sensíveis da URL (`token`, `access_token`, `authorization`, `auth`, `sid`, `uid`, `signature`, `sig`, `key` etc.) têm os valores **mascarados** (`***`) em toda exibição.
-- A URL completa **nunca** é registrada em logs. O `downloads.log` (gerado na pasta do projeto) registra apenas data, nome do arquivo, qualidade usada e a URL **mascarada**.
-- O que você cola no prompt vai direto para o Node (modo raw do terminal) — o PowerShell não interpreta `&`, `?`, `=`, `%` da URL, então **cole sem se preocupar com escaping**. Não monte comandos FFmpeg manualmente no PowerShell.
-- **URL pela área de transferência:** se você apertar `Enter` vazio no prompt "URL do .m3u8", o programa lê automaticamente a URL copiada do clipboard (Windows). Útil quando o colar não funciona (ex.: rodando via `ntl`).
-
----
-
-### Interromper com Ctrl+C
-
-Pressione `Ctrl+C` a qualquer momento:
-
-- **Durante o prompt**: encerra o programa.
-- **Durante o download**: envia o comando de parada ao FFmpeg (finalização graciosa, o arquivo é fechado corretamente) e, se necessário, força a finalização após alguns segundos. **Nenhum processo órfão fica para trás.** Arquivos parciais são removidos.
-
----
-
-### Estrutura do projeto
-
-```
-streamgrab/
-  package.json
-  config.example.json
-  README.md
-  bin/
-    streamgrab.mjs       # entry point da CLI (`streamgrab` no PATH via npm)
-  tools/                # curl-impersonate (v2.x) — usado pelo modo --curl-impersonate
-  vendor/ffmpeg/        # FFmpeg local (baixado automaticamente pelo npm install)
-  electron/             # interface gráfica (fila, histórico, configurações)
-    main.js             # processo principal (IPC fila/histórico/configurações)
-    preload.cjs         # ponte segura (contextBridge) para o renderer
-    renderer.js         # UI: Vídeos / Fila / Histórico / Configurações
-    services.js         # Core + Engine + Queue + Settings + History (Node puro)
-    security.js         # validação de payloads dos canais IPC
-    index.html / styles.css
-  scripts/
-    install-ffmpeg.mjs  # baixa/instala o FFmpeg em vendor/ffmpeg/ (postinstall)
-    install-electron.mjs# valida a instalação do Electron (postinstall)
-    package-resources.mjs # empacota FFmpeg/yt-dlp/curl-impersonate no instalador
-    update-ytdlp.mjs    # atualiza o binário do yt-dlp
-  tests/
-    unit/               # testes unitários (node:test)
-    integration/        # testes de integração (servidores locais + FFmpeg)
-    e2e/                # suíte E2E: gera HLS local (AES-128/fMP4), MP4 direto, DASH e mdstrm
-    performance/        # baselines de performance (BASELINE.md)
-  src/
-    index.js              # entry da CLI (dispatch analyze/download/interativo)
-    cli-flow.js           # orquestração da sessão CLI
-    cli/                  # módulos do fluxo CLI
-      commands.js         # subcomandos analyze/download/help
-      context.js          # contexto, MODE_LABELS, interrupção (Ctrl+C)
-      ui.js               # impressões, seleção de variante, nome de arquivo
-      progress.js         # barra de progresso (CLI e Electron)
-      config.js           # config.json, headers, turbo/smart-turbo
-      download.js         # fluxos FFmpeg (direto e mux de vídeo+áudio)
-      curl-flow.js        # fluxo curl-impersonate (segmentos HLS)
-      turbo.js            # download paralelo por partes (HTTP Range)
-    core/                 # núcleo compartilhado CLI + Electron (P2–P11)
-      index.js            # API pública (fachada StreamGrabCore)
-      engine.js           # DownloadEngine (estados, eventos, disco, atômico)
-      queue.js            # fila de downloads persistida (pause/resume/cancel/retry)
-      settings.js         # configurações persistentes (settings.json)
-      history.js          # histórico persistido (history.json)
-      storage.js          # escrita atômica JSON
-      atomic.js           # escrita atômica .part → rename
-      disk.js             # verificação de espaço em disco
-      filenames.js        # nomes seguros de arquivo
-      retry.js            # backoff / Retry-After
-      strategy.js         # seleção de transporte e fallback
-      resources.js        # semáforo / limite de recursos
-      resume.js           # retomada de download (ETag/Last-Modified)
-      session.js          # reanálise de URL expirada
-      smart-turbo.js      # concurrency adaptativa
-      models.js / errors.js / events.js / logger.js / binaries.js
-    providers/            # provedores de fonte (análise + download)
-      registry.js         # ProviderRegistry (descoberta por tipo de URL)
-      hls/                # HLS (.m3u8) — parsing, DRM (sem bypass)
-      dash/               # DASH (.mpd)
-      direct/             # arquivos diretos (mp4/webm/mkv...)
-      ytdlp/              # yt-dlp (YouTube, redes sociais, qualquer site suportado)
-    transports/           # transportes de rede
-      http.js / curl.js / range.js / ytdlp-runner.js
-    adapters/             # adaptadores finos de fonte (ytdlp/youtube/social)
-    source-adapters.js    # roteamento URL → adaptador
-    legacy/               # motor antigo de YouTube (SABR) — apenas E2E
-    ffmpeg.js / hls.js / dash.js / curlimp.js / mdstrm.js / input.js / utils.js
-```
-
-### Testes
-
-```powershell
-npm test                 # unit + integration + E2E
-npm run test:unit        # apenas testes unitários
-npm run test:integration # apenas testes de integração (servidores locais + FFmpeg)
-npm run test:e2e         # suíte E2E completa
-npm run lint             # ESLint
-```
-
-A suíte E2E (`tests/e2e/curl-e2e.mjs`) gera playlists HLS locais reais com o FFmpeg (MPEG-TS criptografado com AES-128 e fMP4 com EXT-X-MAP), sobe um servidor HTTP local e valida o fluxo completo do modo curl-impersonate — incluindo a detecção v2.x e a conversão de URLs da Mídia Stream. Os testes de integração cobrem o núcleo (facade + engine), a fila/histórico/configurações do Electron (`tests/integration/electron-queue.test.js`), turbo, mux, retry e yt-dlp. O `tools/` real é preservado (backup/restauração automática).
-
-### Menu interativo (opcional, via ntl)
-
-Para não digitar comandos, instale o [ntl](https://www.npmjs.com/package/ntl) (menu de scripts do npm):
-
-```powershell
-npm install --save-dev ntl
-npx ntl        # abre o menu; escolha download:curl
-nt             # reexecuta o último script escolhido
-```
-
-### 🖥 Interface Electron (fila, histórico e configurações)
-
-Além do CLI, o app pode ser aberto como interface gráfica (`npm run electron:dev` ou `npm run electron:serve`) com:
-
-- **Vídeos** — abas com análise de URL, escolha de qualidade/variante, pasta de destino e **"Baixar agora"**;
-- **Fila** — downloads reais com **concorrência limitada** (1–16 simultâneos), estados *aguardando/baixando/pausado*, **pause/resume/cancelar/tentar novamente/remover** por item e pausa global da fila;
-- **Histórico** — registros persistidos de cada download com **abrir arquivo / mostrar na pasta / baixar de novo / remover / limpar**;
-- **Configurações** — pasta padrão, downloads simultâneos, turbo, qualidade padrão, áudio, tema, notificações, comando ao concluir e retenção do histórico;
-- Fila, histórico e configurações são **persistidos em disco** (`settings.json`, `history.json`, `queue.json`) e restaurados ao reiniciar o app — inclusive com **recuperação de downloads interrompidos** (jobs voltam para a fila como *aguardando*).
-
-### Empacotamento (instaladores)
-
-Os instaladores são gerados com o **electron-builder**. O Windows usa MSI, o macOS usa PKG e o Linux usa AppImage e DEB. Os binários externos (FFmpeg de `vendor/ffmpeg/`, yt-dlp do pacote `youtube-dl-exec` e, se presente, o curl-impersonate) são empacotados em `extraResources` (`resources/bin/`) — em produção o app resolve os binários por `process.resourcesPath`, então a **máquina-alvo não precisa** de Node.js, FFmpeg ou yt-dlp instalados manualmente.
-
-```powershell
-npm run pack:resources   # copia os binários para build/extraResources/bin
-npm run dist             # gera o MSI Windows em dist/
-npm run dist:dir         # build Windows sem instalador — para testar
-npm run dist:mac         # gera PKG macOS
-npm run dist:linux       # gera AppImage e DEB Linux
-npm run release          # build Windows + checksums SHA-256
-npm run update:ytdlp     # atualiza o binário do yt-dlp (todas as cópias locais)
-```
-
-> Requer `npm install` prévio (o `postinstall` baixa FFmpeg/Electron/yt-dlp). CI em PRs: `.github/workflows/ci.yml` (lint + testes + build). Release manual: empurre uma tag `v*` — `.github/workflows/release.yml` gera o instalador, checksums e publica a GitHub Release.
-
-### Empacotamento macOS (PKG)
-
-O instalador macOS é gerado pelo mesmo `electron-builder`. O build precisa ser executado em um Mac e requer uma cópia local do FFmpeg em `vendor/ffmpeg/` e o binário do yt-dlp em `node_modules/youtube-dl-exec/bin/`. O script de instalação copia automaticamente o FFmpeg do Homebrew ou do PATH para esse diretório; para distribuir a terceiros, valide também as bibliotecas nativas e a assinatura do binário.
-
-```bash
-npm install
-# se necessário, instale com: brew install ffmpeg
-chmod +x vendor/ffmpeg/ffmpeg
-npm run dist:mac           # gera PKG para a arquitetura do runner em dist/
-npm run dist:mac:dir       # build sem instalador, para testar
-node scripts/checksums.mjs # gera SHA256SUMS.txt incluindo os PKGs
-```
-
-Para gerar uma arquitetura específica, use diretamente o electron-builder:
-
-```bash
-npm run pack:resources
-npx electron-builder --mac --arm64  # Apple Silicon
-npx electron-builder --mac --x64    # Mac Intel
-```
-
-Para distribuição pública, configure um certificado **Developer ID Application**, hardened runtime e notarização Apple no ambiente de release. Sem assinatura/notarização o PKG é útil para testes, mas o Gatekeeper exibirá avisos ou bloqueará a abertura.
-
-### Publicação no npm
-
-O pacote `streamgrab` também pode ser instalado para usar a CLI pelo terminal:
-
-```bash
-npm install -g streamgrab
-streamgrab
-```
-
-Para atualizar, use `npm update -g streamgrab`. O npm distribui a CLI e seus arquivos de código; os instaladores gráficos MSI, PKG, AppImage e DEB são publicados separadamente nas releases do GitHub.
-
-### Limitações (por design)
-
-- Não funciona com vídeos protegidos por DRM (Widevine/PlayReady) ou conteúdo criptografado.
-- Não automatiza login nem captura cookies.
-- Não descobre nem fabrica tokens.
-- Só funciona com URLs que você fornece e às quais você já tem acesso autorizado.
-
-Use apenas para conteúdo que você tem o direito de baixar.
-
----
-
--->
-
-# English
 
 ## The story
 
@@ -615,7 +78,7 @@ cd streamgrab
 npm install
 ```
 
-> The program itself has **no runtime dependencies** — you can run it directly with `node src/index.js` without `npm install`. `npm install` only installs **ntl** (optional scripts menu) as a dev dependency.
+> Core HLS/DASH downloads can run directly with `node src/index.js` if Node.js and FFmpeg are available. Run `npm install` to install the packaged CLI, Electron tooling, optional `ntl` script menu, and the `youtube-dl-exec` dependency used for YouTube and social-site downloads.
 
 ### Install from npm
 
@@ -645,7 +108,7 @@ npm uninstall --global streamgrab
 
 ### How to run
 
-**Recommended (bypasses CDNs that block non-browser clients, like Mídia Stream):**
+**Recommended (bypasses CDNs that block non-browser clients, like Midia Stream):**
 
 ```powershell
 npm run download:curl
@@ -724,6 +187,70 @@ The same headers can be set in a `config.json` file in the project folder (see `
 
 ---
 
+### 🔐 Private / authenticated content
+
+StreamGrab can download **private or restricted videos** only when you already have authenticated access. It uses your session cookies for sources such as unlisted/private YouTube videos or restricted Facebook/Instagram posts.
+
+1. **Export cookies** from your browser while logged in:
+   - Install **"Get cookies.txt LOCALLY"** for Chrome, Edge, or Firefox.
+   - Open the video page, click the extension, and export `cookies.txt`.
+2. **Use the file** from the command line:
+
+   ```powershell
+   node src/index.js --cookies cookies.txt
+   ```
+
+3. **Or extract cookies directly from the browser**:
+
+   ```powershell
+   node src/index.js --cookies-from-browser chrome
+   ```
+
+If the content requires login and no cookies are provided, the program stops with instructions. DRM-protected content such as Widevine/PlayReady is not supported.
+
+---
+
+### ⚡ Turbo mode
+
+By default, downloads use a single connection. Turbo mode splits direct files into parts and downloads multiple HTTP Range chunks in parallel:
+
+```powershell
+node src/index.js --turbo                 # 8 parallel connections by default
+node src/index.js --turbo --chunks 16     # 16 connections
+```
+
+Turbo works on **direct URLs**: YouTube, social networks, and direct `.mp4`/`.webm` files. It does not apply to HLS (`.m3u8`) or DASH (`.mpd`). If a server does not support Range requests, StreamGrab falls back to the normal sequential flow.
+
+### 🧠 Smart Turbo
+
+Smart Turbo adjusts the number of connections during the download. It ramps up while throughput improves and backs off when it detects throttling or repeated 429/5xx errors.
+
+```powershell
+node src/index.js --turbo --chunks 12
+node src/index.js --turbo --smart-turbo
+node src/index.js --turbo --no-smart-turbo
+```
+
+In `config.json` or settings:
+
+```jsonc
+{ "turbo": true, "turboChunks": 12, "smartTurbo": true }
+```
+
+---
+
+### 🎬 YouTube downloads
+
+```powershell
+npm run download:youtube
+```
+
+Paste a YouTube URL such as `https://www.youtube.com/watch?v=...` or `https://youtu.be/...`. StreamGrab lists available qualities and downloads the selected resolution. For 4K videos, it downloads video and audio separately when needed and merges them with FFmpeg without re-encoding.
+
+YouTube and social-platform extraction is handled by **yt-dlp** through the `youtube-dl-exec` package, so StreamGrab benefits from yt-dlp's ongoing support for YouTube signature changes, proof-of-origin tokens, SABR streaming, and other platform updates.
+
+---
+
 ### Getting a `.m3u8` request URL via DevTools
 
 1. Open the platform and **start playing** the lesson in your browser (Chrome/Edge).
@@ -761,33 +288,33 @@ If the platform doesn't offer 1080p in the list, no option will "create" that re
 
 ### What the 403 error means
 
-The server **recused the request**. The most common causes:
+The server **refused the request**. The most common causes:
 
 1. **Expired token** — the temporary URL is no longer valid. Get a new request URL from DevTools.
 2. **Missing headers** — the server requires browser-like headers (`Referer`, `Origin`, `User-Agent`). Set them in `config.json` or via `--referer`/`--origin`/`--user-agent`.
-3. **CDN blocking non-browser clients** — some CDNs (e.g. **mediastre.am / MediastreamCDN**, used by the Mídia Stream platform) use *TLS fingerprinting*: the server detects the request didn't come from a real browser (Chrome/Firefox) and answers `403` even with valid tokens and correct headers. **In that case the download via FFmpeg is refused by the server itself** — but the curl-impersonate mode solves it (see below), as long as you use the **player URL** (with `at=web-app` + the `uid/sid/pid/av` variables from the console), not the raw CDN URL (which gives `403` even in a browser).
+3. **CDN blocking non-browser clients** — some CDNs (e.g. **mediastre.am / MediastreamCDN**, used by the Midia Stream platform) use *TLS fingerprinting*: the server detects the request didn't come from a real browser (Chrome/Firefox) and answers `403` even with valid tokens and correct headers. **In that case the download via FFmpeg is refused by the server itself** — but the curl-impersonate mode solves it (see below), as long as you use the **player URL** (with `at=web-app` + the `uid/sid/pid/av` variables from the console), not the raw CDN URL (which gives `403` even in a browser).
 
 The program **does not** try to bypass any of this: without a fresh token or server access, there is no download.
 
 ---
 
-### Modo curl-impersonate (contornar bloqueio de cliente não-navegador)
+### curl-impersonate mode (bypass non-browser client blocking)
 
-Para CDNs com *fingerprinting TLS* (item 3 acima), o programa oferece um modo extra que **imita o TLS de um navegador real (Chrome)** ao fazer as requisições. O FFmpeg entra apenas para **remuxar os arquivos localmente** — ele não toca na rede, então o bloqueio não se aplica.
+For CDNs with *TLS fingerprinting* (item 3 above), the program provides an extra mode that **mimics the TLS profile of a real browser (Chrome)** when making requests. FFmpeg is only used to **remux the files locally**; it does not touch the network, so the blocking does not apply.
 
-#### Como funciona
+#### How it works
 
-1. O programa detecta/usa o binário **curl-impersonate** — formato **v2.x** (`curl-impersonate.exe` + `curl_<browser><version>.bat` profiles; the old v1.x format, `curl_chrome*.exe`, is also supported).
+1. The program detects/uses the **curl-impersonate** binary — **v2.x** format (`curl-impersonate.exe` + `curl_<browser><version>.bat` profiles; the old v1.x format, `curl_chrome*.exe`, is also supported).
 2. It downloads the master playlist and the segment playlist with the mimicked TLS (profile `chrome146` by default, with a fallback list).
 3. It downloads the **segments** (and AES-128 keys / init segments, if any) in parallel, with retries.
 4. It generates a **local playlist** pointing to the downloaded files and FFmpeg remuxes to `.mp4` (with the same mode fallback: `-c copy` → `aac_adtstoasc` → `-c:a aac`).
 
-#### Como ativar
+#### How to enable it
 
-- **Automaticamente:** on `403`, the program asks if you want to try curl-impersonate mode.
-- **Forçado:** run with `npm run download:curl` (or `node src/index.js --curl-impersonate`, or `--ci`).
+- **Automatically:** on `403`, the program asks if you want to try curl-impersonate mode.
+- **Forced:** run with `npm run download:curl` (or `node src/index.js --curl-impersonate`, or `--ci`).
 
-#### Instalação do curl-impersonate (Windows)
+#### Installing curl-impersonate (Windows)
 
 1. Go to <https://github.com/lexiforest/curl-impersonate/releases> (original project: <https://github.com/lwthiker/curl-impersonate>) and download the Windows package (e.g. `curl-impersonate-win64.zip`).
 2. Extract the ZIP — the **v2.x** format ships `curl-impersonate.exe` + several `curl_chromeNNN.bat` / `curl_edgeNNN.bat` / `curl_firefoxNNN.bat` profiles.
@@ -800,16 +327,16 @@ Para CDNs com *fingerprinting TLS* (item 3 acima), o programa oferece um modo ex
 
 ---
 
-### mdstrm / MediastreamCDN flow (Mídia Stream platform)
+### mdstrm / MediastreamCDN flow (Midia Stream platform)
 
-The Mídia Stream player (`mdstrm.com`) protects videos with a **short-lived token (OTE) + session vars** generated when the page loads. **Copying a `.m3u8` URL straight from DevTools gives `403` for everything** (even for a real browser), because the variables (`pid`, `sid`, `uid`, `access_token`) in that URL are tied to the player session and expire/become invalid outside of it.
+The Midia Stream player (`mdstrm.com`) protects videos with a **short-lived token (OTE) + session vars** generated when the page loads. **Copying a `.m3u8` URL straight from DevTools gives `403` for everything** (even for a real browser), because the variables (`pid`, `sid`, `uid`, `access_token`) in that URL are tied to the player session and expire/become invalid outside of it.
 
 #### ✅ The program converts automatically
 
 If you paste a CDN URL (`...cdn.mdstrm.com/...`) or a player URL without the variables, the program **detects it by itself** and converts it to the player URL — fetching fresh variables from the public embed page (`mdstrm.com/embed/<videoId>`), no login or cookies needed:
 
 ```
-[mdstrm] Mídia Stream URL detected (videoId 6a03573096d73ba91827573a).
+[mdstrm] Midia Stream URL detected (videoId 6a03573096d73ba91827573a).
 [mdstrm] Fetching player credentials from the public embed to generate fresh tokens...
 [mdstrm] Player URL generated: https://mdstrm.com/video/6a03573096d73ba91827573a.m3u8?at=web-app&uid=***&sid=***&pid=***&av=v7.0.86
 ```
@@ -833,7 +360,7 @@ If you paste a CDN URL (`...cdn.mdstrm.com/...`) or a player URL without the var
 
 ---
 
-### Onde o vídeo é salvo
+### Where the video is saved
 
 - By default, in the Windows user **Downloads** folder (obtained programmatically via `os.homedir()` — no username is hardcoded).
 - You can type another folder in the prompt; if it doesn't exist, the program creates it.
@@ -852,7 +379,7 @@ Audio conversion is only used **when necessary**.
 
 ---
 
-### Segurança dos tokens
+### Token safety
 
 - Sensitive URL parameters (`token`, `access_token`, `authorization`, `auth`, `sid`, `uid`, `signature`, `sig`, `key`, etc.) have their values **masked** (`***`) in every display.
 - The full URL is **never** written to logs. The `downloads.log` (created in the project folder) only records date, file name, quality used, and the **masked** URL.
@@ -861,16 +388,16 @@ Audio conversion is only used **when necessary**.
 
 ---
 
-### Interromper com Ctrl+C
+### Interrupting with Ctrl+C
 
-Pressione `Ctrl+C` a qualquer momento:
+Press `Ctrl+C` at any time:
 
-- **Durante o prompt**: encerra o programa.
-- **Durante o download**: envia o comando de parada ao FFmpeg (graceful shutdown, the file is closed correctly) and, if needed, force-kills after a few seconds. **No orphan processes left behind.** Partial files are removed.
+- **During a prompt**: exits the program.
+- **During a download**: sends the stop command to FFmpeg (graceful shutdown, the file is closed correctly) and, if needed, force-kills after a few seconds. **No orphan processes are left behind.** Partial files are removed.
 
 ---
 
-### Estrutura do projeto
+### Project structure
 
 ```
 streamgrab/
@@ -951,7 +478,7 @@ npm run test:e2e         # full E2E suite
 npm run lint             # ESLint
 ```
 
-The E2E suite (`tests/e2e/curl-e2e.mjs`) generates real local HLS playlists with FFmpeg (AES-128 encrypted MPEG-TS and fMP4 with EXT-X-MAP), starts a local HTTP server, and validates the full curl-impersonate flow — including v2.x detection and Mídia Stream URL conversion. The integration tests cover the core (facade + engine), the Electron queue/history/settings (`tests/integration/electron-queue.test.js`), turbo, mux, retry and yt-dlp. The real `tools/` is preserved (automatic backup/restore).
+The E2E suite (`tests/e2e/curl-e2e.mjs`) generates real local HLS playlists with FFmpeg (AES-128 encrypted MPEG-TS and fMP4 with EXT-X-MAP), starts a local HTTP server, and validates the full curl-impersonate flow — including v2.x detection and Midia Stream URL conversion. The integration tests cover the core (facade + engine), the Electron queue/history/settings (`tests/integration/electron-queue.test.js`), turbo, mux, retry and yt-dlp. The real `tools/` is preserved (automatic backup/restore).
 
 ## Contributing
 
@@ -1004,7 +531,27 @@ npm run release          # Windows build + SHA-256 checksums
 npm run update:ytdlp     # updates the yt-dlp binary (all local copies)
 ```
 
-> Requer `npm install` first (the `postinstall` downloads FFmpeg/Electron/yt-dlp). PR CI: `.github/workflows/ci.yml` (lint + tests + build). Manual release: push a `v*` tag — `.github/workflows/release.yml` builds the installer, checksums and publishes the GitHub Release.
+> Requires `npm install` first (the `postinstall` downloads FFmpeg/Electron/yt-dlp). PR CI: `.github/workflows/ci.yml` (lint + tests + build). Manual release: push a `v*` tag — `.github/workflows/release.yml` builds the installer, checksums and publishes the GitHub Release.
+
+### macOS build (PKG)
+
+The macOS installer is produced by the same **electron-builder** setup. The build must run on a Mac and requires a local FFmpeg copy in `vendor/ffmpeg/` plus the yt-dlp binary from `node_modules/youtube-dl-exec/bin/`. The install script automatically copies FFmpeg from Homebrew or the PATH into that directory; for third-party distribution, also validate native libraries and binary signing.
+
+```bash
+brew install ffmpeg
+npm install
+npm run pack:resources
+npm run dist:mac
+```
+
+To build a specific architecture, call electron-builder directly:
+
+```bash
+npx electron-builder --mac pkg --x64
+npx electron-builder --mac pkg --arm64
+```
+
+For public distribution, configure a **Developer ID Application** certificate, hardened runtime, and Apple notarization in the release environment. Without signing/notarization, the PKG is useful for testing, but Gatekeeper may warn or block the app from opening.
 
 ### Limitations (by design)
 
