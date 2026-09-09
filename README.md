@@ -78,7 +78,7 @@ cd streamgrab
 npm install
 ```
 
-> The program itself has **no runtime dependencies** — you can run it directly with `node src/index.js` without `npm install`. `npm install` only installs **ntl** (optional scripts menu) as a dev dependency.
+> Core HLS/DASH downloads can run directly with `node src/index.js` if Node.js and FFmpeg are available. Run `npm install` to install the packaged CLI, Electron tooling, optional `ntl` script menu, and the `youtube-dl-exec` dependency used for YouTube and social-site downloads.
 
 ### Install from npm
 
@@ -184,6 +184,70 @@ node src/index.js --referer "https://example.com/" --origin "https://example.com
 - `--help` — shows help
 
 The same headers can be set in a `config.json` file in the project folder (see `config.example.json`). Values given on the command line take priority over the file.
+
+---
+
+### 🔐 Private / authenticated content
+
+StreamGrab can download **private or restricted videos** only when you already have authenticated access. It uses your session cookies for sources such as unlisted/private YouTube videos or restricted Facebook/Instagram posts.
+
+1. **Export cookies** from your browser while logged in:
+   - Install **"Get cookies.txt LOCALLY"** for Chrome, Edge, or Firefox.
+   - Open the video page, click the extension, and export `cookies.txt`.
+2. **Use the file** from the command line:
+
+   ```powershell
+   node src/index.js --cookies cookies.txt
+   ```
+
+3. **Or extract cookies directly from the browser**:
+
+   ```powershell
+   node src/index.js --cookies-from-browser chrome
+   ```
+
+If the content requires login and no cookies are provided, the program stops with instructions. DRM-protected content such as Widevine/PlayReady is not supported.
+
+---
+
+### ⚡ Turbo mode
+
+By default, downloads use a single connection. Turbo mode splits direct files into parts and downloads multiple HTTP Range chunks in parallel:
+
+```powershell
+node src/index.js --turbo                 # 8 parallel connections by default
+node src/index.js --turbo --chunks 16     # 16 connections
+```
+
+Turbo works on **direct URLs**: YouTube, social networks, and direct `.mp4`/`.webm` files. It does not apply to HLS (`.m3u8`) or DASH (`.mpd`). If a server does not support Range requests, StreamGrab falls back to the normal sequential flow.
+
+### 🧠 Smart Turbo
+
+Smart Turbo adjusts the number of connections during the download. It ramps up while throughput improves and backs off when it detects throttling or repeated 429/5xx errors.
+
+```powershell
+node src/index.js --turbo --chunks 12
+node src/index.js --turbo --smart-turbo
+node src/index.js --turbo --no-smart-turbo
+```
+
+In `config.json` or settings:
+
+```jsonc
+{ "turbo": true, "turboChunks": 12, "smartTurbo": true }
+```
+
+---
+
+### 🎬 YouTube downloads
+
+```powershell
+npm run download:youtube
+```
+
+Paste a YouTube URL such as `https://www.youtube.com/watch?v=...` or `https://youtu.be/...`. StreamGrab lists available qualities and downloads the selected resolution. For 4K videos, it downloads video and audio separately when needed and merges them with FFmpeg without re-encoding.
+
+YouTube and social-platform extraction is handled by **yt-dlp** through the `youtube-dl-exec` package, so StreamGrab benefits from yt-dlp's ongoing support for YouTube signature changes, proof-of-origin tokens, SABR streaming, and other platform updates.
 
 ---
 
