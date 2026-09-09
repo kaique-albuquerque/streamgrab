@@ -1,0 +1,10 @@
+services:
+  streamgrab:
+    build: .
+    image: streamgrab-cli:local
+    environment:
+      STREAMGRAB_DOWNLOAD_DIR: /downloads
+    volumes:
+      - ./downloads:/downloads
+    stdin_open: true
+    tty: true

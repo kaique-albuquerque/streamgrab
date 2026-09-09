@@ -1,6 +1,7 @@
 node_modules/
 config.json
 downloads.log
+downloads/
 *.log
 saida-test/
 vendor/
@@ -25,4 +26,3 @@ test-output*.txt
 
 # Pasta padrao p/ relatorios futuros de testes (npm test > test-results/...)
 test-results/
-
