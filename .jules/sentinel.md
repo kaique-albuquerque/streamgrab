@@ -14,3 +14,8 @@
 **Vulnerability:** Object redaction in `src/core/logger.js` only masked sensitive object keys if `typeof val === 'string'`, allowing numeric PINs, arrays of tokens/cookies, and nested auth objects to be logged unredacted.
 **Learning:** Object key redaction must redact all non-nullish data types under sensitive property names, rather than assuming credentials are only primitive strings.
 **Prevention:** Check `val !== null && val !== undefined` for keys matching sensitive property names before falling back to recursive object traversal.
+
+## 2026-09-28 - Unsanitized Header Values in Core Normalization Vulnerable to HTTP Header Injection
+**Vulnerability:** `normalizeHeaders` in `src/core/header-utils.js` did not sanitize control characters (`\r`, `\n`, `\0`) or filter prototype pollution properties (`__proto__`, `constructor`, `prototype`), allowing malicious CRLF header injection when headers flow to FFmpeg (`-headers`), curl (`-H`), or HTTP requests.
+**Learning:** Header normalization across core pipelines must strip control characters and prototype pollution keys before headers reach external CLI tools or network transports.
+**Prevention:** Filter prototype keys and strip `[\r\n\0]` from header values centrally in `normalizeHeaders`.
