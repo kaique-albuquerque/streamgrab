@@ -73,6 +73,10 @@ export function maskUrl(value) {
     }
     return u.toString();
   } catch {
-    return String(value);
+    const raw = String(value);
+    // Mask sensitive query parameters in relative paths or malformed URL strings
+    return raw.replace(/([?&])([^=#&]+)=([^&#]*)/g, (match, prefix, key) => {
+      return SENSITIVE_PARAMS.test(key) ? `${prefix}${key}=***` : match;
+    });
   }
 }

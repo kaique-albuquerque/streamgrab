@@ -45,4 +45,12 @@ test('url-utils: maskUrl masks sensitive params', () => {
 test('url-utils: maskUrl handles invalid URLs gracefully', () => {
   assert.equal(maskUrl('not-a-url'), 'not-a-url');
   assert.equal(maskUrl(''), '');
+  assert.equal(
+    maskUrl('/path/segment.m3u8?token=secret123&keep=ok'),
+    '/path/segment.m3u8?token=***&keep=ok'
+  );
+  assert.equal(
+    maskUrl('relative/stream.mpd?secret=mysecret&api_key=key12&foo=bar'),
+    'relative/stream.mpd?secret=***&api_key=***&foo=bar'
+  );
 });
