@@ -15,8 +15,13 @@ import {
   syncMetrics,
 } from './shared.js';
 
-export function createVideoTabsController({ appState, dom, onQueueRefresh, onHistoryRefresh }) {
+export function createVideoTabsController({ appState, dom, onQueueRefresh, onHistoryRefresh, previewPlayer }) {
   const jobProgress = new Map();
+
+  /** Fontes elegíveis para preview (espelha src/preview.js e o main). */
+  function canPreviewSource(sourceType) {
+    return ['hls', 'dash', 'direct', 'youtube', 'social', 'ytdlp'].includes(String(sourceType || '').toLowerCase());
+  }
 
   function collectTabFields(panel) {
     return {
@@ -34,6 +39,7 @@ export function createVideoTabsController({ appState, dom, onQueueRefresh, onHis
       sizeValue: panel.querySelector('[data-field="sizeValue"]'),
       speedValue: panel.querySelector('[data-field="speedValue"]'),
       analyzeBtn: panel.querySelector('[data-action="analyze"]'),
+      previewBtn: panel.querySelector('[data-action="preview"]'),
       downloadBtn: panel.querySelector('[data-action="download"]'),
       enqueueBtn: panel.querySelector('[data-action="enqueue"]'),
       cancelBtn: panel.querySelector('[data-action="cancel"]'),
@@ -211,6 +217,23 @@ export function createVideoTabsController({ appState, dom, onQueueRefresh, onHis
       await analyzeTab(state);
     });
 
+    // SPEC-06: pré-visualizar o trecho antes de baixar
+    fields.previewBtn?.addEventListener('click', async () => {
+      if (state.busy || !state.media) return;
+      const sourceType = state.media.sourceType || '';
+      if (!canPreviewSource(sourceType)) {
+        setStatus(state, 'Preview não disponível para este tipo de mídia.');
+        return;
+      }
+      await previewPlayer.open({
+        url: state.sourceUrl || fields.url.value.trim(),
+        sourceType,
+        quality: state.selectedQuality || '',
+        title: state.media.title || state.fields.filename.value.trim(),
+        onDownload: () => enqueueForTab(state, { lockNow: true }),
+      });
+    });
+
     fields.downloadBtn.addEventListener('click', async () => {
       if (state.busy) return;
       await enqueueForTab(state, { lockNow: true });
@@ -336,10 +359,24 @@ export function createVideoTabsController({ appState, dom, onQueueRefresh, onHis
       }
 
       refreshResolvedOutput(state, appState.defaultOutputDir);
+      // SPEC-06: habilita o preview apenas para fontes suportadas
+      syncPreviewButton(state);
     } catch (err) {
       setStatus(state, `Erro ao analisar: ${err.message}`);
       appendLog(state, `[ERRO] ${err.message}`);
+      syncPreviewButton(state);
     }
+  }
+
+  /** Habilita/desabilita o botão "Pré-visualizar" conforme a fonte analisada. */
+  function syncPreviewButton(state) {
+    const btn = state.fields.previewBtn;
+    if (!btn) return;
+    const supported = Boolean(state.media) && canPreviewSource(state.media.sourceType);
+    btn.disabled = !supported || state.busy;
+    btn.title = supported
+      ? 'Reproduzir um trecho do vídeo antes de baixar'
+      : 'Preview indisponível para esta fonte';
   }
 
   function renderMediaInfo(state) {
@@ -609,6 +646,7 @@ export function createVideoTabsController({ appState, dom, onQueueRefresh, onHis
     appendLog(tab, `Download concluido! ${output}`);
     markAllPreviousAsDone(tab, 'download');
     if (output) tab.fields.revealRow.hidden = false;
+    syncPreviewButton(tab);
   }
 
   function failTabDownload(tab, payload) {
@@ -624,6 +662,7 @@ export function createVideoTabsController({ appState, dom, onQueueRefresh, onHis
     appendLog(tab, `ERRO: ${message}`);
     if (payload.suggestedAction) appendLog(tab, `Acao sugerida: ${payload.suggestedAction}`);
     if (payload.detail) appendLog(tab, `Detalhes: ${payload.detail}`);
+    syncPreviewButton(tab);
   }
 
   function cancelTabDownload(tab, payload) {
@@ -637,6 +676,7 @@ export function createVideoTabsController({ appState, dom, onQueueRefresh, onHis
     setStatus(tab, payload?.message || 'Download cancelado.');
     appendLog(tab, payload?.message || 'Download cancelado.');
     tab.fields.revealRow.hidden = true;
+    syncPreviewButton(tab);
   }
 
   function handleQueueEvent(event, payload) {

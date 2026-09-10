@@ -144,6 +144,8 @@ export function lockTab(state, busy) {
   state.fields.filename.disabled = busy;
   state.fields.outputDir.disabled = busy;
   state.fields.pickDirBtn.disabled = busy;
+  // SPEC-06: preview também trava durante o download
+  if (state.fields.previewBtn) state.fields.previewBtn.disabled = busy;
   state.fields.qualities.querySelectorAll('button').forEach((btn) => {
     btn.disabled = busy;
   });

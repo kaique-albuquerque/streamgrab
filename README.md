@@ -104,6 +104,36 @@ npm update --global streamgrab
 npm uninstall --global streamgrab
 ```
 
+### Docker CLI
+
+For technical users who want a reproducible CLI environment, StreamGrab can run in Docker with Node.js and FFmpeg already inside the image. This does not run the Electron desktop app; it is only for the command-line workflow.
+
+```bash
+docker-compose build
+docker-compose run --rm streamgrab analyze "https://example.com/video.m3u8"
+docker-compose run --rm streamgrab download "https://example.com/video.m3u8" --filename video
+```
+
+Downloads are written to `./downloads` on your machine, mounted as `/downloads` inside the container. The image sets `STREAMGRAB_DOWNLOAD_DIR=/downloads`, so `--output /downloads` is optional unless you want a different folder.
+
+If a site requires cookies, export them to a Netscape `cookies.txt` file and mount it explicitly:
+
+```yaml
+services:
+  streamgrab:
+    volumes:
+      - ./downloads:/downloads
+      - ./cookies.txt:/cookies.txt:ro
+```
+
+Then run:
+
+```bash
+docker-compose run --rm streamgrab download "URL" --cookies /cookies.txt
+```
+
+Docker improves reproducibility, but it is not a permanent 15-year guarantee by itself. For long-term preservation, keep the `Dockerfile`, `package-lock.json`, release artifacts, and preferably publish/version the built image, because base images and registries can change or disappear over time.
+
 ---
 
 ### How to run
@@ -503,8 +533,17 @@ To avoid typing commands, install [ntl](https://www.npmjs.com/package/ntl) (npm 
 
 ```powershell
 npm install --save-dev ntl
-npx ntl        # opens the menu; choose download:curl
+npx ntl        # opens the menu; choose download:curl or docker
 nt             # re-runs the last chosen script
+```
+
+Docker commands are also available in the menu:
+
+```powershell
+npm run docker
+npm run docker:build
+npm run docker:cli
+npm run docker:help
 ```
 
 ### 🖥 Electron interface (queue, history and settings)

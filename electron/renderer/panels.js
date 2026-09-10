@@ -1,4 +1,6 @@
 import { applyTheme, formatBytes, formatDate, initializeTheme } from './shared.js';
+import { createQueueDashboard } from './queue-dashboard.js';
+import { createHistoryFilters } from './history-filters.js';
 
 const QUEUE_STATE_LABELS = {
   queued: 'Aguardando',
@@ -17,6 +19,24 @@ const ACTIVE_STATES = new Set(['analyzing', 'preparing', 'downloading', 'merging
 const VIEWS = ['videos', 'queue', 'history', 'settings'];
 
 export function createPanelsController({ dom, tabsController }) {
+  let queueDashboard = null;
+  let historyFilters = null;
+
+  function ensureDashboard() {
+    if (queueDashboard) return queueDashboard;
+    const container = document.getElementById('queueDashboard');
+    if (!container) return null;
+    queueDashboard = createQueueDashboard({
+      container,
+      api: {
+        queueList: () => window.api.queueList(),
+        diskSpace: (payload) => window.api.diskSpace(payload),
+      },
+      getJobProgress: (jobId) => tabsController.jobProgress?.get(jobId),
+    });
+    return queueDashboard;
+  }
+
   async function refreshQueuePanel() {
     const listEl = document.getElementById('queueList');
     if (!listEl) return;
@@ -34,10 +54,12 @@ export function createPanelsController({ dom, tabsController }) {
     const jobs = data.jobs || [];
     const activeCount = jobs.filter((job) => ACTIVE_STATES.has(job.state)).length;
     const nonTerminal = jobs.filter((job) => !TERMINAL_STATES.has(job.state));
+    const hasFailed = jobs.some((job) => job.state === 'failed');
 
     if (badgeEl) {
       badgeEl.hidden = nonTerminal.length === 0;
       badgeEl.textContent = String(nonTerminal.length);
+      badgeEl.dataset.status = hasFailed ? 'error' : activeCount > 0 ? 'active' : 'idle';
     }
     if (toggleBtn) toggleBtn.textContent = data.paused ? 'Retomar fila' : 'Pausar fila';
     if (summaryEl) {
@@ -46,8 +68,18 @@ export function createPanelsController({ dom, tabsController }) {
         `${jobs.length - nonTerminal.length} concluidos/falhos/cancelados`;
     }
     if (emptyEl) emptyEl.hidden = jobs.length > 0;
+
+    // SPEC-07: dashboard de resumo visual
+    const dashboard = ensureDashboard();
+    if (dashboard) await dashboard.refresh();
+
     listEl.innerHTML = '';
     for (const job of jobs) listEl.appendChild(renderQueueItem(job));
+  }
+
+  /** Encaminha eventos da fila/engine para o dashboard (speed, eta, progress). */
+  function handleQueueEvent(event, payload) {
+    if (queueDashboard) queueDashboard.handleQueueEvent(event, payload);
   }
 
   function renderQueueItem(job) {
@@ -139,8 +171,6 @@ export function createPanelsController({ dom, tabsController }) {
   async function refreshHistoryPanel() {
     const listEl = document.getElementById('historyList');
     if (!listEl) return;
-    const emptyEl = document.getElementById('historyEmpty');
-    const summaryEl = document.getElementById('historySummary');
 
     let entries;
     try {
@@ -149,10 +179,125 @@ export function createPanelsController({ dom, tabsController }) {
       return;
     }
     const list = entries || [];
-    if (summaryEl) summaryEl.textContent = `${list.length} registros`;
-    if (emptyEl) emptyEl.hidden = list.length > 0;
+
+    ensureHistoryFilters();
+    if (historyFilters) {
+      // A filtragem client-side chama renderHistoryEntries via onFiltered.
+      historyFilters.setEntries(list);
+      return;
+    }
+
+    // Fallback (filtros indisponíveis): renderiza tudo.
+    renderHistoryEntries(list, list.length);
+  }
+
+  /** Cria o controlador de filtros do histórico (uma única vez). */
+  function ensureHistoryFilters() {
+    if (historyFilters) return historyFilters;
+    const searchInput = document.getElementById('historySearch');
+    if (!searchInput) return null;
+
+    historyFilters = createHistoryFilters({
+      onFiltered: (filtered, total) => renderHistoryEntries(filtered, total),
+    });
+
+    searchInput.addEventListener('input', () => historyFilters?.setFilter('search', searchInput.value));
+
+    const periodGroup = document.getElementById('historyPeriodGroup');
+    if (periodGroup) {
+      periodGroup.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-period]');
+        if (!btn) return;
+        periodGroup.querySelectorAll('[data-period]').forEach((b) => b.classList.toggle('active', b === btn));
+        historyFilters?.setFilter('period', btn.dataset.period);
+      });
+    }
+
+    const statusGroup = document.getElementById('historyStatusGroup');
+    if (statusGroup) {
+      statusGroup.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-status]');
+        if (!btn) return;
+        statusGroup.querySelectorAll('[data-status]').forEach((b) => b.classList.toggle('active', b === btn));
+        historyFilters?.setFilter('status', btn.dataset.status);
+      });
+    }
+
+    const exportCsvBtn = document.getElementById('historyExportCsvBtn');
+    if (exportCsvBtn) exportCsvBtn.addEventListener('click', () => exportHistory('csv'));
+
+    const exportJsonBtn = document.getElementById('historyExportJsonBtn');
+    if (exportJsonBtn) exportJsonBtn.addEventListener('click', () => exportHistory('json'));
+
+    const sortSelect = document.getElementById('historySort');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', () => historyFilters?.setSort(sortSelect.value));
+    }
+
+    const resetBtn = document.getElementById('historyResetFiltersBtn');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        historyFilters?.reset();
+        if (searchInput) searchInput.value = '';
+        if (sortSelect) sortSelect.value = 'date';
+        periodGroup?.querySelectorAll('[data-period]').forEach((b) => b.classList.toggle('active', b.dataset.period === 'all'));
+        statusGroup?.querySelectorAll('[data-status]').forEach((b) => b.classList.toggle('active', b.dataset.status === 'all'));
+      });
+    }
+
+    return historyFilters;
+  }
+
+  /** Renderiza as entradas (já filtradas) do histórico. */
+  function renderHistoryEntries(visible, total) {
+    const listEl = document.getElementById('historyList');
+    if (!listEl) return;
+    const emptyEl = document.getElementById('historyEmpty');
+    const summaryEl = document.getElementById('historySummary');
+
+    const count = visible.length;
+    if (summaryEl) {
+      summaryEl.textContent = count === total
+        ? `${total} registro${total === 1 ? '' : 's'}`
+        : `${count} de ${total} registro${total === 1 ? '' : 's'}`;
+    }
+
     listEl.innerHTML = '';
-    for (const entry of list) listEl.appendChild(renderHistoryItem(entry));
+    if (count === 0) {
+      if (emptyEl) {
+        emptyEl.hidden = false;
+        emptyEl.textContent = total > 0
+          ? 'Nenhum download encontrado. Tente ajustar a busca ou os filtros.'
+          : 'Nenhum download registrado ainda.';
+      }
+      return;
+    }
+    if (emptyEl) emptyEl.hidden = true;
+    for (const entry of visible) listEl.appendChild(renderHistoryItem(entry));
+  }
+
+  /** SPEC-08: exporta o histórico (respeitando os filtros ativos). */
+  async function exportHistory(format) {
+    const entries = historyFilters ? historyFilters.getVisible() : undefined;
+    const result = await window.api.exportHistory({ format, entries });
+
+    if (result?.ok) {
+      const size = formatBytes(result.size || 0);
+      historyStatus(`Histórico exportado: ${result.count ?? '?'} registros (${size}).`);
+    } else if (result?.canceled) {
+      // usuário cancelou o diálogo: silencioso
+    } else {
+      historyStatus(result?.error || 'Falha ao exportar o histórico.', false);
+    }
+  }
+
+  function historyStatus(text, ok = true) {
+    const el = document.getElementById('historySummary');
+    if (el) {
+      el.textContent = text;
+      el.style.color = ok ? '' : 'var(--danger)';
+      setTimeout(() => { el.style.color = ''; }, 4000);
+    }
   }
 
   function renderHistoryItem(entry) {
@@ -336,5 +481,6 @@ export function createPanelsController({ dom, tabsController }) {
     initializePanels,
     refreshQueuePanel,
     refreshHistoryPanel,
+    handleQueueEvent,
   };
 }

@@ -31,6 +31,25 @@ export async function getFreeBytes(dir) {
   }
 }
 
+/**
+ * Espaco em disco do diretorio: bytes livres e total (ou null se nao medivel).
+ * SPEC-07: usado pelo dashboard da fila para exibir "X GB livres de Y GB".
+ */
+export async function getDiskSpace(dir) {
+  try {
+    const st = await fs.promises.statfs(dir);
+    if (!st) return null;
+    const toNum = (v) => (typeof v === 'bigint' ? Number(v) : Number(v));
+    const bsize = toNum(st.bsize);
+    const total = toNum(st.blocks) * bsize;
+    const free = toNum(st.bavail) * bsize;
+    if (!Number.isFinite(total) || !Number.isFinite(free)) return null;
+    return { free, total, used: total - free };
+  } catch {
+    return null;
+  }
+}
+
 /** Estimativa de espaco extra temporario para mux (video + audio + saida). */
 export function estimateMuxSpace(mediaBytes) {
   return Math.ceil(mediaBytes * 2.2) + 50 * 1024 * 1024; // margem fixa de 50MB

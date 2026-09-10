@@ -42,6 +42,7 @@ export * from './events.js';
 export * from './storage.js';
 export * from './settings.js';
 export * from './history.js';
+export * from './history-export.js';
 export * from './queue.js';
 export * from './disk.js';
 export * from './atomic.js';

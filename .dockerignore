@@ -1,0 +1,13 @@
+.git
+.github
+.DS_Store
+node_modules
+vendor
+dist
+build/extraResources
+downloads
+downloads.log
+*.log
+test-results
+tmp-electron-test
+fast-downloader-staging/node_modules

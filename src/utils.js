@@ -148,6 +148,9 @@ export function ensureMp4(name) {
  * obtida programaticamente (sem nome de usuário hardcoded).
  */
 export function getDefaultDownloadsDir() {
+  const envDir = process.env.STREAMGRAB_DOWNLOAD_DIR;
+  if (envDir && envDir.trim()) return envDir.trim();
+
   const home = os.homedir();
   const candidates = [path.join(home, 'Downloads'), home, process.cwd()];
   for (const dir of candidates) {

@@ -1,6 +1,6 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from 'electron';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { RESOURCES_PATH_ENV } from '../src/core/binaries.js';
 import { createCurlClient, findCurlImpersonate } from '../src/curlimp.js';
@@ -12,6 +12,8 @@ import { friendlyReport } from '../src/core/errors.js';
 import { safeRefreshMdstrm } from '../src/core/mdstrm-routing.js';
 import { normalizeMediaInfo } from './media-info.js';
 import { createElectronServices } from './services.js';
+import { createClipboardWatcher } from './clipboard-watcher.js';
+import { createNotifier } from './notifications.js';
 import {
   isSafeHttpUrl,
   validateAnalyzePayload,
@@ -40,6 +42,9 @@ if (app.isPackaged && process.resourcesPath) {
 // no ready() — o Electron consome StreamGrabCore/DownloadQueue diretamente,
 // sem runCliSession()/createAnswerBook() para downloads (itens 1-5 do pedido).
 let services = null;
+
+// Clipboard watcher para detecção automática de URLs.
+let clipboardWatcher = null;
 
 // Compatibilidade: taskId (abas) -> jobId (fila real).
 const taskToJob = new Map();
@@ -122,6 +127,39 @@ app.whenReady().then(() => {
   });
 
   createWindow();
+
+  // Clipboard watcher — detecta URLs de mídia na área de transferência
+  clipboardWatcher = createClipboardWatcher({ clipboard });
+  clipboardWatcher.setOnDetected(({ url, sourceType }) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('clipboard:url-detected', { url, sourceType });
+      }
+    }
+  });
+  if (services.settings.get('clipboardWatch') !== false) {
+    clipboardWatcher.start();
+  }
+
+  // Pausa/retoma watcher com foco da janela
+  const createdWin = BrowserWindow.getAllWindows()[0];
+  if (createdWin) {
+    createdWin.on('blur', () => clipboardWatcher.focusLost());
+    createdWin.on('focus', () => clipboardWatcher.focusGained());
+  }
+
+  // Notificações nativas — conecta aos eventos broadcast para o renderer
+  const notifier = createNotifier({
+    settingsGet: () => services.settings.all(),
+    getWindow: () => BrowserWindow.getAllWindows()[0] || null,
+    shell,
+  });
+  // Escuta eventos complet/error do engine (já broadcast, mas notifier
+  // precisa do evento separadamente para agregação)
+  for (const event of ['complete', 'error']) {
+    services.core.on(event, (payload) => notifier.onJobEvent(event, payload));
+  }
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -147,6 +185,25 @@ ipcMain.handle('app:resolve-paths', async () => {
     projectRoot: PROJECT_ROOT,
     defaultDownloads,
   };
+});
+
+// SPEC-07: espaço em disco para o dashboard da fila
+ipcMain.handle('app:disk-space', async (_event, { dir } = {}) => {
+  const targetDir = typeof dir === 'string' && dir ? dir : app.getPath('downloads');
+  const { getDiskSpace } = await import('../src/core/disk.js');
+  const space = await getDiskSpace(targetDir);
+  return space || { free: null, total: null, used: null };
+});
+
+// Abre uma URL http(s) no navegador padrão (seção 24: apenas http/https).
+ipcMain.handle('app:open-external', async (_event, { url } = {}) => {
+  if (!isSafeHttpUrl(url)) return { ok: false, error: 'URL inválida.' };
+  try {
+    await shell.openExternal(url);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Falha ao abrir o link.' };
+  }
 });
 
 // P8 (seção 24): abertura/localização de arquivos concluídos — restrita às
@@ -175,6 +232,14 @@ ipcMain.handle('app:export-logs', async (_event, payload) => {
   const buffer = logger?.getBuffer?.() || [];
   const dest = validated.path || defaultLogPath(userDataDir);
   return exportLogs(buffer, dest);
+});
+
+// Clipboard: adiciona URL ao cooldown (usuário clicou "Ignorar")
+ipcMain.handle('clipboard:ignore-url', async (_event, { url }) => {
+  if (clipboardWatcher && typeof url === 'string') {
+    clipboardWatcher.addCooldown(url);
+  }
+  return { ok: true };
 });
 
 async function analyzePlaylist(rawPayload) {
@@ -359,6 +424,154 @@ ipcMain.handle('queue:list', async () => {
   return { jobs, maxConcurrent: services.queue.maxConcurrent, paused: services.queue.paused };
 });
 
+// ---------------------------------------------------------------------------
+// SPEC-06 — Preview de mídia
+//
+// Gera um trecho curto (até 60s) do vídeo para o usuário conferir o conteúdo
+// antes de baixar. Cache em memória de 30 min para não regerar o mesmo preview.
+// ---------------------------------------------------------------------------
+const previewCache = new Map(); // `${url}|${quality}` -> { path, time }
+
+ipcMain.handle('preview:generate', async (_event, rawPayload) => {
+  const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
+  const url = typeof payload.url === 'string' ? payload.url.trim() : '';
+  const quality = typeof payload.quality === 'string' ? payload.quality.trim() : '';
+  const sourceType = typeof payload.sourceType === 'string' ? payload.sourceType : '';
+
+  if (!isSafeHttpUrl(url)) return { ok: false, error: 'URL inválida para preview.' };
+  if (quality && !isSafeMediaSelection(quality)) return { ok: false, error: 'Qualidade inválida para preview.' };
+
+  const { generatePreview, clearPreview } = await import('../src/preview.js');
+  if (!canPreviewSource(sourceType)) {
+    return { ok: false, error: 'Preview não disponível para este tipo de mídia.' };
+  }
+
+  const cacheKey = `${url}|${quality}`;
+  const cached = previewCache.get(cacheKey);
+  if (cached) {
+    if (Date.now() - cached.time < 30 * 60 * 1000) {
+      try {
+        // Revalida a existência do arquivo antes de servir do cache.
+        const stat = (await import('node:fs')).statSync(cached.path);
+        if (stat.size > 0) {
+          return {
+            ok: true,
+            filePath: cached.path,
+            srcUrl: pathToFileURL(cached.path).toString(),
+            size: stat.size,
+            mimeType: 'video/mp4',
+            cached: true,
+          };
+        }
+      } catch {
+        /* arquivo sumiu: gera de novo */
+      }
+      previewCache.delete(cacheKey);
+    } else {
+      clearPreview(cached.path);
+      previewCache.delete(cacheKey);
+    }
+  }
+
+  const { getFfmpegCommand } = await import('../src/ffmpeg/service.js');
+  const { formatHeaders } = await import('../src/ffmpeg/muxer.js');
+
+  const config = loadConfig(PROJECT_ROOT, { log: () => {} });
+  const mergedHeaders = applyProviderHeaders({ url, headers: config.headers, argv: ['--hotmart'] });
+  const headerStr = formatHeaders(mergedHeaders);
+
+  const result = await generatePreview({
+    url,
+    quality,
+    sourceType,
+    ffmpegPath: getFfmpegCommand(),
+    tempDir: app.getPath('temp'),
+    headers: headerStr,
+  });
+
+  if (result.ok && result.filePath) {
+    previewCache.set(cacheKey, { path: result.filePath, time: Date.now() });
+    return { ...result, srcUrl: pathToFileURL(result.filePath).toString(), mimeType: 'video/mp4' };
+  }
+  return result;
+});
+
+ipcMain.handle('preview:clear', async (_event, rawPayload) => {
+  const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
+  const filePath = typeof payload.filePath === 'string' ? payload.filePath : '';
+  if (!filePath) return { ok: false };
+  const { clearPreview } = await import('../src/preview.js');
+  clearPreview(filePath);
+  for (const [key, value] of previewCache) {
+    if (value.path === filePath) previewCache.delete(key);
+  }
+  return { ok: true };
+});
+
+/** Fontes elegíveis para preview (espelha src/preview.js). */
+function canPreviewSource(sourceType) {
+  return ['hls', 'dash', 'direct', 'youtube', 'social', 'ytdlp'].includes(String(sourceType || '').toLowerCase());
+}
+
+// SPEC-03: download em lote — processa várias URLs e enfileira cada uma.
+ipcMain.handle('batch:enqueue', async (_event, rawPayload) => {
+  if (!services) {
+    return { results: [], ok: 0, failed: 0, error: 'Serviços não inicializados.' };
+  }
+  const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
+  const rawUrls = Array.isArray(payload.urls) ? payload.urls : [];
+
+  // Segurança: valida e normaliza cada URL antes de processar.
+  const urls = [];
+  for (const u of rawUrls) {
+    const value = typeof u === 'string' ? u.trim() : '';
+    if (value && isSafeHttpUrl(value)) urls.push(value);
+  }
+
+  if (urls.length === 0) {
+    return { results: [], ok: 0, failed: 0, error: 'Nenhuma URL válida informada.' };
+  }
+
+  const outputDir = typeof payload.outputDir === 'string' ? payload.outputDir : '';
+  if (outputDir) addRevealRoot(outputDir);
+
+  const { processBatch } = await import('../src/batch.js');
+
+  const send = (data) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send('batch:progress', data);
+    }
+  };
+
+  const results = await processBatch({
+    urls,
+    outputDir,
+    options: {
+      turbo: payload.turbo === true,
+      allAudio: payload.allAudio === true,
+      subtitleLanguages: Array.isArray(payload.subtitleLanguages) ? payload.subtitleLanguages : [],
+      embedSubs: payload.embedSubs === true,
+    },
+    analyze: (url) => analyzePlaylist({ url, headers: {}, auth: {} }),
+    enqueue: (item) => {
+      const job = enqueueDownload({
+        url: item.url,
+        filename: item.filename,
+        title: item.title,
+        outputDir: item.outputDir,
+        turbo: item.options?.turbo === true,
+        allAudio: item.options?.allAudio === true,
+        subtitleLanguages: item.options?.subtitleLanguages || [],
+        embedSubs: item.options?.embedSubs === true,
+      });
+      return job;
+    },
+    onProgress: (data) => send(data),
+  });
+
+  return results;
+});
+
 ipcMain.handle('queue:setPaused', async (_e, value) => {
   if (!services) return { ok: false, error: 'Serviços não inicializados' };
   services.queue.setPaused(Boolean(value));
@@ -464,6 +677,57 @@ ipcMain.handle('history:clear', async () => {
   if (!services) return false;
   services.history.clear();
   return true;
+});
+
+// SPEC-08: exporta o histórico em CSV/JSON. Se `filePath` não for informado,
+// abre o diálogo nativo "Salvar como". O renderer pode enviar apenas as
+// entradas visíveis (filtradas) via `entries`.
+ipcMain.handle('history:export', async (_event, rawPayload) => {
+  if (!services) return { ok: false, error: 'Serviços não inicializados.' };
+
+  const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
+  const format = payload.format === 'csv' ? 'csv' : 'json';
+
+  // Entradas: usa a lista filtrada enviada pelo renderer ou todo o histórico.
+  let entries;
+  if (Array.isArray(payload.entries)) {
+    entries = payload.entries
+      .filter((e) => e && typeof e === 'object')
+      .map((e) => ({
+        id: String(e.id || ''),
+        title: String(e.title || ''),
+        url: String(e.url || ''),
+        provider: String(e.provider || ''),
+        format: String(e.format || ''),
+        destination: String(e.destination || ''),
+        status: String(e.status || ''),
+        size: Number(e.size) || 0,
+        durationMs: Number(e.durationMs) || 0,
+        date: String(e.date || ''),
+      }));
+  } else {
+    entries = services.history.list();
+  }
+
+  let destPath = typeof payload.filePath === 'string' ? payload.filePath : '';
+  if (!destPath) {
+    const { suggestExportFilename } = await import('../src/core/history-export.js');
+    const result = await dialog.showSaveDialog({
+      title: 'Exportar histórico',
+      defaultPath: suggestExportFilename(format),
+      filters: format === 'csv'
+        ? [{ name: 'CSV (Planilha)', extensions: ['csv'] }]
+        : [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+    destPath = result.filePath;
+    addRevealRoot(path.dirname(destPath));
+  } else if (!path.isAbsolute(destPath)) {
+    return { ok: false, error: 'Caminho de destino inválido.' };
+  }
+
+  const { exportHistoryToFile } = await import('../src/core/history-export.js');
+  return exportHistoryToFile({ entries, format, filePath: destPath });
 });
 
 ipcMain.handle('history:redownload', async (_event, rawPayload) => {
