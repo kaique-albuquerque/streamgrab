@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('api', {
   cancelDownload: (payload) => ipcRenderer.invoke('download:cancel', payload),
   pickOutputDir: () => ipcRenderer.invoke('app:pick-output-dir'),
   resolvePaths: () => ipcRenderer.invoke('app:resolve-paths'),
+  diskSpace: (payload) => ipcRenderer.invoke('app:disk-space', payload),
+  openExternal: (url) => ipcRenderer.invoke('app:open-external', { url }),
   openFile: (payload) => ipcRenderer.invoke('app:open-file', payload),
   showInFolder: (payload) => ipcRenderer.invoke('app:show-in-folder', payload),
 
@@ -39,6 +41,7 @@ contextBridge.exposeInMainWorld('api', {
   historyRemove: (id) => ipcRenderer.invoke('history:remove', { id }),
   historyClear: () => ipcRenderer.invoke('history:clear'),
   historyRedownload: (id) => ipcRenderer.invoke('history:redownload', { id }),
+  exportHistory: (payload) => ipcRenderer.invoke('history:export', payload),
 
   // P11 — Configurações (src/core/settings.js).
   settingsGet: () => ipcRenderer.invoke('settings:get'),
@@ -48,4 +51,16 @@ contextBridge.exposeInMainWorld('api', {
   // Eventos unificados da fila/engine (started/start/progress/pause/resume/
   // complete/error/cancel/speed/eta) — payload { event, payload }.
   onQueueEvent: (cb) => ipcRenderer.on('queue:event', (_e, data) => cb(data)),
+
+  // Clipboard watcher — detecção automática de URL.
+  onClipboardDetected: (cb) => ipcRenderer.on('clipboard:url-detected', (_e, data) => cb(data)),
+  clipboardIgnoreUrl: (url) => ipcRenderer.invoke('clipboard:ignore-url', { url }),
+
+  // SPEC-03 — Download em lote.
+  batchEnqueue: (payload) => ipcRenderer.invoke('batch:enqueue', payload),
+  onBatchProgress: (cb) => ipcRenderer.on('batch:progress', (_e, data) => cb(data)),
+
+  // SPEC-06 — Preview de mídia.
+  generatePreview: (payload) => ipcRenderer.invoke('preview:generate', payload),
+  clearPreview: (filePath) => ipcRenderer.invoke('preview:clear', { filePath }),
 });

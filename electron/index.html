@@ -4,10 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- P8 (seção 24): CSP restritiva — só recursos locais; imagens https
-         (thumbnails de providers) e data: são permitidas para a UI. -->
+         (thumbnails de providers) e data: são permitidas para a UI.
+         media-src: preview local gravado em temp (file:) — SPEC-06. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' file: blob:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
     />
     <title>StreamGrab</title>
     <link rel="stylesheet" href="./styles.css" />
@@ -37,6 +38,7 @@
             <input id="themeToggle" type="checkbox" />
             <span data-theme-label>Modo escuro</span>
           </label>
+          <button id="batchBtn" class="button button-ghost">📦 Download em lote</button>
           <button id="newTabBtn" class="button button-ghost">+ Nova aba</button>
         </div>
       </header>
@@ -57,6 +59,8 @@
             <button id="queueRefreshBtn" class="button button-ghost" type="button">Atualizar</button>
           </div>
         </div>
+        <!-- SPEC-07: resumo visual da fila (cards de métricas) -->
+        <div id="queueDashboard" class="queue-dashboard"></div>
         <div id="queueList" class="queue-list"></div>
         <div id="queueEmpty" class="empty-state" hidden>Nenhum download na fila.</div>
       </section>
@@ -68,10 +72,43 @@
             <p class="hint-line" id="historySummary">Carregando histórico...</p>
           </div>
           <div class="view-actions">
+            <button id="historyExportCsvBtn" class="button button-ghost" type="button">📤 CSV</button>
+            <button id="historyExportJsonBtn" class="button button-ghost" type="button">📤 JSON</button>
             <button id="historyClearBtn" class="button button-ghost" type="button">Limpar histórico</button>
             <button id="historyRefreshBtn" class="button button-ghost" type="button">Atualizar</button>
           </div>
         </div>
+
+        <!-- SPEC-04: busca e filtros do histórico -->
+        <div id="historyFilters" class="history-filters card">
+          <div class="search-row">
+            <input id="historySearch" class="search-input" type="search" placeholder="🔍 Buscar por título, URL, provedor ou formato..." />
+          </div>
+          <div class="filter-row">
+            <div class="filter-group" id="historyPeriodGroup">
+              <button class="chip active" data-period="all" type="button">📅 Todas</button>
+              <button class="chip" data-period="24h" type="button">Últimas 24h</button>
+              <button class="chip" data-period="7d" type="button">Última semana</button>
+              <button class="chip" data-period="30d" type="button">Último mês</button>
+            </div>
+            <div class="filter-group" id="historyStatusGroup">
+              <button class="chip active" data-status="all" type="button">📄 Todos</button>
+              <button class="chip" data-status="completed" type="button">✅ Concluídos</button>
+              <button class="chip" data-status="failed" type="button">❌ Falhos</button>
+              <button class="chip" data-status="cancelled" type="button">🗑️ Cancelados</button>
+            </div>
+            <div class="filter-group">
+              <select id="historySort" class="sort-select" aria-label="Ordenar histórico">
+                <option value="date">📅 Mais recentes</option>
+                <option value="title">🔤 Título (A-Z)</option>
+                <option value="size">📦 Tamanho</option>
+                <option value="provider">🌐 Provedor</option>
+              </select>
+              <button class="chip" id="historyResetFiltersBtn" type="button">✕ Limpar filtros</button>
+            </div>
+          </div>
+        </div>
+
         <div id="historyList" class="queue-list"></div>
         <div id="historyEmpty" class="empty-state" hidden>Nenhum download registrado ainda.</div>
       </section>
@@ -130,6 +167,10 @@
           <label class="toggle">
             <input data-setting="notifications" type="checkbox" />
             <span>Notificações de conclusão</span>
+          </label>
+          <label class="toggle">
+            <input data-setting="clipboardWatch" type="checkbox" />
+            <span>🔗 Detecção automática de URL na clipboard</span>
           </label>
           <label class="prompt">
             <span class="prompt-title">Tema:</span>
@@ -243,6 +284,7 @@
 
               <div class="action-row">
                 <button data-action="analyze" class="button button-primary" type="button">Analisar playlist</button>
+                <button data-action="preview" class="button button-ghost" type="button" disabled>▶ Pré-visualizar</button>
                 <button data-action="download" class="button button-accent" type="button">Baixar agora</button>
                 <button data-action="enqueue" class="button button-ghost" type="button">Adicionar à fila</button>
                 <button data-action="cancel" class="button button-ghost" type="button">Cancelar</button>

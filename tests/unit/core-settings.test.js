@@ -14,9 +14,10 @@ function makeTempDir() {
 // DEFAULT_SETTINGS / normalizeSettings
 // ---------------------------------------------------------------------------
 
-test('DEFAULT_SETTINGS tem as 11 chaves do plano (seção 22 + P6.2 smartTurbo)', () => {
+test('DEFAULT_SETTINGS tem as chaves do plano (seção 22 + P6.2 + SPEC-01/02)', () => {
   assert.deepEqual(Object.keys(DEFAULT_SETTINGS).sort(), [
     'audio',
+    'clipboardWatch',
     'defaultDir',
     'defaultQuality',
     'historyRetentionDays',
@@ -27,6 +28,7 @@ test('DEFAULT_SETTINGS tem as 11 chaves do plano (seção 22 + P6.2 smartTurbo)'
     'theme',
     'turbo',
     'turboChunks',
+    'tutorialCompleted',
   ]);
 });
 

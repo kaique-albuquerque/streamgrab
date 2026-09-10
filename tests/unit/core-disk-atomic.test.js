@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { getFreeBytes, checkDiskSpace, estimateMuxSpace } from '../../src/core/disk.js';
+import { getFreeBytes, getDiskSpace, checkDiskSpace, estimateMuxSpace } from '../../src/core/disk.js';
 import { createAtomicFile, moveIntoPlace, cleanupPart } from '../../src/core/atomic.js';
 import { DiskSpaceError } from '../../src/core/errors.js';
 
@@ -26,6 +26,20 @@ test('getFreeBytes retorna numero positivo (ou null sem lancar)', async () => {
 test('getFreeBytes com diretorio inexistente retorna null (nao lanca)', async () => {
   const free = await getFreeBytes(path.join(makeTempDir(), 'nao-existe'));
   assert.equal(free, null);
+});
+
+test('getDiskSpace retorna free/total/used coerentes (ou null sem lancar)', async () => {
+  const space = await getDiskSpace(makeTempDir());
+  if (space !== null) {
+    assert.ok(space.total > 0, 'total deve ser > 0');
+    assert.ok(space.free >= 0, 'free deve ser >= 0');
+    assert.equal(space.used, space.total - space.free);
+  }
+});
+
+test('getDiskSpace com diretorio inexistente retorna null (nao lanca)', async () => {
+  const space = await getDiskSpace(path.join(makeTempDir(), 'nao-existe'));
+  assert.equal(space, null);
 });
 
 test('estimateMuxSpace reserva 2.2x + margem fixa', () => {

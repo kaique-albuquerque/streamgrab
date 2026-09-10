@@ -617,6 +617,16 @@ body[data-theme="light"] .log {
   font-weight: 700;
 }
 
+.badge[data-status="error"] {
+  background: rgba(255, 107, 107, 0.2);
+  color: var(--danger);
+}
+
+.badge[data-status="idle"] {
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--muted);
+}
+
 .view {
   margin-top: 18px;
 }
@@ -865,4 +875,879 @@ body[data-theme="light"] .log {
   100% {
     background-position: 200% 50%;
   }
+}
+/* =========================================================================
+   Clipboard Toast — Detecção automática de URL
+   ========================================================================= */
+
+.clipboard-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2000;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 360px;
+  max-width: 480px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  transform: translateX(calc(100% + 48px));
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.clipboard-toast.visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.toast-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.toast-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-text strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.toast-url {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  word-break: break-all;
+  line-height: 1.4;
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+}
+
+.toast-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 480px) {
+  .clipboard-toast {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    min-width: unset;
+    max-width: unset;
+  }
+}
+
+/* =========================================================================
+   Tutorial Interativo — Tour e ajuda
+   ========================================================================= */
+
+/* Overlay */
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.55);
+  animation: tour-fade-in 0.2s ease;
+}
+
+@keyframes tour-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Highlight no elemento alvo */
+.tour-highlight {
+  position: relative;
+  z-index: 1001;
+  box-shadow: 0 0 0 3px var(--accent), 0 0 16px rgba(114, 241, 184, 0.3);
+  border-radius: 8px;
+  transition: box-shadow 0.2s ease;
+}
+
+/* Tooltip */
+.tour-tooltip {
+  position: fixed;
+  z-index: 1000;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 16px;
+  max-width: 360px;
+  width: max-content;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  animation: tour-fade-in 0.2s ease;
+}
+
+.tour-tooltip-title {
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.tour-tooltip-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-line;
+  margin-bottom: 12px;
+}
+
+.tour-tooltip-nav {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Setas do tooltip */
+.tour-tooltip.arrow-top::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid var(--accent);
+}
+
+.tour-tooltip.arrow-bottom::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid var(--accent);
+}
+
+.tour-tooltip.arrow-left::after {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 8px solid var(--accent);
+}
+
+.tour-tooltip.arrow-right::after {
+  content: '';
+  position: absolute;
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 8px solid var(--accent);
+}
+
+/* Modal de ajuda */
+.tour-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: tour-fade-in 0.15s ease;
+}
+
+.tour-modal {
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  max-width: 560px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.tour-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tour-modal-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.tour-modal-body {
+  padding: 20px;
+}
+
+.tour-modal-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tour-steps-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.tour-steps-list li {
+  margin-bottom: 10px;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.tour-steps-list kbd {
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+}
+
+.tour-modal-tip {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(114, 241, 184, 0.1);
+  border: 1px solid rgba(114, 241, 184, 0.25);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.tour-tips {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.tour-tips li {
+  padding: 8px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  border-bottom: 1px solid var(--line);
+}
+
+.tour-tips li:last-child {
+  border-bottom: none;
+}
+
+/* Botão ajuda flutuante (FAB) */
+.help-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 997;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #000;
+  font-size: 22px;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(114, 241, 184, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.help-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(114, 241, 184, 0.5);
+}
+
+.help-fab:active {
+  transform: scale(0.95);
+}
+
+/* Menu de ajuda (acima do FAB) */
+.help-menu {
+  position: fixed;
+  bottom: 80px;
+  right: 24px;
+  z-index: 997;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  padding: 8px;
+  min-width: 200px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  animation: tour-fade-in 0.1s ease;
+}
+
+.help-menu-item {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.help-menu-item:hover {
+  background: var(--bg-soft);
+  color: var(--accent);
+}
+
+/* =========================================================================
+   Queue Dashboard — Resumo visual da fila (SPEC-07)
+   ========================================================================= */
+
+.queue-dashboard {
+  margin-bottom: 16px;
+}
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.dash-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+  min-width: 0;
+  transition: border-color 0.15s ease;
+}
+
+.dash-card:hover {
+  border-color: var(--line-strong);
+}
+
+.dash-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.dash-value {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.dash-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.dash-sub.error {
+  color: var(--danger);
+}
+
+.dash-card-active .dash-value {
+  color: var(--accent);
+}
+
+.dash-card-done .dash-value {
+  color: var(--accent-2);
+}
+
+.dash-card-speed .dash-value {
+  color: var(--warning);
+  font-size: 20px;
+}
+
+.dash-card-eta .dash-value {
+  color: var(--accent-2);
+  font-size: 20px;
+}
+
+.dash-disk {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.dash-disk .dash-sub {
+  margin-bottom: 8px;
+}
+
+.dash-progress {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.dash-progress .dash-sub {
+  margin-bottom: 12px;
+}
+
+.mini-job {
+  margin-bottom: 10px;
+}
+
+.mini-job:last-child {
+  margin-bottom: 0;
+}
+
+.mini-job-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.mini-job-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-job-pct {
+  color: var(--accent);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.mini-job-speed {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.progress-bar.mini {
+  height: 6px;
+  border-radius: 3px;
+}
+
+.progress-bar.disk {
+  height: 8px;
+  border-radius: 4px;
+}
+
+.progress-bar.mini span {
+  background: var(--accent);
+}
+
+.progress-bar.disk span {
+  background: var(--warning);
+}
+
+/* =========================================================================
+   Batch Dialog — Download em lote (SPEC-03)
+   ========================================================================= */
+
+.batch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: tour-fade-in 0.15s ease;
+}
+
+.batch-modal {
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  max-width: 640px;
+  width: 92%;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.batch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.batch-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.batch-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.batch-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.batch-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.batch-field-inline {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.batch-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.batch-textarea {
+  width: 100%;
+  min-height: 160px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-size: 13px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.batch-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.batch-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.batch-option-row {
+  display: flex;
+  gap: 12px;
+}
+
+.batch-summary {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 10px 12px;
+  background: var(--bg-soft);
+  border-radius: 8px;
+}
+
+.batch-summary.error {
+  color: var(--danger);
+}
+
+.batch-progress {
+  margin-top: 14px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.batch-progress-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+}
+
+.batch-progress-item.success {
+  color: var(--accent);
+}
+
+.batch-progress-item.error {
+  color: var(--danger);
+}
+
+.batch-progress-item.pending {
+  color: var(--muted);
+}
+
+.batch-progress-icon {
+  flex-shrink: 0;
+}
+
+.batch-progress-url {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-progress-status {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+/* =========================================================================
+   History Filters — Busca e filtros do histórico (SPEC-04)
+   ========================================================================= */
+
+.history-filters {
+  margin-bottom: 12px;
+  padding: 14px 16px;
+}
+
+.search-row {
+  margin-bottom: 10px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.search-input::placeholder {
+  color: var(--muted);
+}
+
+.search-input::-webkit-search-cancel-button {
+  filter: invert(0.6);
+  cursor: pointer;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.filter-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.chip.active {
+  background: rgba(114, 241, 184, 0.16);
+  border-color: rgba(114, 241, 184, 0.5);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.sort-select {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* =========================================================================
+   Preview Player — Pré-visualização antes do download (SPEC-06)
+   ========================================================================= */
+
+.preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: tour-fade-in 0.15s ease;
+}
+
+.preview-modal {
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  max-width: 840px;
+  width: 92%;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.preview-header h2 {
+  margin: 0;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.preview-stage {
+  background: #000;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  overflow: hidden;
+}
+
+.preview-video {
+  width: 100%;
+  max-height: 62vh;
+  border-radius: 10px;
+  background: #000;
+  display: block;
+}
+
+.preview-spinner {
+  text-align: center;
+  color: var(--muted);
+  padding: 48px 24px;
+}
+
+.preview-spinner p {
+  margin: 16px 0 0;
+  font-size: 13px;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto;
+  border: 3px solid rgba(148, 163, 184, 0.2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.preview-message {
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.preview-message.error {
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  color: var(--danger);
+}
+
+.preview-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.preview-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.preview-actions {
+  display: flex;
+  gap: 8px;
 }
