@@ -7,6 +7,7 @@
 export function createPreviewPlayer({ api }) {
   let modalEl = null;
   let currentFilePath = null;
+  let currentBlobUrl = null;
   let onDownloadCb = null;
 
   async function open({ url, sourceType, quality, title, onDownload }) {
@@ -62,7 +63,12 @@ export function createPreviewPlayer({ api }) {
     };
     document.addEventListener('keydown', escHandler);
 
-    const result = await api.generatePreview({ url, sourceType, quality });
+    let result;
+    try {
+      result = await api.generatePreview({ url, sourceType, quality });
+    } catch (err) {
+      result = { ok: false, error: err?.message || 'Erro de comunicação com o processador principal.' };
+    }
 
     if (!modalEl) return; // fechado durante a geração
 
@@ -80,19 +86,70 @@ export function createPreviewPlayer({ api }) {
 
     currentFilePath = result.filePath || null;
 
+    // Lê o arquivo como buffer e cria um blob URL — evita problemas
+    // com file:// no sandbox do Electron.
+    let blobUrl = null;
+    try {
+      const fileData = await api.readPreviewFile(result.filePath);
+      if (fileData?.ok && fileData.data) {
+        const binary = atob(fileData.data);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: fileData.mimeType || 'video/mp4' });
+        blobUrl = URL.createObjectURL(blob);
+      }
+    } catch {
+      // Se a leitura falhar, tenta file:// como fallback.
+      blobUrl = result.srcUrl || null;
+    }
+
+    // Armazena para limpeza no close().
+    currentBlobUrl = blobUrl;
+
+    if (!blobUrl) {
+      stage.hidden = true;
+      messageEl.hidden = false;
+      messageEl.className = 'preview-message error';
+      messageEl.textContent = '⚠️ Não foi possível ler o arquivo de preview.';
+      return;
+    }
+
     const video = document.createElement('video');
     video.className = 'preview-video';
     video.controls = true;
     video.autoplay = true;
     video.muted = true;
     video.playsInline = true;
-    video.src = result.srcUrl;
+    video.preload = 'auto';
+
+    // Exibe o spinner do app até o primeiro frame estar pronto.
+    // Se o browser não emitir 'loadeddata' dentro de 15s, mostramos erro.
+    const LOAD_TIMEOUT_MS = 15000;
+    const loadTimer = setTimeout(() => {
+      if (video.readyState < 2) { // < HAVE_CURRENT_DATA
+        video.src = '';
+        video.load();
+        stage.hidden = true;
+        messageEl.hidden = false;
+        messageEl.className = 'preview-message error';
+        messageEl.textContent = '⚠️ O vídeo demorou para carregar. O arquivo pode estar corrompido ou incompatível.';
+      }
+    }, LOAD_TIMEOUT_MS);
+
+    video.addEventListener('loadeddata', () => {
+      clearTimeout(loadTimer);
+    }, { once: true });
+
     video.addEventListener('error', () => {
+      clearTimeout(loadTimer);
+      if (blobUrl && blobUrl.startsWith('blob:')) URL.revokeObjectURL(blobUrl);
       stage.hidden = true;
       messageEl.hidden = false;
       messageEl.className = 'preview-message error';
       messageEl.textContent = '⚠️ O navegador não conseguiu reproduzir este trecho. Tente baixar diretamente.';
-    });
+    }, { once: true });
+
+    video.src = blobUrl;
 
     stage.innerHTML = '';
     stage.appendChild(video);
@@ -105,6 +162,10 @@ export function createPreviewPlayer({ api }) {
   }
 
   function close() {
+    if (currentBlobUrl && currentBlobUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(currentBlobUrl);
+      currentBlobUrl = null;
+    }
     if (currentFilePath) {
       api.clearPreview(currentFilePath).catch(() => {});
       currentFilePath = null;

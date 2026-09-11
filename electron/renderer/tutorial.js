@@ -23,7 +23,7 @@ const STEPS = [
   },
   {
     target: '[data-field="qualities"]',
-    position: 'top',
+    position: 'bottom',
     title: 'Passo 3 de 4',
     text: '🎬 Escolha a qualidade\n\nSelecione a qualidade desejada. A melhor disponível é usada automaticamente se você não escolher nenhuma.',
   },
@@ -39,23 +39,39 @@ export function createTutorialController({ onFinish, onSkip }) {
   let overlay = null;
   let tooltip = null;
   let isActive = false;
+  let savedScrollY = 0;
 
   function start() {
     if (isActive) return;
     isActive = true;
-    showStep(0);
+    // Voltar ao topo e travar scroll durante o tutorial
+    savedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    window.scrollTo(0, 0);
+    // Aguardar um frame para garantir que o scroll ao topo foi aplicado
+    // antes de medir posicoes dos elementos
+    requestAnimationFrame(() => showStep(0));
   }
 
   function stop() {
     isActive = false;
+    restoreScroll();
     cleanup();
     if (typeof onSkip === 'function') onSkip();
   }
 
   function finish() {
     isActive = false;
+    restoreScroll();
     cleanup();
     if (typeof onFinish === 'function') onFinish();
+  }
+
+  function restoreScroll() {
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    window.scrollTo(0, savedScrollY);
   }
 
   function showStep(index) {
@@ -79,10 +95,9 @@ export function createTutorialController({ onFinish, onSkip }) {
     const targetEl = document.querySelector(step.target);
     if (targetEl) {
       targetEl.classList.add('tour-highlight');
-      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    // Tooltip
+    // Tooltip — criar imediatamente e posicionar direto (scroll travado no topo)
     tooltip = document.createElement('div');
     tooltip.className = 'tour-tooltip';
     tooltip.setAttribute('role', 'dialog');
@@ -126,48 +141,100 @@ export function createTutorialController({ onFinish, onSkip }) {
     tooltip.append(titleEl, textEl, navEl);
     document.body.appendChild(tooltip);
 
-    // Posicionar tooltip próximo ao alvo
+    // Posicionar tooltip — scroll travado, posicao direta
     positionTooltip(targetEl, step.position);
   }
 
-  function positionTooltip(targetEl, position) {
+  function positionTooltip(targetEl, preferredPosition) {
     if (!tooltip || !targetEl) return;
 
     const targetRect = targetEl.getBoundingClientRect();
-    const tooltipRect = tooltip.getBoundingClientRect();
     const gap = 12;
 
-    let top, left;
+    // Medir tooltip com position temporaria para calcular tamanho real
+    tooltip.style.visibility = 'hidden';
+    tooltip.style.display = 'block';
+    const tooltipRect = tooltip.getBoundingClientRect();
 
-    switch (position) {
-      case 'top':
-        top = targetRect.top - tooltipRect.height - gap;
-        left = targetRect.left + (targetRect.width - tooltipRect.width) / 2;
-        tooltip.classList.add('arrow-bottom');
-        break;
-      case 'bottom':
-        top = targetRect.bottom + gap;
-        left = targetRect.left + (targetRect.width - tooltipRect.width) / 2;
-        tooltip.classList.add('arrow-top');
-        break;
-      case 'left':
-        top = targetRect.top + (targetRect.height - tooltipRect.height) / 2;
-        left = targetRect.left - tooltipRect.width - gap;
-        tooltip.classList.add('arrow-right');
-        break;
-      case 'right':
-        top = targetRect.top + (targetRect.height - tooltipRect.height) / 2;
-        left = targetRect.right + gap;
-        tooltip.classList.add('arrow-left');
-        break;
+    // Helper: calcular posicao para uma dada posicao preferida
+    function calcPos(position) {
+      let top, left, arrowClass;
+      switch (position) {
+        case 'top':
+          top = targetRect.top - tooltipRect.height - gap;
+          left = targetRect.left + (targetRect.width - tooltipRect.width) / 2;
+          arrowClass = 'arrow-bottom';
+          break;
+        case 'bottom':
+          top = targetRect.bottom + gap;
+          left = targetRect.left + (targetRect.width - tooltipRect.width) / 2;
+          arrowClass = 'arrow-top';
+          break;
+        case 'left':
+          top = targetRect.top + (targetRect.height - tooltipRect.height) / 2;
+          left = targetRect.left - tooltipRect.width - gap;
+          arrowClass = 'arrow-right';
+          break;
+        case 'right':
+          top = targetRect.top + (targetRect.height - tooltipRect.height) / 2;
+          left = targetRect.right + gap;
+          arrowClass = 'arrow-left';
+          break;
+      }
+      return { top, left, arrowClass };
     }
 
-    // Limitar à viewport
-    top = Math.max(gap, Math.min(top, window.innerHeight - tooltipRect.height - gap));
-    left = Math.max(gap, Math.min(left, window.innerWidth - tooltipRect.width - gap));
+    // Verificar se ha espaco suficiente na posicao preferida
+    function hasSpace(position) {
+      const pos = calcPos(position);
+      const fitsVertically = pos.top >= gap && pos.top + tooltipRect.height <= window.innerHeight - gap;
+      const fitsHorizontally = pos.left >= gap && pos.left + tooltipRect.width <= window.innerWidth - gap;
+      return fitsVertically && fitsHorizontally;
+    }
 
-    tooltip.style.top = `${top}px`;
-    tooltip.style.left = `${left}px`;
+    // Verificar se o tooltip ficaria em cima do proprio alvo (overlap)
+    function wouldOverlapTarget(position) {
+      const pos = calcPos(position);
+      const tTop = Math.max(gap, Math.min(pos.top, window.innerHeight - tooltipRect.height - gap));
+      const tLeft = Math.max(gap, Math.min(pos.left, window.innerWidth - tooltipRect.width - gap));
+      const tRight = tLeft + tooltipRect.width;
+      const tBottom = tTop + tooltipRect.height;
+      const overlapX = tLeft < targetRect.right && tRight > targetRect.left;
+      const overlapY = tTop < targetRect.bottom && tBottom > targetRect.top;
+      return overlapX && overlapY;
+    }
+
+    // Ordem de fallback: preferida -> oposta -> laterais
+    const opposites = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
+    const fallbacks = ['top', 'bottom', 'left', 'right'];
+
+    let chosenPosition = preferredPosition;
+    if (!hasSpace(preferredPosition) || wouldOverlapTarget(preferredPosition)) {
+      // Tenta a oposta primeiro
+      const opposite = opposites[preferredPosition];
+      if (hasSpace(opposite) && !wouldOverlapTarget(opposite)) {
+        chosenPosition = opposite;
+      } else {
+        // Tenta qualquer uma que caiba e nao sobreponha
+        for (const fb of fallbacks) {
+          if (hasSpace(fb) && !wouldOverlapTarget(fb)) {
+            chosenPosition = fb;
+            break;
+          }
+        }
+      }
+    }
+
+    const { top, left, arrowClass } = calcPos(chosenPosition);
+
+    // Limitar à viewport como ultima garantia
+    const clampedTop = Math.max(gap, Math.min(top, window.innerHeight - tooltipRect.height - gap));
+    const clampedLeft = Math.max(gap, Math.min(left, window.innerWidth - tooltipRect.width - gap));
+
+    tooltip.style.visibility = '';
+    tooltip.style.top = `${clampedTop}px`;
+    tooltip.style.left = `${clampedLeft}px`;
+    tooltip.classList.add(arrowClass);
   }
 
   function cleanup() {

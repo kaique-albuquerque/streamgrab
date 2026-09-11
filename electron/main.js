@@ -1,8 +1,9 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from 'electron';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { RESOURCES_PATH_ENV } from '../src/core/binaries.js';
+import { RESOURCES_PATH_ENV, binName, packagedBinaryPath } from '../src/core/binaries.js';
 import { createCurlClient, findCurlImpersonate } from '../src/curlimp.js';
 import { parsePlaylistText } from '../src/hls.js';
 import { isMdstrmUrl } from '../src/mdstrm.js';
@@ -28,6 +29,7 @@ import {
   registerRevealRoot,
   isValidJobId,
   isValidTaskId,
+  isSafeMediaSelection,
 } from './security.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -477,6 +479,17 @@ ipcMain.handle('preview:generate', async (_event, rawPayload) => {
   const { getFfmpegCommand } = await import('../src/ffmpeg/service.js');
   const { formatHeaders } = await import('../src/ffmpeg/muxer.js');
 
+  // Resolve yt-dlp: empacotado > build/extraResources > vendor/local > PATH
+  function getYtDlpCommand() {
+    const packaged = packagedBinaryPath(binName('yt-dlp'));
+    if (packaged && fs.existsSync(packaged)) return packaged;
+    const buildPath = path.join(PROJECT_ROOT, 'build', 'extraResources', 'bin', binName('yt-dlp'));
+    if (fs.existsSync(buildPath)) return buildPath;
+    const localPath = path.join(PROJECT_ROOT, 'vendor', 'yt-dlp', binName('yt-dlp'));
+    if (fs.existsSync(localPath)) return localPath;
+    return 'yt-dlp';
+  }
+
   const config = loadConfig(PROJECT_ROOT, { log: () => {} });
   const mergedHeaders = applyProviderHeaders({ url, headers: config.headers, argv: ['--hotmart'] });
   const headerStr = formatHeaders(mergedHeaders);
@@ -486,6 +499,7 @@ ipcMain.handle('preview:generate', async (_event, rawPayload) => {
     quality,
     sourceType,
     ffmpegPath: getFfmpegCommand(),
+    ytdlpPath: getYtDlpCommand(),
     tempDir: app.getPath('temp'),
     headers: headerStr,
   });
@@ -495,6 +509,18 @@ ipcMain.handle('preview:generate', async (_event, rawPayload) => {
     return { ...result, srcUrl: pathToFileURL(result.filePath).toString(), mimeType: 'video/mp4' };
   }
   return result;
+});
+
+ipcMain.handle('preview:read-file', async (_event, rawPayload) => {
+  const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
+  const filePath = typeof payload.filePath === 'string' ? payload.filePath : '';
+  if (!filePath) return { ok: false, error: 'Caminho não informado.' };
+  try {
+    const data = fs.readFileSync(filePath);
+    return { ok: true, data: data.toString('base64'), mimeType: 'video/mp4' };
+  } catch {
+    return { ok: false, error: 'Não foi possível ler o arquivo de preview.' };
+  }
 });
 
 ipcMain.handle('preview:clear', async (_event, rawPayload) => {
