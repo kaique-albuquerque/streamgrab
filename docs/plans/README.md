@@ -45,16 +45,17 @@ Fase 4 (feature premium)              ✅ CONCLUÍDA
 
 ## 🧪 Estado dos Testes
 
-- **Unitários:** 771/772 passando (1 falha preexistente em `update-ytdlp.test.js`, não relacionada)
-- **Integração:** 17/17 passando
+- **Unitários:** 783/783 passando ✅
+- **Integração:** 17/17 passando ✅
 - **Lint:** 0 erros
-- **Novos testes:** 87 adicionados
+- **Novos testes:** 96 adicionados
   - `tests/unit/batch.test.js` — 17
   - `tests/unit/history-filters.test.js` — 19
   - `tests/unit/history-export.test.js` — 12
   - `tests/unit/preview.test.js` — 18
   - `tests/unit/core-disk-atomic.test.js` — +2
   - `tests/unit/core-settings.test.js` — atualizado (13 chaves)
+  - `tests/unit/p12-subtitles.test.js` — 9 (HLS #EXT-X-MEDIA, DASH @lang, engine wiring, yt-dlp flags)
 
 ---
 

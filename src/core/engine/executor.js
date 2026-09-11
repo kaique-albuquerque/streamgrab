@@ -36,6 +36,7 @@ import {
   runDashSegmentedDownload,
   runMuxDownload,
   runMuxMultiDownload,
+  embedSubtitles,
 } from './runners.js';
 
 /**
@@ -64,15 +65,17 @@ export function createDefaultExecutor({
       return adapter.analyze({ url, headers, auth });
     },
 
-    async prepare(adapter, { url, analysis, selectedUrl, headers, auth, audioLanguage, allAudio }) {
+    async prepare(adapter, { url, analysis, selectedUrl, headers, auth, audioLanguage, allAudio, subtitleLanguages = [], embedSubs = false }) {
       if (typeof adapter.prepareDownloadPlan === 'function') {
-        return adapter.prepareDownloadPlan({ url, analysis, selectedUrl, headers, auth, audioLanguage, allAudio });
+        return adapter.prepareDownloadPlan({ url, analysis, selectedUrl, headers, auth, audioLanguage, allAudio, subtitleLanguages, embedSubs });
       }
-      return adapter.prepareDownload({ url, analysis, selectedUrl, headers, auth, audioLanguage, allAudio });
+      return adapter.prepareDownload({ url, analysis, selectedUrl, headers, auth, audioLanguage, allAudio, subtitleLanguages, embedSubs });
     },
 
     async run({ job, prepared, output, headers, mode, signal, onProgress, atomic, onLog = () => {}, featureFlags = {}, turbo = false, turboChunks = 8 }) {
       const sourceType = job._sourceType || job.meta?.sourceType || '';
+      const subtitleLanguages = job.meta?.subtitleLanguages || [];
+      const embedSubs = job.meta?.embedSubs === true;
       if (prepared.strategy === 'mux') {
         // P11.1: YouTube adaptive URLs (googlevideo.com) retornam manifests
         // m3u8 em vez de video quando baixados via fetch. O yt-dlp resolve
@@ -93,6 +96,8 @@ export function createDefaultExecutor({
               auth: job.meta?.auth || {},
               signal,
               onProgress: (p) => onProgress?.({ ...p, stage: 'downloading' }),
+              subtitleLanguages,
+              embedSubs,
             });
             return { ok: true };
           } catch (err) {

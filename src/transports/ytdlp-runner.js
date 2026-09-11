@@ -38,7 +38,7 @@ function toYtDlpError(err) {
  * @returns {Promise<{ok: true, [key: string]: any}>}
  * @throws YtDlpError em falha; CancelledError em abort.
  */
-export async function runYtDlpDownload({ url, formatId, output, headers = {}, auth = {}, signal, onProgress, ffmpegPath } = {}) {
+export async function runYtDlpDownload({ url, formatId, output, headers = {}, auth = {}, signal, onProgress, ffmpegPath, subtitleLanguages = [], embedSubs = false } = {}) {
   if (!url) throw new TypeError('runYtDlpDownload: url e obrigatoria');
   if (!output) throw new TypeError('runYtDlpDownload: output e obrigatorio');
 
@@ -64,6 +64,16 @@ export async function runYtDlpDownload({ url, formatId, output, headers = {}, au
   if (userAgent) options.userAgent = userAgent;
   if (auth?.cookiesFile) options.cookies = auth.cookiesFile;
   if (auth?.cookiesFromBrowser) options.cookiesFromBrowser = auth.cookiesFromBrowser;
+
+  // P12: subtitle flags — write-subs + embed-subs via yt-dlp
+  if (Array.isArray(subtitleLanguages) && subtitleLanguages.length > 0) {
+    options.writeSubs = true;
+    const langs = subtitleLanguages.includes('all') ? 'all' : subtitleLanguages.join(',');
+    options.subLang = langs;
+    if (embedSubs) {
+      options.embedSubs = true;
+    }
+  }
 
   let promise;
   try {

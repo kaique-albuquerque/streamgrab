@@ -1,6 +1,7 @@
 import { normalizeHeaders, DEFAULT_USER_AGENT } from './utils.js';
 
 const STREAM_INF_RE = /^#EXT-X-STREAM-INF:(.*)$/;
+const MEDIA_RE = /^#EXT-X-MEDIA:(.*)$/;
 
 /**
  * Interpreta a lista de atributos de uma linha #EXT-X-STREAM-INF,
@@ -69,8 +70,40 @@ export function parsePlaylistText(text, baseUrl = '') {
     });
   }
 
+  // P12: parse #EXT-X-MEDIA tags (audio groups + subtitle renditions)
+  const mediaTracks = [];
+  for (let i = 0; i < lines.length; i++) {
+    const mediaMatch = lines[i].match(MEDIA_RE);
+    if (!mediaMatch) continue;
+    const attrs = parseAttributes(mediaMatch[1]);
+    const type = String(attrs.TYPE || '').toUpperCase();
+    if (type !== 'AUDIO' && type !== 'SUBTITLES') continue;
+    // URI can be in the URI attribute or on the next line (rare legacy format)
+    let uri = attrs.URI || null;
+    if (!uri) {
+      for (let j = i + 1; j < lines.length; j++) {
+        if (!lines[j]) continue;
+        if (lines[j].startsWith('#')) break;
+        uri = lines[j];
+        break;
+      }
+    }
+    mediaTracks.push({
+      type: type === 'AUDIO' ? 'audio' : 'subtitle',
+      groupId: attrs.GROUP_ID || '',
+      language: attrs.LANGUAGE || '',
+      name: attrs.NAME || '',
+      default: attrs.DEFAULT === 'YES',
+      autoSelect: attrs.AUTOSELECT === 'YES',
+      uri,
+    });
+  }
+
+  const audioTracks = mediaTracks.filter((t) => t.type === 'audio');
+  const subtitleTracks = mediaTracks.filter((t) => t.type === 'subtitle');
+
   if (variants.length > 0) {
-    // Remove duplicatas (mesma URI) e ordena por resolução, depois bandwidth.
+    // Remove duplicatas (mesma URI) e ordena por resolucao, depois bandwidth.
     const seen = new Set();
     const unique = variants.filter((v) => {
       if (seen.has(v.uri)) return false;
@@ -78,15 +111,15 @@ export function parsePlaylistText(text, baseUrl = '') {
       return true;
     });
     unique.sort((a, b) => b.height - a.height || b.bandwidth - a.bandwidth);
-    // baseUrl: após redirects, URIs relativas resolvem contra a URL final.
-    return { kind: 'master', variants: unique, baseUrl: baseUrl || '' };
+    // baseUrl: apos redirects, URIs relativas resolvem contra a URL final.
+    return { kind: 'master', variants: unique, baseUrl: baseUrl || '', audioTracks, subtitleTracks };
   }
 
   if (text.includes('#EXTINF') || text.includes('#EXT-X-TARGETDURATION')) {
-    return { kind: 'media' };
+    return { kind: 'media', audioTracks: [], subtitleTracks: [] };
   }
 
-  return { kind: 'unknown' };
+  return { kind: 'unknown', audioTracks: [], subtitleTracks: [] };
 }
 
 /**

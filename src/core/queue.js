@@ -113,6 +113,8 @@ export function createDownloadQueue({ engine, maxConcurrent = 3, storage = null,
             // P12.1: audio/subtitle selections from meta
             audioLanguage: job.meta?.audioLanguage || undefined,
             allAudio: job.meta?.allAudio || false,
+            subtitleLanguages: job.meta?.subtitleLanguages || [],
+            embedSubs: job.meta?.embedSubs || false,
             turbo: job.meta?.turbo || false,
             turboChunks: job.meta?.turboChunks || undefined,
           };
