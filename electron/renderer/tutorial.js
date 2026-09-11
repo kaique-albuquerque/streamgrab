@@ -39,23 +39,37 @@ export function createTutorialController({ onFinish, onSkip }) {
   let overlay = null;
   let tooltip = null;
   let isActive = false;
+  let savedScrollY = 0;
 
   function start() {
     if (isActive) return;
     isActive = true;
+    // Voltar ao topo e travar scroll durante o tutorial
+    savedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    window.scrollTo(0, 0);
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
     showStep(0);
   }
 
   function stop() {
     isActive = false;
+    restoreScroll();
     cleanup();
     if (typeof onSkip === 'function') onSkip();
   }
 
   function finish() {
     isActive = false;
+    restoreScroll();
     cleanup();
     if (typeof onFinish === 'function') onFinish();
+  }
+
+  function restoreScroll() {
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    window.scrollTo(0, savedScrollY);
   }
 
   function showStep(index) {
@@ -75,14 +89,13 @@ export function createTutorialController({ onFinish, onSkip }) {
     });
     document.body.appendChild(overlay);
 
-    // Destacar elemento alvo — aguarda scroll terminar antes de posicionar tooltip
+    // Destacar elemento alvo
     const targetEl = document.querySelector(step.target);
     if (targetEl) {
       targetEl.classList.add('tour-highlight');
-      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    // Tooltip — criar imediatamente (medicao precisa posiciona depois do scroll)
+    // Tooltip — criar imediatamente e posicionar direto (scroll travado no topo)
     tooltip = document.createElement('div');
     tooltip.className = 'tour-tooltip';
     tooltip.setAttribute('role', 'dialog');
@@ -126,29 +139,8 @@ export function createTutorialController({ onFinish, onSkip }) {
     tooltip.append(titleEl, textEl, navEl);
     document.body.appendChild(tooltip);
 
-    // Aguardar scroll smooth terminar antes de medir posicoes
-    awaitScroll().then(() => {
-      positionTooltip(targetEl, step.position);
-    });
-  }
-
-  /**
-   * Aguarda o scroll smooth da pagina terminar.
-   * Usa scrollend se disponivel; fallback para requestAnimationFrame duplo.
-   */
-  function awaitScroll() {
-    return new Promise((resolve) => {
-      if ('scrollend' in document) {
-        document.addEventListener('scrollend', () => resolve(), { once: true });
-        // Safety timeout em caso de scrollend nao disparar
-        setTimeout(resolve, 300);
-      } else {
-        // Fallback: 2 frames garante que o browser terminou o paint apos scroll
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve());
-        });
-      }
-    });
+    // Posicionar tooltip — scroll travado, posicao direta
+    positionTooltip(targetEl, step.position);
   }
 
   function positionTooltip(targetEl, preferredPosition) {
