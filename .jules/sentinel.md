@@ -19,3 +19,8 @@
 **Vulnerability:** `normalizeHeaders` in `src/core/header-utils.js` did not sanitize control characters (`\r`, `\n`, `\0`) or filter prototype pollution properties (`__proto__`, `constructor`, `prototype`), allowing malicious CRLF header injection when headers flow to FFmpeg (`-headers`), curl (`-H`), or HTTP requests.
 **Learning:** Header normalization across core pipelines must strip control characters and prototype pollution keys before headers reach external CLI tools or network transports.
 **Prevention:** Filter prototype keys and strip `[\r\n\0]` from header values centrally in `normalizeHeaders`.
+
+## 2026-10-15 - Unsanitized Preview File Path in IPC Handler Vulnerable to Arbitrary File Deletion
+**Vulnerability:** The `preview:clear` Electron IPC channel accepted an arbitrary user-supplied `filePath` string without path validation or restriction, passing it directly to `fs.unlinkSync`.
+**Learning:** IPC handlers that delete files must restrict target file paths to the specific temporary cache directory created for that feature, rather than trusting renderer-supplied paths.
+**Prevention:** Always validate file paths for deletion IPC calls using `isSafeAbsolutePath` and `isPathWithin(filePath, previewDir)` before performing filesystem operations.
