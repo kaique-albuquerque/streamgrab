@@ -46,7 +46,9 @@ export function parseDashManifest(text, baseUrl = '') {
     const mimeType = adaptationAttrs.mimeType || '';
     const contentType = resolveContentType(adaptationAttrs, mimeType);
     const adaptationBase = stripTag(block.match(/<AdaptationSet\b[\s\S]*?<BaseURL\b[^>]*>([\s\S]*?)<\/BaseURL>/i)?.[1] || '');
-    const repBlocks = block.match(/<Representation\b[\s\S]*?<\/Representation>/gi) || [];
+    // P12: extract language from AdaptationSet
+    const lang = adaptationAttrs.lang || '';
+    const repBlocks = block.match(/<Representation\b[\s\S]*?(?:\/>|<\/Representation>)/gi) || [];
 
     for (const repBlock of repBlocks) {
       const repTag = repBlock.match(/<Representation\b[^>]*>/i)?.[0] || '';
@@ -69,6 +71,7 @@ export function parseDashManifest(text, baseUrl = '') {
         resolution: width && height ? `${width}x${height}` : '',
         baseUrl: localBase || adaptationBase,
         segmentBase,
+        lang,
       });
     }
   }

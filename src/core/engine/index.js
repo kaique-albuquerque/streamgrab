@@ -32,6 +32,7 @@ import { estimateMuxSpace } from '../disk.js';
 import { getDefaultDownloadsDir, normalizeHeaders } from '../../utils.js';
 import { defaultStatePath, clearState } from '../resume.js';
 import { mergeRequestContext } from '../request-context.js';
+import { embedSubtitles } from './runners.js';
 
 import {
   FALLBACK_TITLE,
@@ -146,7 +147,7 @@ export class DownloadEngine {
     return serializeJob(job);
   }
 
-  async _runJob(job, { selectedUrl, destination, headers = {}, auth = {}, forceYouTube = false, mode, audioLanguage, allAudio, turbo, turboChunks } = {}) {
+  async _runJob(job, { selectedUrl, destination, headers = {}, auth = {}, forceYouTube = false, mode, audioLanguage, allAudio, subtitleLanguages = [], embedSubs = false, turbo, turboChunks } = {}) {
     try {
       const analyzed = await this._analyze(job, { selectedUrl, headers, auth, forceYouTube });
       const { adapter, raw } = analyzed;
@@ -157,10 +158,34 @@ export class DownloadEngine {
         auth,
         audioLanguage,
         allAudio,
+        subtitleLanguages,
+        embedSubs,
       });
       const outputPath = this._resolveOutput(job, prepared, destination);
       job.meta.output = outputPath;
       await this._downloadLoop(job, adapter, prepared, { headers, mode, turbo, turboChunks });
+
+      // P12: embed subtitles after successful download (non-yt-dlp sources)
+      // subtitleLanguages and embedSubs come from opts (passed via queue → engine.run)
+      if (subtitleLanguages.length > 0 && job.meta?.output) {
+        const subtitleTracks = prepared?._analysis?.subtitleTracks || job._analysis?.subtitleTracks || [];
+        if (subtitleTracks.length > 0) {
+          this._emit('log', { jobId: job.id, message: `[subs] processando ${subtitleTracks.length} legenda(s) disponivel(is)` });
+          const subResult = await embedSubtitles({
+            videoPath: job.meta.output,
+            subtitleTracks,
+            selectedLanguages: subtitleLanguages,
+            embedSubs,
+            headers,
+            signal: this._active.get(job.id)?.attempt?.signal,
+            onLog: (message) => this._emit('log', { jobId: job.id, message }),
+          });
+          if (!subResult?.ok) {
+            this._emit('log', { jobId: job.id, message: `[subs] aviso: ${subResult?.error || 'falha ao processar legendas'}` });
+          }
+        }
+      }
+
       this._complete(job);
     } catch (err) {
       this._handleFailure(job, err);
@@ -212,11 +237,11 @@ export class DownloadEngine {
     return { adapter, raw, selectedUrl };
   }
 
-  async _prepare(job, adapter, raw, { selectedUrl, destination, headers, auth, audioLanguage, allAudio }) {
+  async _prepare(job, adapter, raw, { selectedUrl, destination, headers, auth, audioLanguage, allAudio, subtitleLanguages = [], embedSubs = false }) {
     transitionJob(job, 'preparing');
     this._emit('progress', { jobId: job.id, stage: 'preparing', message: 'Preparando download' });
 
-    const preparedRaw = await this.executor.prepare(adapter, { url: job.url, analysis: raw, selectedUrl, headers, auth, audioLanguage, allAudio });
+    const preparedRaw = await this.executor.prepare(adapter, { url: job.url, analysis: raw, selectedUrl, headers, auth, audioLanguage, allAudio, subtitleLanguages, embedSubs });
     const prepared = normalizePreparedDownload(preparedRaw);
     if (this._isAborted(job)) throw new CancelledError('Download cancelado.');
     job._prepared = prepared;
