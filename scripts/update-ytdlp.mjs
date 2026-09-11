@@ -51,7 +51,7 @@ export function pickAsset(assets, { platform = process.platform } = {}) {
 
 /** Destinos do binário (cria diretórios se necessário). O primeiro é sempre
  *  node_modules/youtube-dl-exec/bin/ (obrigatório para pack:resources). */
-function targetPaths(projectRoot = PROJECT_ROOT) {
+export function targetPaths(projectRoot = PROJECT_ROOT) {
   const primary = path.join(projectRoot, 'node_modules', 'youtube-dl-exec', 'bin', `yt-dlp${EXE}`);
   const targets = [
     primary,

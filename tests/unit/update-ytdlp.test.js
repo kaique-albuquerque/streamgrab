@@ -23,7 +23,9 @@ test('pickAsset escolhe yt-dlp.exe no Windows e yt-dlp no Unix', () => {
   assert.equal(pickAsset(null, { platform: 'win32' }), null);
 });
 
-test('targetPaths: só retorna arquivos que existem', () => {
+test('targetPaths: retorna o primary sempre, e extras apenas se existirem', () => {
   const paths = targetPaths('Z:/nao-existe');
-  assert.deepEqual(paths, []);
+  // Primary é sempre retornado (é obrigatório); diretórios extras não existem → só [primary]
+  assert.ok(paths.length >= 1, 'deve retornar pelo menos o primary');
+  assert.ok(paths[0].includes('youtube-dl-exec'), 'primeiro elemento deve ser o primary');
 });
