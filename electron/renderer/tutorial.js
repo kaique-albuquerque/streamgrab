@@ -23,7 +23,7 @@ const STEPS = [
   },
   {
     target: '[data-field="qualities"]',
-    position: 'top',
+    position: 'bottom',
     title: 'Passo 3 de 4',
     text: '🎬 Escolha a qualidade\n\nSelecione a qualidade desejada. A melhor disponível é usada automaticamente se você não escolher nenhuma.',
   },
@@ -130,44 +130,84 @@ export function createTutorialController({ onFinish, onSkip }) {
     positionTooltip(targetEl, step.position);
   }
 
-  function positionTooltip(targetEl, position) {
+  function positionTooltip(targetEl, preferredPosition) {
     if (!tooltip || !targetEl) return;
 
     const targetRect = targetEl.getBoundingClientRect();
-    const tooltipRect = tooltip.getBoundingClientRect();
     const gap = 12;
 
-    let top, left;
+    // Medir tooltip com position temporaria para calcular tamanho real
+    tooltip.style.visibility = 'hidden';
+    tooltip.style.display = 'block';
+    const tooltipRect = tooltip.getBoundingClientRect();
 
-    switch (position) {
-      case 'top':
-        top = targetRect.top - tooltipRect.height - gap;
-        left = targetRect.left + (targetRect.width - tooltipRect.width) / 2;
-        tooltip.classList.add('arrow-bottom');
-        break;
-      case 'bottom':
-        top = targetRect.bottom + gap;
-        left = targetRect.left + (targetRect.width - tooltipRect.width) / 2;
-        tooltip.classList.add('arrow-top');
-        break;
-      case 'left':
-        top = targetRect.top + (targetRect.height - tooltipRect.height) / 2;
-        left = targetRect.left - tooltipRect.width - gap;
-        tooltip.classList.add('arrow-right');
-        break;
-      case 'right':
-        top = targetRect.top + (targetRect.height - tooltipRect.height) / 2;
-        left = targetRect.right + gap;
-        tooltip.classList.add('arrow-left');
-        break;
+    // Helper: calcular posicao para uma dada posicao preferida
+    function calcPos(position) {
+      let top, left, arrowClass;
+      switch (position) {
+        case 'top':
+          top = targetRect.top - tooltipRect.height - gap;
+          left = targetRect.left + (targetRect.width - tooltipRect.width) / 2;
+          arrowClass = 'arrow-bottom';
+          break;
+        case 'bottom':
+          top = targetRect.bottom + gap;
+          left = targetRect.left + (targetRect.width - tooltipRect.width) / 2;
+          arrowClass = 'arrow-top';
+          break;
+        case 'left':
+          top = targetRect.top + (targetRect.height - tooltipRect.height) / 2;
+          left = targetRect.left - tooltipRect.width - gap;
+          arrowClass = 'arrow-right';
+          break;
+        case 'right':
+          top = targetRect.top + (targetRect.height - tooltipRect.height) / 2;
+          left = targetRect.right + gap;
+          arrowClass = 'arrow-left';
+          break;
+      }
+      return { top, left, arrowClass };
     }
 
-    // Limitar à viewport
-    top = Math.max(gap, Math.min(top, window.innerHeight - tooltipRect.height - gap));
-    left = Math.max(gap, Math.min(left, window.innerWidth - tooltipRect.width - gap));
+    // Verificar se ha espaco suficiente na posicao preferida
+    function hasSpace(position) {
+      const pos = calcPos(position);
+      const fitsVertically = pos.top >= gap && pos.top + tooltipRect.height <= window.innerHeight - gap;
+      const fitsHorizontally = pos.left >= gap && pos.left + tooltipRect.width <= window.innerWidth - gap;
+      return fitsVertically && fitsHorizontally;
+    }
 
-    tooltip.style.top = `${top}px`;
-    tooltip.style.left = `${left}px`;
+    // Ordem de fallback: preferida -> oposta -> laterais
+    const opposites = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
+    const fallbacks = ['top', 'bottom', 'left', 'right'];
+
+    let chosenPosition = preferredPosition;
+    if (!hasSpace(preferredPosition)) {
+      // Tenta a oposta primeiro
+      const opposite = opposites[preferredPosition];
+      if (hasSpace(opposite)) {
+        chosenPosition = opposite;
+      } else {
+        // Tenta qualquer uma que caiba
+        for (const fb of fallbacks) {
+          if (hasSpace(fb)) {
+            chosenPosition = fb;
+            break;
+          }
+        }
+      }
+    }
+
+    const { top, left, arrowClass } = calcPos(chosenPosition);
+
+    // Limitar à viewport como ultima garantia
+    const clampedTop = Math.max(gap, Math.min(top, window.innerHeight - tooltipRect.height - gap));
+    const clampedLeft = Math.max(gap, Math.min(left, window.innerWidth - tooltipRect.width - gap));
+
+    tooltip.style.visibility = '';
+    tooltip.style.top = `${clampedTop}px`;
+    tooltip.style.left = `${clampedLeft}px`;
+    tooltip.classList.add(arrowClass);
   }
 
   function cleanup() {
