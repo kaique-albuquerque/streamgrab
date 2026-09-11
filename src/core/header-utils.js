@@ -12,11 +12,17 @@ const CANONICAL_HEADERS = {
   'user-agent': 'User-Agent',
 };
 
-/** Normaliza grafia de headers (ex.: "user-agent" → "User-Agent") e remove vazios. */
+const UNSAFE_PROPS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/**
+ * Normaliza grafia de headers (ex.: "user-agent" → "User-Agent"), remove vazios,
+ * ignora propriedades de poluição de protótipo e sanitiza CRLF/NUL de valores.
+ */
 export function normalizeHeaders(headers) {
   const out = {};
   for (const [k, v] of Object.entries(headers || {})) {
-    const value = String(v ?? '').trim();
+    if (UNSAFE_PROPS.has(k)) continue;
+    const value = String(v ?? '').replace(/[\r\n\0]/g, '').trim();
     if (!value) continue;
     const lower = k.toLowerCase();
     out[CANONICAL_HEADERS[lower] || k] = value;
