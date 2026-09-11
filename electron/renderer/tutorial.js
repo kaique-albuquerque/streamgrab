@@ -46,10 +46,12 @@ export function createTutorialController({ onFinish, onSkip }) {
     isActive = true;
     // Voltar ao topo e travar scroll durante o tutorial
     savedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
-    window.scrollTo(0, 0);
     document.body.style.overflow = 'hidden';
     document.documentElement.style.overflow = 'hidden';
-    showStep(0);
+    window.scrollTo(0, 0);
+    // Aguardar um frame para garantir que o scroll ao topo foi aplicado
+    // antes de medir posicoes dos elementos
+    requestAnimationFrame(() => showStep(0));
   }
 
   function stop() {
