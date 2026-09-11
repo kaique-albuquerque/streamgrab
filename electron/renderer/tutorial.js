@@ -177,20 +177,32 @@ export function createTutorialController({ onFinish, onSkip }) {
       return fitsVertically && fitsHorizontally;
     }
 
+    // Verificar se o tooltip ficaria em cima do proprio alvo (overlap)
+    function wouldOverlapTarget(position) {
+      const pos = calcPos(position);
+      const tTop = Math.max(gap, Math.min(pos.top, window.innerHeight - tooltipRect.height - gap));
+      const tLeft = Math.max(gap, Math.min(pos.left, window.innerWidth - tooltipRect.width - gap));
+      const tRight = tLeft + tooltipRect.width;
+      const tBottom = tTop + tooltipRect.height;
+      const overlapX = tLeft < targetRect.right && tRight > targetRect.left;
+      const overlapY = tTop < targetRect.bottom && tBottom > targetRect.top;
+      return overlapX && overlapY;
+    }
+
     // Ordem de fallback: preferida -> oposta -> laterais
     const opposites = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
     const fallbacks = ['top', 'bottom', 'left', 'right'];
 
     let chosenPosition = preferredPosition;
-    if (!hasSpace(preferredPosition)) {
+    if (!hasSpace(preferredPosition) || wouldOverlapTarget(preferredPosition)) {
       // Tenta a oposta primeiro
       const opposite = opposites[preferredPosition];
-      if (hasSpace(opposite)) {
+      if (hasSpace(opposite) && !wouldOverlapTarget(opposite)) {
         chosenPosition = opposite;
       } else {
-        // Tenta qualquer uma que caiba
+        // Tenta qualquer uma que caiba e nao sobreponha
         for (const fb of fallbacks) {
-          if (hasSpace(fb)) {
+          if (hasSpace(fb) && !wouldOverlapTarget(fb)) {
             chosenPosition = fb;
             break;
           }
