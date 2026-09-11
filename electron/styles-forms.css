@@ -1,0 +1,141 @@
+/* styles-forms.css — inputs, buttons, toggles, grid, hint */
+input[type="text"],
+input:not([type]) {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(5, 10, 15, 0.92);
+  color: var(--text);
+  padding: 13px 14px;
+  outline: none;
+  font: inherit;
+}
+
+body[data-theme="light"] input[type="text"],
+body[data-theme="light"] input:not([type]) {
+  background: rgba(255, 255, 255, 0.96);
+  color: #102033;
+}
+
+input:focus {
+  border-color: rgba(114, 241, 184, 0.45);
+  box-shadow: 0 0 0 4px rgba(114, 241, 184, 0.08);
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.inline-row,
+.action-row,
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.inline-row input {
+  flex: 1;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+}
+
+.toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.button {
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 16px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  transition: 140ms ease;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.button-primary {
+  color: #03150e;
+  background: linear-gradient(135deg, var(--accent), #9bfccf);
+}
+
+.button-accent {
+  color: #041418;
+  background: linear-gradient(135deg, var(--warning), #ffe29a);
+}
+
+.button-ghost {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+}
+
+body[data-theme="light"] .button-ghost,
+body[data-theme="light"] .theme-toggle {
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.theme-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.tab-close {
+  border: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tab-close:hover:not(:disabled) {
+  background: rgba(255, 107, 107, 0.16);
+  color: var(--danger);
+}
+
+.tab-close:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.hint-line {
+  margin-bottom: 12px;
+  color: var(--muted);
+}

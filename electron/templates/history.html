@@ -1,0 +1,46 @@
+      <section id="view-history" class="view" hidden>
+        <div class="view-header card">
+          <div>
+            <h2>Histórico</h2>
+            <p class="hint-line" id="historySummary">Carregando histórico...</p>
+          </div>
+          <div class="view-actions">
+            <button id="historyExportCsvBtn" class="button button-ghost" type="button">📤 CSV</button>
+            <button id="historyExportJsonBtn" class="button button-ghost" type="button">📤 JSON</button>
+            <button id="historyClearBtn" class="button button-ghost" type="button">Limpar histórico</button>
+            <button id="historyRefreshBtn" class="button button-ghost" type="button">Atualizar</button>
+          </div>
+        </div>
+
+        <div id="historyFilters" class="history-filters card">
+          <div class="search-row">
+            <input id="historySearch" class="search-input" type="search" placeholder="🔍 Buscar por título, URL, provedor ou formato..." />
+          </div>
+          <div class="filter-row">
+            <div class="filter-group" id="historyPeriodGroup">
+              <button class="chip active" data-period="all" type="button">📅 Todas</button>
+              <button class="chip" data-period="24h" type="button">Últimas 24h</button>
+              <button class="chip" data-period="7d" type="button">Última semana</button>
+              <button class="chip" data-period="30d" type="button">Último mês</button>
+            </div>
+            <div class="filter-group" id="historyStatusGroup">
+              <button class="chip active" data-status="all" type="button">📄 Todos</button>
+              <button class="chip" data-status="completed" type="button">✅ Concluídos</button>
+              <button class="chip" data-status="failed" type="button">❌ Falhos</button>
+              <button class="chip" data-status="cancelled" type="button">🗑️ Cancelados</button>
+            </div>
+            <div class="filter-group">
+              <select id="historySort" class="sort-select" aria-label="Ordenar histórico">
+                <option value="date">📅 Mais recentes</option>
+                <option value="title">🔤 Título (A-Z)</option>
+                <option value="size">📦 Tamanho</option>
+                <option value="provider">🌐 Provedor</option>
+              </select>
+              <button class="chip" id="historyResetFiltersBtn" type="button">✕ Limpar filtros</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="historyList" class="queue-list"></div>
+        <div id="historyEmpty" class="empty-state" hidden>Nenhum download registrado ainda.</div>
+      </section>

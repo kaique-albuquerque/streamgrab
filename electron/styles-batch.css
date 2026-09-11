@@ -1,0 +1,165 @@
+/* styles-batch.css — batch dialog overlay, modal, fields, progress */
+   Batch Dialog — Download em lote (SPEC-03)
+   ========================================================================= */
+
+.batch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: tour-fade-in 0.15s ease;
+}
+
+.batch-modal {
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  max-width: 640px;
+  width: 92%;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.batch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.batch-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.batch-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.batch-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.batch-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.batch-field-inline {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.batch-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.batch-textarea {
+  width: 100%;
+  min-height: 160px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-size: 13px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.batch-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.batch-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.batch-option-row {
+  display: flex;
+  gap: 12px;
+}
+
+.batch-summary {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 10px 12px;
+  background: var(--bg-soft);
+  border-radius: 8px;
+}
+
+.batch-summary.error {
+  color: var(--danger);
+}
+
+.batch-progress {
+  margin-top: 14px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.batch-progress-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+}
+
+.batch-progress-item.success {
+  color: var(--accent);
+}
+
+.batch-progress-item.error {
+  color: var(--danger);
+}
+
+.batch-progress-item.pending {
+  color: var(--muted);
+}
+
+.batch-progress-icon {
+  flex-shrink: 0;
+}
+
+.batch-progress-url {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-progress-status {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+

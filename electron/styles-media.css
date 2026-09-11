@@ -1,0 +1,110 @@
+/* styles-media.css — media-meta, thumb, meta-grid, views, badge */
+.media-meta {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.thumb {
+  flex: 0 0 200px;
+  width: 200px;
+  max-height: 112px;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.meta-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meta-item .meta-label {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.meta-item .meta-value {
+  font-size: 13px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* P8 — abrir arquivo / mostrar na pasta */
+.reveal-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* P11 — navegação de visualizações (Vídeos / Fila / Histórico / Configurações) */
+.view-nav {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.view-btn.active {
+  border-color: rgba(114, 241, 184, 0.4);
+  background: rgba(114, 241, 184, 0.16);
+  color: var(--accent);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(114, 241, 184, 0.18);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.badge[data-status="error"] {
+  background: rgba(255, 107, 107, 0.2);
+  color: var(--danger);
+}
+
+.badge[data-status="idle"] {
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--muted);
+}
+
+.view {
+  margin-top: 18px;
+}
+
+.view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.view-header h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.view-actions {
+  display: flex;
+  gap: 8px;
+}

@@ -1,0 +1,200 @@
+/* styles-tutorial.css — tour overlay, highlight, tooltip, arrows, modal */
+/* =========================================================================
+   Tutorial Interativo — Tour e ajuda
+   ========================================================================= */
+
+/* Overlay */
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.55);
+  animation: tour-fade-in 0.2s ease;
+}
+
+@keyframes tour-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Highlight no elemento alvo */
+.tour-highlight {
+  position: relative;
+  z-index: 1001;
+  box-shadow: 0 0 0 3px var(--accent), 0 0 16px rgba(114, 241, 184, 0.3);
+  border-radius: 8px;
+  transition: box-shadow 0.2s ease;
+}
+
+/* Tooltip */
+.tour-tooltip {
+  position: fixed;
+  z-index: 1000;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 16px;
+  max-width: 360px;
+  width: max-content;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  animation: tour-fade-in 0.2s ease;
+}
+
+.tour-tooltip-title {
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.tour-tooltip-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-line;
+  margin-bottom: 12px;
+}
+
+.tour-tooltip-nav {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Setas do tooltip */
+.tour-tooltip.arrow-top::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid var(--accent);
+}
+
+.tour-tooltip.arrow-bottom::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid var(--accent);
+}
+
+.tour-tooltip.arrow-left::after {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 8px solid var(--accent);
+}
+
+.tour-tooltip.arrow-right::after {
+  content: '';
+  position: absolute;
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 8px solid var(--accent);
+}
+
+/* Modal de ajuda */
+.tour-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: tour-fade-in 0.15s ease;
+}
+
+.tour-modal {
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  max-width: 560px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.tour-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tour-modal-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.tour-modal-body {
+  padding: 20px;
+}
+
+.tour-modal-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tour-steps-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.tour-steps-list li {
+  margin-bottom: 10px;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.tour-steps-list kbd {
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+}
+
+.tour-modal-tip {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(114, 241, 184, 0.1);
+  border: 1px solid rgba(114, 241, 184, 0.25);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.tour-tips {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.tour-tips li {
+  padding: 8px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  border-bottom: 1px solid var(--line);
+}
+

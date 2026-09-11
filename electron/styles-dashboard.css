@@ -1,0 +1,149 @@
+/* styles-dashboard.css — queue dashboard, dash-grid, dash-card, dash-disk, mini-job */
+/* =========================================================================
+   Queue Dashboard — Resumo visual da fila (SPEC-07)
+   ========================================================================= */
+
+.queue-dashboard {
+  margin-bottom: 16px;
+}
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.dash-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+  min-width: 0;
+  transition: border-color 0.15s ease;
+}
+
+.dash-card:hover {
+  border-color: var(--line-strong);
+}
+
+.dash-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.dash-value {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.dash-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.dash-sub.error {
+  color: var(--danger);
+}
+
+.dash-card-active .dash-value {
+  color: var(--accent);
+}
+
+.dash-card-done .dash-value {
+  color: var(--accent-2);
+}
+
+.dash-card-speed .dash-value {
+  color: var(--warning);
+  font-size: 20px;
+}
+
+.dash-card-eta .dash-value {
+  color: var(--accent-2);
+  font-size: 20px;
+}
+
+.dash-disk {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.dash-disk .dash-sub {
+  margin-bottom: 8px;
+}
+
+.dash-progress {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.dash-progress .dash-sub {
+  margin-bottom: 12px;
+}
+
+.mini-job {
+  margin-bottom: 10px;
+}
+
+.mini-job:last-child {
+  margin-bottom: 0;
+}
+
+.mini-job-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.mini-job-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-job-pct {
+  color: var(--accent);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.mini-job-speed {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.progress-bar.mini {
+  height: 6px;
+  border-radius: 3px;
+}
+
+.progress-bar.disk {
+  height: 8px;
+  border-radius: 4px;
+}
+
+.progress-bar.mini span {
+  background: var(--accent);
+}
+
+.progress-bar.disk span {
+  background: var(--warning);
+}
+

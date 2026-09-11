@@ -1,0 +1,70 @@
+/* styles-help.css — help FAB button, help menu */
+.tour-tips li:last-child {
+  border-bottom: none;
+}
+
+/* Botão ajuda flutuante (FAB) */
+.help-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 997;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #000;
+  font-size: 22px;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(114, 241, 184, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.help-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(114, 241, 184, 0.5);
+}
+
+.help-fab:active {
+  transform: scale(0.95);
+}
+
+/* Menu de ajuda (acima do FAB) */
+.help-menu {
+  position: fixed;
+  bottom: 80px;
+  right: 24px;
+  z-index: 997;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  padding: 8px;
+  min-width: 200px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  animation: tour-fade-in 0.1s ease;
+}
+
+.help-menu-item {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.help-menu-item:hover {
+  background: var(--bg-soft);
+  color: var(--accent);
+}
