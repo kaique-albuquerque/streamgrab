@@ -75,14 +75,14 @@ export function createTutorialController({ onFinish, onSkip }) {
     });
     document.body.appendChild(overlay);
 
-    // Destacar elemento alvo
+    // Destacar elemento alvo — aguarda scroll terminar antes de posicionar tooltip
     const targetEl = document.querySelector(step.target);
     if (targetEl) {
       targetEl.classList.add('tour-highlight');
       targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    // Tooltip
+    // Tooltip — criar imediatamente (medicao precisa posiciona depois do scroll)
     tooltip = document.createElement('div');
     tooltip.className = 'tour-tooltip';
     tooltip.setAttribute('role', 'dialog');
@@ -126,8 +126,29 @@ export function createTutorialController({ onFinish, onSkip }) {
     tooltip.append(titleEl, textEl, navEl);
     document.body.appendChild(tooltip);
 
-    // Posicionar tooltip próximo ao alvo
-    positionTooltip(targetEl, step.position);
+    // Aguardar scroll smooth terminar antes de medir posicoes
+    awaitScroll().then(() => {
+      positionTooltip(targetEl, step.position);
+    });
+  }
+
+  /**
+   * Aguarda o scroll smooth da pagina terminar.
+   * Usa scrollend se disponivel; fallback para requestAnimationFrame duplo.
+   */
+  function awaitScroll() {
+    return new Promise((resolve) => {
+      if ('scrollend' in document) {
+        document.addEventListener('scrollend', () => resolve(), { once: true });
+        // Safety timeout em caso de scrollend nao disparar
+        setTimeout(resolve, 300);
+      } else {
+        // Fallback: 2 frames garante que o browser terminou o paint apos scroll
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve());
+        });
+      }
+    });
   }
 
   function positionTooltip(targetEl, preferredPosition) {
