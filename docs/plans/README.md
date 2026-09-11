@@ -45,8 +45,8 @@ Fase 4 (feature premium)              ✅ CONCLUÍDA
 
 ## 🧪 Estado dos Testes
 
-- **Unitários:** 771/772 passando (1 falha preexistente em `update-ytdlp.test.js`, não relacionada)
-- **Integração:** 17/17 passando
+- **Unitários:** 774/774 passando ✅ (falha preexistente em `update-ytdlp.test.js` corrigida em `fcbab87`)
+- **Integração:** 17/17 passando ✅
 - **Lint:** 0 erros
 - **Novos testes:** 87 adicionados
   - `tests/unit/batch.test.js` — 17
