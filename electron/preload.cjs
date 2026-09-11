@@ -62,5 +62,6 @@ contextBridge.exposeInMainWorld('api', {
 
   // SPEC-06 — Preview de mídia.
   generatePreview: (payload) => ipcRenderer.invoke('preview:generate', payload),
+  readPreviewFile: (filePath) => ipcRenderer.invoke('preview:read-file', { filePath }),
   clearPreview: (filePath) => ipcRenderer.invoke('preview:clear', { filePath }),
 });
