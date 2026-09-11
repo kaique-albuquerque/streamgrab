@@ -24,6 +24,7 @@ import {
   validateSettingsPayload,
   validateRevealPayload,
   validateExportLogsPayload,
+  validatePreviewClearPayload,
   registerRevealRoot,
   isValidJobId,
   isValidTaskId,
@@ -497,13 +498,14 @@ ipcMain.handle('preview:generate', async (_event, rawPayload) => {
 });
 
 ipcMain.handle('preview:clear', async (_event, rawPayload) => {
-  const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
-  const filePath = typeof payload.filePath === 'string' ? payload.filePath : '';
-  if (!filePath) return { ok: false };
+  const tempDir = app.getPath('temp');
+  const previewDir = path.join(tempDir, 'streamgrab-preview');
+  const validated = validatePreviewClearPayload(rawPayload, previewDir);
+  if (!validated) return { ok: false };
   const { clearPreview } = await import('../src/preview.js');
-  clearPreview(filePath);
+  clearPreview(validated.filePath);
   for (const [key, value] of previewCache) {
-    if (value.path === filePath) previewCache.delete(key);
+    if (value.path === validated.filePath) previewCache.delete(key);
   }
   return { ok: true };
 });

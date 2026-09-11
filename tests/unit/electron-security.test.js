@@ -21,6 +21,7 @@ import {
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
+  validatePreviewClearPayload,
   registerRevealRoot,
 } from '../../electron/security.js';
 
@@ -433,6 +434,38 @@ test('validateRevealPayload restringe abertura a raízes permitidas', () => {
   assert.equal(validateRevealPayload({ filePath: '/home/user/project/src/index.js' }, roots), null);
   assert.equal(validateRevealPayload({}, roots), null);
   assert.equal(validateRevealPayload({ filePath: 'relative.mp4' }, roots), null);
+});
+
+test('validatePreviewClearPayload valida caminho e restringe ao diretório de preview', () => {
+  const previewDir = 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview';
+  const posixPreviewDir = '/tmp/streamgrab-preview';
+
+  assert.deepEqual(
+    validatePreviewClearPayload(
+      { filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-123.mp4' },
+      previewDir
+    ),
+    { filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-123.mp4' }
+  );
+
+  assert.deepEqual(
+    validatePreviewClearPayload({ filePath: '/tmp/streamgrab-preview/preview-123.mp4' }, posixPreviewDir),
+    { filePath: '/tmp/streamgrab-preview/preview-123.mp4' }
+  );
+
+  // Rejeita caminhos fora do diretório de preview (ex: deleção arbitrária de arquivos do sistema)
+  assert.equal(validatePreviewClearPayload({ filePath: 'C:\\Windows\\System32\\important.dll' }, previewDir), null);
+  assert.equal(validatePreviewClearPayload({ filePath: '/etc/passwd' }, posixPreviewDir), null);
+  assert.equal(
+    validatePreviewClearPayload(
+      { filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\..\\evil.txt' },
+      previewDir
+    ),
+    null
+  );
+  assert.equal(validatePreviewClearPayload({ filePath: 'relative-preview.mp4' }, previewDir), null);
+  assert.equal(validatePreviewClearPayload({}, previewDir), null);
+  assert.equal(validatePreviewClearPayload(null, previewDir), null);
 });
 
 test('validateExportLogsPayload valida caminho e restringe a raizes permitidas', () => {
