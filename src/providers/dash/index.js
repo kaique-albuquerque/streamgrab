@@ -10,7 +10,7 @@
 
 import { detectSourceType, DEFAULT_USER_AGENT } from '../../utils.js';
 import { fetchDashManifestText, parseDashManifest } from '../../dash.js';
-import { createMediaInfo, createFormat } from '../../core/models.js';
+import { createMediaInfo, createFormat } from '../../core/models/index.js';
 import { createProviderResolution, createDownloadPlan } from '../../core/download-plan.js';
 import { createRequestContext } from '../../core/request-context.js';
 import { checkDashDrm } from './drm.js';

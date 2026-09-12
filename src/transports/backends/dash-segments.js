@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { fetchDashManifestText, parseDashManifest } from '../../dash.js';
 import { createAdaptiveController, normalizeAdaptiveControllerOptions } from '../adaptive-controller.js';
-import { createSegmentCheckpoint, createSegmentTaskId } from '../../core/models.js';
+import { createSegmentCheckpoint, createSegmentTaskId } from '../../core/models/index.js';
 
 function createUnsupportedResult(reasonCode, reason) {
   return {

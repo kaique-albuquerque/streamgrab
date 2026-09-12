@@ -10,4 +10,3 @@ downloads.log
 *.log
 test-results
 tmp-electron-test
-fast-downloader-staging/node_modules

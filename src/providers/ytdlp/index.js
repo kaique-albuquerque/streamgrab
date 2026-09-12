@@ -11,7 +11,7 @@
 
 import { isYouTubeUrl, isSocialMediaUrl } from '../../utils.js';
 import { analyzeYtDlpUrl, prepareYtDlpDownload } from '../../adapters/ytdlp.js';
-import { createMediaInfo, createFormat } from '../../core/models.js';
+import { createMediaInfo, createFormat } from '../../core/models/index.js';
 
 export const ytdlpProvider = {
   id: 'ytdlp',

@@ -21,7 +21,7 @@ import { prepareHlsSegmentDownloadToLocal } from '../../transports/backends/hls-
 import { prepareDashSegmentDownloadToLocal } from '../../transports/backends/dash-segments.js';
 import { isMdstrmUrl } from '../../mdstrm.js';
 import { resolveTransportWithAutoInstall } from '../mdstrm-routing.js';
-import { setJobCheckpoint } from '../models.js';
+import { setJobCheckpoint } from '../models/index.js';
 import { selectStrategyDecision } from '../../strategy/selector.js';
 
 import { safePathname, isMdstrmPlayerUrl, abortOutcome, makeFfmpegProgress } from './helpers.js';

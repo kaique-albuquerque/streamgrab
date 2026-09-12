@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { createDownloadQueue, createDefaultQueueStorage } from '../../src/core/queue.js';
+import { createDownloadQueue, createDefaultQueueStorage } from '../../src/core/queue/index.js';
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'sg-queue-test-'));

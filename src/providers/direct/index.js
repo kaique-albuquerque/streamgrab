@@ -9,7 +9,7 @@
  */
 
 import { detectSourceType } from '../../utils.js';
-import { createMediaInfo } from '../../core/models.js';
+import { createMediaInfo } from '../../core/models/index.js';
 import { createProviderResolution, createDownloadPlan } from '../../core/download-plan.js';
 import { createRequestContext } from '../../core/request-context.js';
 

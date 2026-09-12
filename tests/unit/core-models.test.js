@@ -24,7 +24,7 @@ import {
   serializeJob,
   toJson,
   formatFromVariant,
-} from '../../src/core/models.js';
+} from '../../src/core/models/index.js';
 
 // ---- JOB_STATES / transicoes ----
 

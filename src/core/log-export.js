@@ -32,13 +32,13 @@ export function exportLogs(entries, outputPath) {
     fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
     return { ok: true, path: outputPath, count: entries.length };
   } catch (err) {
-    return { ok: false, path: outputPath, count: 0, error: String(err.message || err) };
+    return { ok: false, path: outputPath, count: 0, error: String(err instanceof Error ? err.message : err) };
   }
 }
 
 /**
  * Generate a default filename for log export.
- * @param {string} [dir] — directory (default: process.cwd()).
+ * @param {string} [dir] - directory (default: process.cwd()).
  * @returns {string} absolute path like `streamgrab-logs-2026-08-14T12-00-00.txt`
  */
 export function defaultLogPath(dir) {

@@ -25,7 +25,7 @@ import {
   transitionJob,
   serializeJob,
   isTerminalJobState,
-} from '../models.js';
+} from '../models/index.js';
 import { classifyError, CancelledError } from '../errors.js';
 import { resolveSafeFilename, nextAvailableName } from '../filenames.js';
 import { estimateMuxSpace } from '../disk.js';

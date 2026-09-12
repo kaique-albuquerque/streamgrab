@@ -5,7 +5,7 @@
  * puros para a migracao incremental descrita na arquitetura.
  */
 
-import { createMediaInfo } from './models.js';
+import { createMediaInfo } from './models/index.js';
 import { createRequestContext, isValidRequestContext } from './request-context.js';
 
 export const PROVIDER_RESOLUTION_CONFIDENCE = Object.freeze(['high', 'medium', 'low']);

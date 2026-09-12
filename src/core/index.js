@@ -31,7 +31,7 @@ export { BACKEND_IDS, selectStrategyDecision } from '../strategy/selector.js';
 export { retryWithBackoff, computeBackoffDelay, parseRetryAfter, retryAfterFromError, sleep } from './retry.js';
 export { ResourceManager, Semaphore, createDefaultResourceManager } from './resources.js';
 
-export * from './models.js';
+export * from './models/index.js';
 export * from './request-context.js';
 export * from './download-plan.js';
 export * from './errors.js';
@@ -43,7 +43,7 @@ export * from './storage.js';
 export * from './settings.js';
 export * from './history.js';
 export * from './history-export.js';
-export * from './queue.js';
+export * from './queue/index.js';
 export * from './disk.js';
 export * from './atomic.js';
 export * from './resume.js';

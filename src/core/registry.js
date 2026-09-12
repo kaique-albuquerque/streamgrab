@@ -20,7 +20,7 @@
  */
 
 import { createEventBus } from './events.js';
-import { createMediaInfo } from './models.js';
+import { createMediaInfo } from './models/index.js';
 import { DownloadEngine, createDefaultExecutor } from './engine.js';
 
 export { createDefaultExecutor };

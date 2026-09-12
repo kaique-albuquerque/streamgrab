@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fetchPlaylistText, parsePlaylistText, parseSegmentPlaylist } from '../../hls.js';
 import { rewritePlaylist, extForUri } from '../curl.js';
 import { createAdaptiveController, normalizeAdaptiveControllerOptions } from '../adaptive-controller.js';
-import { createSegmentCheckpoint, createSegmentTaskId } from '../../core/models.js';
+import { createSegmentCheckpoint, createSegmentTaskId } from '../../core/models/index.js';
 
 const SEGMENT_WORKERS = 6;
 const SEGMENT_ATTEMPTS = 3;

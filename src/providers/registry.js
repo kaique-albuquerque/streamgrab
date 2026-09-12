@@ -23,7 +23,7 @@ import { genericProvider } from './generic/index.js';
 
 export class ProviderRegistry {
   constructor() {
-    /** @type {Array<import('../core/models.js').Provider>} */
+    /** @type {Array<import('../core/models/index.js').Provider>} */
     this._providers = [];
   }
 

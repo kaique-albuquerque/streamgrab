@@ -5,7 +5,7 @@ import * as core from '../../src/core/index.js';
 import { StreamGrabCore, createStreamGrabCore } from '../../src/core/registry.js';
 import { EVENT_NAMES } from '../../src/core/events.js';
 import { StreamGrabError, classifyError } from '../../src/core/errors.js';
-import { createMediaInfo, createDownloadJob } from '../../src/core/models.js';
+import { createMediaInfo, createDownloadJob } from '../../src/core/models/index.js';
 import { sanitizeFilename, resolveSafeFilename } from '../../src/core/filenames.js';
 import { createLogger, redactText } from '../../src/core/logger.js';
 
