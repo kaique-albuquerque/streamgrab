@@ -335,13 +335,17 @@ export function validateRevealPayload(payload = {}, allowedRoots = []) {
   return { filePath };
 }
 
-/** Valida o payload de `preview:clear` garantindo que o arquivo está no diretório de preview. */
+/** Valida o payload de `preview:clear` e `preview:read-file` garantindo que o arquivo está no diretório de preview. */
 export function validatePreviewClearPayload(payload = {}, previewDir = '') {
   const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
   if (!filePath || !previewDir) return null;
   if (!isSafeAbsolutePath(filePath)) return null;
   if (!isPathWithin(filePath, previewDir)) return null;
   return { filePath };
+}
+
+export function validatePreviewReadFilePayload(payload = {}, previewDir = '') {
+  return validatePreviewClearPayload(payload, previewDir);
 }
 
 /** Valida o payload de `app:export-logs`. */

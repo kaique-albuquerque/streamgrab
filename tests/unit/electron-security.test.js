@@ -22,6 +22,7 @@ import {
   validateSettingsPayload,
   validateExportLogsPayload,
   validatePreviewClearPayload,
+  validatePreviewReadFilePayload,
   registerRevealRoot,
 } from '../../electron/security.js';
 
@@ -466,6 +467,34 @@ test('validatePreviewClearPayload valida caminho e restringe ao diretório de pr
   assert.equal(validatePreviewClearPayload({ filePath: 'relative-preview.mp4' }, previewDir), null);
   assert.equal(validatePreviewClearPayload({}, previewDir), null);
   assert.equal(validatePreviewClearPayload(null, previewDir), null);
+});
+
+test('validatePreviewReadFilePayload restringe leitura de arquivos ao diretório de preview', () => {
+  const previewDir = '/tmp/streamgrab-preview';
+  const winPreviewDir = 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview';
+
+  assert.deepEqual(
+    validatePreviewReadFilePayload({ filePath: '/tmp/streamgrab-preview/chunk-01.mp4' }, previewDir),
+    { filePath: '/tmp/streamgrab-preview/chunk-01.mp4' }
+  );
+
+  assert.deepEqual(
+    validatePreviewReadFilePayload(
+      { filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\chunk-01.mp4' },
+      winPreviewDir
+    ),
+    { filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\chunk-01.mp4' }
+  );
+
+  // Impede leitura arbitrária de arquivos do sistema / ssh keys / etc
+  assert.equal(validatePreviewReadFilePayload({ filePath: '/etc/passwd' }, previewDir), null);
+  assert.equal(validatePreviewReadFilePayload({ filePath: 'C:\\Windows\\win.ini' }, winPreviewDir), null);
+  assert.equal(
+    validatePreviewReadFilePayload({ filePath: '/tmp/streamgrab-preview/../secret.json' }, previewDir),
+    null
+  );
+  assert.equal(validatePreviewReadFilePayload({ filePath: 'preview.mp4' }, previewDir), null);
+  assert.equal(validatePreviewReadFilePayload({}, previewDir), null);
 });
 
 test('validateExportLogsPayload valida caminho e restringe a raizes permitidas', () => {
