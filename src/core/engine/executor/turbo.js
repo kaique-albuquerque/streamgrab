@@ -9,7 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { startMuxDownload } from '../../../ffmpeg.js';
-import { downloadParallelRanges, probeRangeSupport } from '../../../transports/range.js';
+import { downloadParallelRanges, probeRangeSupport } from '../../../transports/range/index.js';
 import { runStreamDownload } from '../runners/index.js';
 import { abortOutcome, makeFfmpegProgress } from '../helpers.js';
 

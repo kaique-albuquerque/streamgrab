@@ -16,7 +16,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 
-import { downloadParallelRanges, probeRangeSupport, DEFAULT_RANGE_CHUNKS } from '../../src/transports/range.js';
+import { downloadParallelRanges, probeRangeSupport, DEFAULT_RANGE_CHUNKS } from '../../src/transports/range/index.js';
 import { CancelledError, ForbiddenError, RateLimitError } from '../../src/core/errors.js';
 
 function startServer(handler) {

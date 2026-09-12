@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { mux } from '../ffmpeg/muxer.js';
 import { formatBytes } from '../utils.js';
-import { downloadParallelRanges, probeRangeSupport } from '../transports/range.js';
+import { downloadParallelRanges, probeRangeSupport } from '../transports/range/index.js';
 import { defaultStatePath, clearState } from '../core/resume.js';
 import { createProgressReporter } from './progress.js';
 import { cleanupPartial } from './download.js';

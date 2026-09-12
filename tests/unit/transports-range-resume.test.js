@@ -17,7 +17,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 
-import { downloadParallelRanges } from '../../src/transports/range.js';
+import { downloadParallelRanges } from '../../src/transports/range/index.js';
 import { CancelledError } from '../../src/core/errors.js';
 
 const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');

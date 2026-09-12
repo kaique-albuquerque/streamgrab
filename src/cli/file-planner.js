@@ -1,4 +1,4 @@
-import { normalizeBlockCount } from '../transports/range.js';
+import { normalizeBlockCount } from '../transports/range/index.js';
 
 export function planFileDownload({
   totalBytes = 0,

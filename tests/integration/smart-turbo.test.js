@@ -16,7 +16,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 
-import { downloadParallelRanges } from '../../src/transports/range.js';
+import { downloadParallelRanges } from '../../src/transports/range/index.js';
 
 function stopServer(server) {
   return new Promise((resolve) => server.close(resolve));

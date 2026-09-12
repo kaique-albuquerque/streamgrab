@@ -18,7 +18,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { resolveSourceAdapterAsync } from '../../src/source-adapters.js';
-import { downloadParallelRanges } from '../../src/transports/range.js';
+import { downloadParallelRanges } from '../../src/transports/range/index.js';
 import { checkFfmpeg, getFfmpegCommand } from '../../src/ffmpeg.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

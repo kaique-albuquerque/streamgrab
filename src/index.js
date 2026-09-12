@@ -2,7 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createPrompter } from './input.js';
-import { runCliSession } from './cli-flow.js';
+import { runCliSession } from './cli-flow/index.js';
 import {
   parseCliCommand,
   printSubcommandHelp,

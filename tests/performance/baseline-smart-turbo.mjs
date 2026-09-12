@@ -19,7 +19,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 
-import { downloadParallelRanges } from '../../src/transports/range.js';
+import { downloadParallelRanges } from '../../src/transports/range/index.js';
 
 const FILE_SIZE = 16 * 1024 * 1024; // 16 MiB
 const THROTTLE_BPS = 1 * 1024 * 1024; // 1 MB/s agregado

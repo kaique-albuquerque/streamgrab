@@ -143,7 +143,7 @@ test('cli-flow P2.6: fluxo youtube passa pelo StreamGrabCore (single, exit 0)', 
   fakeCalls.startDownload = 0;
   fs.rmSync(OUT_DIR, { recursive: true, force: true });
 
-  const { runCliSession } = await import(`../../src/cli-flow.js?p26-single=${Date.now()}`);
+  const { runCliSession } = await import(`../../src/cli-flow/index.js?p26-single=${Date.now()}`);
   const result = await runCliSession({ argv: [], projectRoot: ROOT, answers: makeAnswers(), io: NOOP_IO });
 
   assert.equal(result.code, 0, `exit code 0 (foi ${result.code})`);
@@ -161,7 +161,7 @@ test('cli-flow P2.6: fluxo youtube adaptativo usa mux (video+audio) com exit 0',
   fakeCalls.startMuxDownload = 0;
   fs.rmSync(OUT_DIR, { recursive: true, force: true });
 
-  const { runCliSession } = await import(`../../src/cli-flow.js?p26-mux=${Date.now()}`);
+  const { runCliSession } = await import(`../../src/cli-flow/index.js?p26-mux=${Date.now()}`);
   const result = await runCliSession({ argv: [], projectRoot: ROOT, answers: makeAnswers(), io: NOOP_IO });
 
   assert.equal(result.code, 0, `exit code 0 (foi ${result.code})`);
@@ -181,7 +181,7 @@ test('cli-flow P2.6: flag --youtube preserva a URL original na analise via core'
   fakeCalls.startDownload = 0;
   fs.rmSync(OUT_DIR, { recursive: true, force: true });
 
-  const { runCliSession } = await import(`../../src/cli-flow.js?p26-forceyt=${Date.now()}`);
+  const { runCliSession } = await import(`../../src/cli-flow/index.js?p26-forceyt=${Date.now()}`);
   const result = await runCliSession({ argv: ['--youtube'], projectRoot: ROOT, answers: makeAnswers(), io: NOOP_IO });
 
   assert.equal(result.code, 0, `exit code 0 (foi ${result.code})`);

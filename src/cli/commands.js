@@ -13,7 +13,7 @@ import {
 } from '../utils.js';
 import { ADAPTIVE_URI_PREFIX } from '../adapters/ytdlp.js';
 import { loadConfig, parseCliHeaders, parseCliAuth, applyProviderHeaders } from './config.js';
-import { runCliSession } from '../cli-flow.js';
+import { runCliSession } from '../cli-flow/index.js';
 import { runDownloadFlow } from './download.js';
 import { createContext } from './context.js';
 import { renderAnalysis, printAnalysisError } from './render.js';
