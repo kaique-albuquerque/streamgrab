@@ -12,7 +12,10 @@ export function getRendererDom() {
   return {
     tabBar: document.getElementById('tabBar'),
     tabPanels: document.getElementById('tabPanels'),
-    tabTemplate: document.getElementById('tabTemplate'),
+    // Lazy getter: o template é carregado via fetch() pelo loadTemplates()
+    // e inserido no DOM DEPOIS que getRendererDom() já foi chamado no topo
+    // do renderer.js. Sem o getter, dom.tabTemplate ficaria permanentemente null.
+    get tabTemplate() { return document.getElementById('tabTemplate'); },
     newTabBtn: document.getElementById('newTabBtn'),
     themeToggle: document.getElementById('themeToggle'),
     themeLabel: document.querySelector('[data-theme-label]'),
