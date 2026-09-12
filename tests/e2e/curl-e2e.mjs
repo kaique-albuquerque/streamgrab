@@ -18,8 +18,8 @@ import { parsePlaylistText, parseSegmentPlaylist } from '../../src/hls.js';
 import { parseDashManifest } from '../../src/dash.js';
 import { findCurlImpersonate } from '../../src/curlimp.js';
 import { resolveSourceAdapter } from '../../src/source-adapters.js';
-import { extractInitialPlayerResponse, parseYouTubePlayerResponse, prepareYouTubeDownload } from '../../src/legacy/youtube.js';
-import { applyNTransform, applySignatureCipher, decipherYouTubeSignature, extractPlayerJsUrl, transformYouTubeNParam } from '../../src/legacy/youtube-signature.js';
+import { extractInitialPlayerResponse, parseYouTubePlayerResponse, prepareYouTubeDownload } from '../../src/legacy/youtube/index.js';
+import { applyNTransform, applySignatureCipher, decipherYouTubeSignature, extractPlayerJsUrl, transformYouTubeNParam } from '../../src/legacy/youtube-signature/index.js';
 import {
   extractMdstrmVideoId,
   buildPlayerUrl,

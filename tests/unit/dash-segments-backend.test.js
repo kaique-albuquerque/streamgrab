@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { inspectDashSegmentSupport, prepareDashSegmentDownloadToLocal } from '../../src/transports/backends/dash-segments.js';
+import { inspectDashSegmentSupport, prepareDashSegmentDownloadToLocal } from '../../src/transports/backends/dash-segments/index.js';
 
 function startServer(routes) {
   const server = http.createServer((req, res) => {

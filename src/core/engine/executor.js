@@ -18,7 +18,7 @@ import { resolveSourceAdapter, resolveSourceAdapterAsync } from '../../source-ad
 import { startDownload, startMuxDownload } from '../../ffmpeg.js';
 import { CurlImpersonateTransport } from '../../transports/curl.js';
 import { prepareHlsSegmentDownloadToLocal } from '../../transports/backends/hls-segments.js';
-import { prepareDashSegmentDownloadToLocal } from '../../transports/backends/dash-segments.js';
+import { prepareDashSegmentDownloadToLocal } from '../../transports/backends/dash-segments/index.js';
 import { isMdstrmUrl } from '../../mdstrm.js';
 import { resolveTransportWithAutoInstall } from '../mdstrm-routing.js';
 import { setJobCheckpoint } from '../models/index.js';
@@ -37,7 +37,7 @@ import {
   runMuxDownload,
   runMuxMultiDownload,
   embedSubtitles,
-} from './runners.js';
+} from './runners/index.js';
 
 /**
  * Resolvedor de adapter padrao: mesma deteccao atual por URL/content-type

@@ -11,8 +11,8 @@ import {
   applyNTransform,
   applySignatureCipher,
   resolveCipherFormats,
-} from '../../src/legacy/youtube-signature.js';
-import { extractInitialPlayerResponse, parseYouTubePlayerResponse, prepareYouTubeDownload } from '../../src/legacy/youtube.js';
+} from '../../src/legacy/youtube-signature/index.js';
+import { extractInitialPlayerResponse, parseYouTubePlayerResponse, prepareYouTubeDownload } from '../../src/legacy/youtube/index.js';
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'youtube');
 
