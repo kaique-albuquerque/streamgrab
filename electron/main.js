@@ -26,6 +26,7 @@ import {
   validateRevealPayload,
   validateExportLogsPayload,
   validatePreviewClearPayload,
+  validatePreviewReadFilePayload,
   registerRevealRoot,
   isValidJobId,
   isValidTaskId,
@@ -512,11 +513,12 @@ ipcMain.handle('preview:generate', async (_event, rawPayload) => {
 });
 
 ipcMain.handle('preview:read-file', async (_event, rawPayload) => {
-  const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
-  const filePath = typeof payload.filePath === 'string' ? payload.filePath : '';
-  if (!filePath) return { ok: false, error: 'Caminho não informado.' };
+  const tempDir = app.getPath('temp');
+  const previewDir = path.join(tempDir, 'streamgrab-preview');
+  const validated = validatePreviewReadFilePayload(rawPayload, previewDir);
+  if (!validated) return { ok: false, error: 'Caminho inválido ou fora das pastas permitidas.' };
   try {
-    const data = fs.readFileSync(filePath);
+    const data = fs.readFileSync(validated.filePath);
     return { ok: true, data: data.toString('base64'), mimeType: 'video/mp4' };
   } catch {
     return { ok: false, error: 'Não foi possível ler o arquivo de preview.' };

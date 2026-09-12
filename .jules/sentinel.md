@@ -24,3 +24,8 @@
 **Vulnerability:** The `preview:clear` Electron IPC channel accepted an arbitrary user-supplied `filePath` string without path validation or restriction, passing it directly to `fs.unlinkSync`.
 **Learning:** IPC handlers that delete files must restrict target file paths to the specific temporary cache directory created for that feature, rather than trusting renderer-supplied paths.
 **Prevention:** Always validate file paths for deletion IPC calls using `isSafeAbsolutePath` and `isPathWithin(filePath, previewDir)` before performing filesystem operations.
+
+## 2026-11-01 - Unsanitized Preview File Path in `preview:read-file` IPC Handler Vulnerable to Arbitrary File Read
+**Vulnerability:** The `preview:read-file` Electron IPC channel accepted an arbitrary user-supplied `filePath` string without path validation or directory restriction, allowing arbitrary filesystem read as base64 data.
+**Learning:** IPC handlers that read files and return content to renderer processes must validate that target file paths are safe absolute paths constrained strictly to expected application cache/temp directories.
+**Prevention:** Always validate file paths for read IPC handlers using `isSafeAbsolutePath(filePath)` and `isPathWithin(filePath, previewDir)` prior to calling filesystem read operations.
