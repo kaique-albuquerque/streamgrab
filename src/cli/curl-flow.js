@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { CurlImpersonateTransport, rewritePlaylist as _rewritePlaylist, extForUri as _extForUri } from '../transports/curl.js';
+import { CurlImpersonateTransport, rewritePlaylist as _rewritePlaylist, extForUri as _extForUri } from '../transports/curl/index.js';
 import { parsePlaylistText } from '../hls.js';
 import { isMdstrmUrl } from '../mdstrm.js';
 import { formatBytes, maskUrl } from '../utils.js';

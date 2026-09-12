@@ -1,63 +1,21 @@
 /**
- * P4 — Transporte curl-impersonate (plano §15/§16).
- *
- * Herda `src/curlimp.js` (cliente com perfis de browser) + `src/cli/curl-flow.js`
- * (download segmento a segmento de playlists HLS):
- *  - headers, cookies/referer, perfil de impersonacao
- *  - cancelamento (mata os processos curl ativos no abort)
- *  - cleanup de temporarios e timeouts
- *  - `downloadSegments()`: chaves, maps e segmentos com workers + tentativas
- *
- * A CLI (cli/curl-flow.js) delega aqui mantendo a API publica atual.
+ * CurlImpersonateTransport — transporte de download via curl-impersonate.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { createCurlClient, findCurlImpersonate, killAllCurl as killAllCurlGlobal } from '../curlimp.js';
-import { parseSegmentPlaylist } from '../hls.js';
-
-const SAFE_SEGMENT_EXT = new Set(['ts', 'mp4', 'm4s', 'm2ts', 'mts', 'aac', 'mp3', 'mov', 'm4a', '3gp', 'mj2', 'vob', 'wav']);
-
-/** Extensao segura para salvar um segmento/mapa localmente. */
-export function extForUri(uri, fallback) {
-  const m = String(uri).match(/\.([a-z0-9]{1,5})(?:[?#]|$)/i);
-  const e = m ? m[1].toLowerCase() : '';
-  return SAFE_SEGMENT_EXT.has(e) ? e : fallback;
-}
-
-/**
- * Reescreve a playlist media trocando URLs remotas por arquivos locais.
- * @param {string} text
- * @param {Map<string,string>} segMap — url resolvida -> arquivo local.
- * @param {Map<string,string>} keyFiles — url da chave -> arquivo local.
- * @param {Map<string,string>} mapFiles — url do init -> arquivo local.
- * @param {string} baseUrl
- */
-export function rewritePlaylist(text, segMap, keyFiles, mapFiles, baseUrl) {
-  return text
-    .split(/\r?\n/)
-    .map((rawLine) => {
-      const line = rawLine.trim();
-      if (!line) return '';
-      if (!line.startsWith('#')) {
-        const resolved = new URL(line, baseUrl).toString();
-        const local = segMap.get(resolved);
-        return local ? path.basename(local) : line;
-      }
-      if (line.includes('URI="')) {
-        return line.replace(/URI="([^"]*)"/g, (match, u) => {
-          const resolved = new URL(u, baseUrl).toString();
-          const local = keyFiles.get(resolved) || mapFiles.get(resolved);
-          return local ? `URI="${path.basename(local)}"` : match;
-        });
-      }
-      return line;
-    })
-    .join('\n');
-}
+import { createCurlClient, findCurlImpersonate, killAllCurl as killAllCurlGlobal } from '../../curlimp.js';
+import { parseSegmentPlaylist } from '../../hls.js';
+import { extForUri, rewritePlaylist } from './playlist.js';
 
 const SEGMENT_WORKERS = 6;
 const SEGMENT_ATTEMPTS = 3;
+
+function abortError() {
+  const err = new Error('Operacao cancelada.');
+  err.code = 'CANCELLED';
+  return err;
+}
 
 /**
  * Transporte de download via curl-impersonate.
@@ -76,7 +34,6 @@ export class CurlImpersonateTransport {
     this.name = name || path.basename(cmd);
     this.profile = profile;
     this.headers = headers;
-    // P1.1: tracking per-instance — kill() so mata processos deste transport.
     this._activeProcesses = new Set();
     this._client = createCurlClient({ cmd, headers, profile, registerActive: this._activeProcesses });
     this._active = true;
@@ -101,11 +58,7 @@ export class CurlImpersonateTransport {
   /** Mata os processos curl ativos DESTE transporte (cancelamento/cleanup). */
   kill() {
     for (const child of this._activeProcesses) {
-      try {
-        child.kill();
-      } catch {
-        /* ignora */
-      }
+      try { child.kill(); } catch { /* ignora */ }
     }
   }
 
@@ -154,7 +107,7 @@ export class CurlImpersonateTransport {
 
   /**
    * Baixa chaves, maps e segmentos de uma playlist media e gera a playlist
-   * local apontando para os arquivos. Tambem baixa chaves/maps.
+   * local apontando para os arquivos.
    *
    * @param {object} params
    * @param {string} params.mediaText — texto da playlist media.
@@ -213,11 +166,7 @@ export class CurlImpersonateTransport {
         if (stopped()) return;
         if (r && r.ok) {
           segMap.set(seg.url, local);
-          try {
-            totalBytes += fs.statSync(local).size;
-          } catch {
-            /* ignora */
-          }
+          try { totalBytes += fs.statSync(local).size; } catch { /* ignora */ }
         } else {
           failed++;
         }
@@ -242,11 +191,3 @@ export class CurlImpersonateTransport {
 export function createCurlTransport(opts) {
   return new CurlImpersonateTransport(opts);
 }
-
-function abortError() {
-  const err = new Error('Operacao cancelada.');
-  err.code = 'CANCELLED';
-  return err;
-}
-
-export default { CurlImpersonateTransport, createCurlTransport, rewritePlaylist, extForUri };

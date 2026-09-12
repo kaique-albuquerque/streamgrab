@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { inspectHlsSegmentSupport, prepareHlsSegmentDownloadToLocal } from '../../src/transports/backends/hls-segments.js';
+import { inspectHlsSegmentSupport, prepareHlsSegmentDownloadToLocal } from '../../src/transports/backends/hls-segments/index.js';
 
 function startServer(routes) {
   const server = http.createServer((req, res) => {

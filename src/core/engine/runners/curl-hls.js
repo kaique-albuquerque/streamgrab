@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { startDownload } from '../../../ffmpeg.js';
-import { CurlImpersonateTransport } from '../../../transports/curl.js';
+import { CurlImpersonateTransport } from '../../../transports/curl/index.js';
 import { parsePlaylistText } from '../../../hls.js';
 import { progressUpdate, abortOutcome, segmentProgressToEngine, safePathname, makeFfmpegProgress } from '../helpers.js';
 

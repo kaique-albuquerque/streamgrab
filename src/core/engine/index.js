@@ -40,7 +40,7 @@ import {
   makeProgress as _makeProgress,
 } from './control.js';
 
-import { defaultResolveAdapter, createDefaultExecutor } from './executor.js';
+import { defaultResolveAdapter, createDefaultExecutor } from './executor/index.js';
 
 /**
  * Motor de ciclo de vida de downloads.

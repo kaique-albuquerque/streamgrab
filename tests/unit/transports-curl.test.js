@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import path from 'node:path';
 import fs from 'node:fs';
 
-import { extForUri, rewritePlaylist, CurlImpersonateTransport } from '../../src/transports/curl.js';
+import { extForUri, rewritePlaylist, CurlImpersonateTransport } from '../../src/transports/curl/index.js';
 
 test('extForUri: extensao segura preservada', () => {
   assert.equal(extForUri('https://cdn/seg1.ts', 'ts'), 'ts');

@@ -11,7 +11,7 @@
  */
 
 import { installCurlImpersonate } from '../curlimp-install.js';
-import { CurlImpersonateTransport } from '../transports/curl.js';
+import { CurlImpersonateTransport } from '../transports/curl/index.js';
 import { isMdstrmUrl, needsMdstrmRefresh, extractMdstrmVideoId, refreshMdstrmUrl } from '../mdstrm.js';
 
 /**
@@ -22,7 +22,7 @@ import { isMdstrmUrl, needsMdstrmRefresh, extractMdstrmVideoId, refreshMdstrmUrl
  * @param {object} [opts.headers] — headers HTTP autorizados.
  * @param {string} [opts.projectRoot] — raiz do projeto para instalacao.
  * @param {Function} [opts.onLog] — callback de log (opcional).
- * @returns {Promise<import('../transports/curl.js').CurlImpersonateTransport | null>}
+ * @returns {Promise<import('../transports/curl/index.js').CurlImpersonateTransport | null>}
  */
 export async function resolveTransportWithAutoInstall({ headers = {}, projectRoot = process.cwd(), onLog = () => {} } = {}) {
   const transport = CurlImpersonateTransport.resolve({ headers });

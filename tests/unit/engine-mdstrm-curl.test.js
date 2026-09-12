@@ -14,7 +14,7 @@ import { mock } from 'node:test';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..', '..');
-const CURL_URL = pathToFileURL(path.join(ROOT, 'src', 'transports', 'curl.js')).href;
+const CURL_URL = pathToFileURL(path.join(ROOT, 'src', 'transports', 'curl', 'index.js')).href;
 const FFMPEG_URL = pathToFileURL(path.join(ROOT, 'src', 'ffmpeg.js')).href;
 
 const CDN_URL =

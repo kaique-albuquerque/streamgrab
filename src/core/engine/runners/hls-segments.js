@@ -3,7 +3,7 @@
  */
 
 import { startDownload } from '../../../ffmpeg.js';
-import { prepareHlsSegmentDownloadToLocal } from '../../../transports/backends/hls-segments.js';
+import { prepareHlsSegmentDownloadToLocal } from '../../../transports/backends/hls-segments/index.js';
 import { progressUpdate, abortOutcome, segmentProgressToEngine, makeFfmpegProgress } from '../helpers.js';
 
 /**
