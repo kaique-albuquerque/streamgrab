@@ -8,6 +8,7 @@ import { loadConfig } from '../../src/cli/config.js';
 import { friendlyReport } from '../../src/core/errors.js';
 import {
   validateHistoryIdPayload,
+  validateHistoryExportPayload,
   validateSettingsPayload,
 } from '../security.js';
 import { PROJECT_ROOT, getServices, addRevealRoot } from './state.js';
@@ -39,33 +40,15 @@ export function registerHistoryHandlers() {
     const services = getServices();
     if (!services) return { ok: false, error: 'Serviços não inicializados.' };
 
-    const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
-    const format = payload.format === 'csv' ? 'csv' : 'json';
+    const payload = validateHistoryExportPayload(rawPayload);
+    if (!payload) return { ok: false, error: 'Payload de exportação de histórico inválido.' };
 
-    let entries;
-    if (Array.isArray(payload.entries)) {
-      entries = payload.entries
-        .filter((e) => e && typeof e === 'object')
-        .map((e) => ({
-          id: String(e.id || ''),
-          title: String(e.title || ''),
-          url: String(e.url || ''),
-          provider: String(e.provider || ''),
-          format: String(e.format || ''),
-          destination: String(e.destination || ''),
-          status: String(e.status || ''),
-          size: Number(e.size) || 0,
-          durationMs: Number(e.durationMs) || 0,
-          date: String(e.date || ''),
-        }));
-    } else {
-      entries = services.history.list();
-    }
+    const format = payload.format;
+    const entries = payload.entries ? payload.entries : services.history.list();
 
-    let destPath = typeof payload.filePath === 'string' ? payload.filePath : '';
+    let destPath = payload.filePath;
     if (!destPath) {
       const { suggestExportFilename } = await import('../../src/core/history-export.js');
-      const { app } = await import('electron');
       const result = await dialog.showSaveDialog({
         title: 'Exportar histórico',
         defaultPath: suggestExportFilename(format),
@@ -76,8 +59,6 @@ export function registerHistoryHandlers() {
       if (result.canceled || !result.filePath) return { ok: false, canceled: true };
       destPath = result.filePath;
       addRevealRoot(path.dirname(destPath));
-    } else if (!path.isAbsolute(destPath)) {
-      return { ok: false, error: 'Caminho de destino inválido.' };
     }
 
     const { exportHistoryToFile } = await import('../../src/core/history-export.js');

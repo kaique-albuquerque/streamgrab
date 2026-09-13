@@ -18,6 +18,7 @@ import {
   isValidJobId,
   validateJobIdPayload,
   validateHistoryIdPayload,
+  validateHistoryExportPayload,
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
@@ -491,6 +492,50 @@ test('validateHistoryIdPayload valida { id }', () => {
   assert.deepEqual(validateHistoryIdPayload({ id: 'hist-3' }), { id: 'hist-3' });
   assert.equal(validateHistoryIdPayload({ id: '../x' }), null);
   assert.equal(validateHistoryIdPayload({}), null);
+});
+
+test('validateHistoryExportPayload aceita payload valido com caminho absoluto seguro', () => {
+  const out = validateHistoryExportPayload({
+    format: 'csv',
+    filePath: 'C:\\Users\\teste\\Downloads\\export.csv',
+    entries: [{ id: '1', title: 'Video', size: 100 }],
+  });
+  assert.ok(out);
+  assert.equal(out.format, 'csv');
+  assert.equal(out.filePath, 'C:\\Users\\teste\\Downloads\\export.csv');
+  assert.equal(out.entries.length, 1);
+  assert.equal(out.entries[0].id, '1');
+  assert.equal(out.entries[0].title, 'Video');
+  assert.equal(out.entries[0].size, 100);
+});
+
+test('validateHistoryExportPayload rejeita caminhos relativos e path traversal', () => {
+  assert.equal(validateHistoryExportPayload({ filePath: 'relative/export.json' }), null);
+  assert.equal(validateHistoryExportPayload({ filePath: '../evil.json' }), null);
+  assert.equal(validateHistoryExportPayload({ filePath: 'C:\\Users\\..\\evil.json' }), null);
+  assert.equal(validateHistoryExportPayload({ filePath: '/etc/../evil.json' }), null);
+});
+
+test('validateHistoryExportPayload sanitiza arrays de entries e trata payload nulo/invalido', () => {
+  assert.equal(validateHistoryExportPayload(null), null);
+  assert.equal(validateHistoryExportPayload('not object'), null);
+  assert.equal(validateHistoryExportPayload([]), null);
+
+  const out = validateHistoryExportPayload({
+    entries: [
+      { id: '1', title: 'Ok', size: 'invalid' },
+      null,
+      'string entry',
+      { id: '2', title: 'a'.repeat(600), durationMs: 5000 },
+    ],
+  });
+  assert.ok(out);
+  assert.equal(out.format, 'json');
+  assert.equal(out.filePath, '');
+  assert.equal(out.entries.length, 2);
+  assert.equal(out.entries[0].size, 0);
+  assert.equal(out.entries[1].title.length, 500);
+  assert.equal(out.entries[1].durationMs, 5000);
 });
 
 test('validateQueueEnqueuePayload aceita payload de fila válido (filename opcional)', () => {
