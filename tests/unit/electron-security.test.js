@@ -21,6 +21,7 @@ import {
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
+  validatePreviewFilePayload,
   registerRevealRoot,
 } from '../../electron/security.js';
 
@@ -445,6 +446,35 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
+});
+
+test('validatePreviewFilePayload restringe preview a caminhos seguros dentro do tempDir', () => {
+  const tempDir = '/tmp';
+  const winTempDir = 'C:\\Users\\teste\\AppData\\Local\\Temp';
+
+  assert.deepEqual(
+    validatePreviewFilePayload({ filePath: '/tmp/streamgrab-preview/preview-1.mp4' }, tempDir),
+    { filePath: '/tmp/streamgrab-preview/preview-1.mp4' }
+  );
+
+  assert.deepEqual(
+    validatePreviewFilePayload(
+      { filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-1.mp4' },
+      winTempDir
+    ),
+    { filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-1.mp4' }
+  );
+
+  // Path traversal / outside tempDir
+  assert.equal(validatePreviewFilePayload({ filePath: '/etc/passwd' }, tempDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: '/tmp/../etc/passwd' }, tempDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: 'relative/preview.mp4' }, tempDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: 'C:\\Windows\\System32\\win.ini' }, winTempDir), null);
+
+  // Missing or empty inputs
+  assert.equal(validatePreviewFilePayload({}, tempDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: '/tmp/p.mp4' }, ''), null);
+  assert.equal(validatePreviewFilePayload(null, tempDir), null);
 });
 
 test('registerRevealRoot só aceita caminhos absolutos seguros e sem traversal', () => {

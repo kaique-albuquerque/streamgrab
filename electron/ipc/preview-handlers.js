@@ -11,7 +11,7 @@ import { ipcMain } from 'electron';
 import { pathToFileURL } from 'node:url';
 import { binName, packagedBinaryPath } from '../../src/core/binaries.js';
 import { loadConfig, applyProviderHeaders } from '../../src/cli/config.js';
-import { isSafeHttpUrl, isSafeMediaSelection } from '../security.js';
+import { isSafeHttpUrl, isSafeMediaSelection, validatePreviewFilePayload } from '../security.js';
 import { PROJECT_ROOT } from './state.js';
 
 const previewCache = new Map(); // `${url}|${quality}` -> { path, time }
@@ -99,11 +99,11 @@ export function registerPreviewHandlers() {
   });
 
   ipcMain.handle('preview:read-file', async (_event, rawPayload) => {
-    const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
-    const filePath = typeof payload.filePath === 'string' ? payload.filePath : '';
-    if (!filePath) return { ok: false, error: 'Caminho não informado.' };
+    const { app } = await import('electron');
+    const validated = validatePreviewFilePayload(rawPayload, app.getPath('temp'));
+    if (!validated) return { ok: false, error: 'Caminho de preview inválido ou fora do diretório permitido.' };
     try {
-      const data = fs.readFileSync(filePath);
+      const data = fs.readFileSync(validated.filePath);
       return { ok: true, data: data.toString('base64'), mimeType: 'video/mp4' };
     } catch {
       return { ok: false, error: 'Não foi possível ler o arquivo de preview.' };
@@ -111,13 +111,13 @@ export function registerPreviewHandlers() {
   });
 
   ipcMain.handle('preview:clear', async (_event, rawPayload) => {
-    const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
-    const filePath = typeof payload.filePath === 'string' ? payload.filePath : '';
-    if (!filePath) return { ok: false };
+    const { app } = await import('electron');
+    const validated = validatePreviewFilePayload(rawPayload, app.getPath('temp'));
+    if (!validated) return { ok: false, error: 'Caminho de preview inválido.' };
     const { clearPreview } = await import('../../src/preview.js');
-    clearPreview(filePath);
+    clearPreview(validated.filePath);
     for (const [key, value] of previewCache) {
-      if (value.path === filePath) previewCache.delete(key);
+      if (value.path === validated.filePath) previewCache.delete(key);
     }
     return { ok: true };
   });
