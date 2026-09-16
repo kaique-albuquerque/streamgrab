@@ -30,6 +30,7 @@ export {
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateRevealPayload,
+  validatePreviewPathPayload,
   validateExportLogsPayload,
   registerRevealRoot,
 } from './security-payloads.js';

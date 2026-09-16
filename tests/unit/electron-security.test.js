@@ -14,6 +14,7 @@ import {
   validateDownloadPayload,
   validateCancelPayload,
   validateRevealPayload,
+  validatePreviewPathPayload,
   isPathWithin,
   isValidJobId,
   validateJobIdPayload,
@@ -445,6 +446,30 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
+});
+
+test('validatePreviewPathPayload valida caminho de preview e restringe a pasta temporaria de preview', () => {
+  const previewRoots = ['/tmp/streamgrab-preview', 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview'];
+  assert.deepEqual(
+    validatePreviewPathPayload({ filePath: '/tmp/streamgrab-preview/preview-123.mp4' }, previewRoots),
+    { filePath: '/tmp/streamgrab-preview/preview-123.mp4' }
+  );
+  assert.deepEqual(
+    validatePreviewPathPayload(
+      { filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-456.mp4' },
+      previewRoots
+    ),
+    { filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-456.mp4' }
+  );
+  // Rejeita caminhos fora do diretorio de preview, traversals e caminhos relativos
+  assert.equal(validatePreviewPathPayload({ filePath: '/etc/passwd' }, previewRoots), null);
+  assert.equal(validatePreviewPathPayload({ filePath: 'C:\\Windows\\System32\\config\\SAM' }, previewRoots), null);
+  assert.equal(
+    validatePreviewPathPayload({ filePath: '/tmp/streamgrab-preview/../other/secret.txt' }, previewRoots),
+    null
+  );
+  assert.equal(validatePreviewPathPayload({ filePath: 'preview-123.mp4' }, previewRoots), null);
+  assert.equal(validatePreviewPathPayload({}, previewRoots), null);
 });
 
 test('registerRevealRoot só aceita caminhos absolutos seguros e sem traversal', () => {
