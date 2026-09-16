@@ -15,6 +15,17 @@ export function validateRevealPayload(payload = {}, allowedRoots = []) {
   return { filePath };
 }
 
+/** Valida o payload de `preview:read-file` e `preview:clear`. */
+export function validatePreviewPathPayload(payload = {}, allowedRoots = []) {
+  const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
+  if (!filePath) return null;
+  if (!isSafeAbsolutePath(filePath)) return null;
+  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(filePath, root))) {
+    return null;
+  }
+  return { filePath };
+}
+
 /** Valida o payload de `app:export-logs`. */
 export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
   const customPath = typeof payload?.path === 'string' ? payload.path.trim() : '';
