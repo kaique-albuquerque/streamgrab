@@ -9,8 +9,9 @@ import { friendlyReport } from '../../src/core/errors.js';
 import {
   validateHistoryIdPayload,
   validateSettingsPayload,
+  validateExportHistoryPayload,
 } from '../security.js';
-import { PROJECT_ROOT, getServices, addRevealRoot } from './state.js';
+import { PROJECT_ROOT, getServices, addRevealRoot, getAllowedRevealRoots } from './state.js';
 import { enqueueDownload } from './queue-handlers.js';
 
 export function registerHistoryHandlers() {
@@ -39,6 +40,11 @@ export function registerHistoryHandlers() {
     const services = getServices();
     if (!services) return { ok: false, error: 'Serviços não inicializados.' };
 
+    const validated = validateExportHistoryPayload(rawPayload, [...getAllowedRevealRoots()]);
+    if (!validated) {
+      return { ok: false, error: 'Caminho de exportação inválido ou fora das pastas permitidas.' };
+    }
+
     const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
     const format = payload.format === 'csv' ? 'csv' : 'json';
 
@@ -62,7 +68,7 @@ export function registerHistoryHandlers() {
       entries = services.history.list();
     }
 
-    let destPath = typeof payload.filePath === 'string' ? payload.filePath : '';
+    let destPath = validated.filePath;
     if (!destPath) {
       const { suggestExportFilename } = await import('../../src/core/history-export.js');
       const { app } = await import('electron');
@@ -76,8 +82,6 @@ export function registerHistoryHandlers() {
       if (result.canceled || !result.filePath) return { ok: false, canceled: true };
       destPath = result.filePath;
       addRevealRoot(path.dirname(destPath));
-    } else if (!path.isAbsolute(destPath)) {
-      return { ok: false, error: 'Caminho de destino inválido.' };
     }
 
     const { exportHistoryToFile } = await import('../../src/core/history-export.js');

@@ -26,6 +26,18 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
   return { path: customPath };
 }
 
+/** Valida o payload de `history:export`. */
+export function validateExportHistoryPayload(payload = {}, allowedRoots = []) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const rawPath = typeof payload.filePath === 'string' ? payload.filePath.trim() : '';
+  if (!rawPath) return { filePath: null };
+  if (!isSafeAbsolutePath(rawPath)) return null;
+  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(rawPath, root))) {
+    return null;
+  }
+  return { filePath: rawPath };
+}
+
 /**
  * Registra uma raiz permitida para abertura/exportação de arquivos se for um caminho absoluto seguro.
  */
