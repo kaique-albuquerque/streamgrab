@@ -21,6 +21,7 @@ import {
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
+  validatePreviewFilePayload,
   registerRevealRoot,
 } from '../../electron/security.js';
 
@@ -445,6 +446,27 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
+});
+
+test('validatePreviewFilePayload restringe acesso e deleção apenas a arquivos na pasta de preview', () => {
+  const previewDir = 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview';
+  const posixPreviewDir = '/tmp/streamgrab-preview';
+
+  assert.deepEqual(
+    validatePreviewFilePayload({ filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-123.mp4' }, previewDir),
+    { filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-123.mp4' }
+  );
+  assert.deepEqual(
+    validatePreviewFilePayload({ filePath: '/tmp/streamgrab-preview/preview-123.mp4' }, posixPreviewDir),
+    { filePath: '/tmp/streamgrab-preview/preview-123.mp4' }
+  );
+
+  assert.equal(validatePreviewFilePayload({ filePath: 'C:\\Windows\\System32\\cmd.exe' }, previewDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: '/etc/passwd' }, posixPreviewDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\..\\secret.txt' }, previewDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: 'preview-123.mp4' }, previewDir), null);
+  assert.equal(validatePreviewFilePayload({}, previewDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-123.mp4' }, ''), null);
 });
 
 test('registerRevealRoot só aceita caminhos absolutos seguros e sem traversal', () => {
