@@ -19,3 +19,8 @@
 **Vulnerability:** `normalizeHeaders` in `src/core/header-utils.js` did not sanitize control characters (`\r`, `\n`, `\0`) or filter prototype pollution properties (`__proto__`, `constructor`, `prototype`), allowing malicious CRLF header injection when headers flow to FFmpeg (`-headers`), curl (`-H`), or HTTP requests.
 **Learning:** Header normalization across core pipelines must strip control characters and prototype pollution keys before headers reach external CLI tools or network transports.
 **Prevention:** Filter prototype keys and strip `[\r\n\0]` from header values centrally in `normalizeHeaders`.
+
+## 2026-10-15 - Unredacted HTTP Credentials in URL Authority Exposed in Logs
+**Vulnerability:** `maskUrl` only sanitized sensitive search query parameters (`u.searchParams`), leaving embedded HTTP basic authentication credentials (`username` and `password` in URL authority) unredacted in log outputs and error messages.
+**Learning:** URL-based redaction must inspect both URL search parameters and authority userinfo (`u.username` / `u.password`) when masking sensitive stream or endpoint URLs.
+**Prevention:** Mask `u.username` and `u.password` whenever present on parsed `URL` objects in `maskUrl`.
