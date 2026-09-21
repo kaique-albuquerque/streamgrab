@@ -19,3 +19,8 @@
 **Vulnerability:** `normalizeHeaders` in `src/core/header-utils.js` did not sanitize control characters (`\r`, `\n`, `\0`) or filter prototype pollution properties (`__proto__`, `constructor`, `prototype`), allowing malicious CRLF header injection when headers flow to FFmpeg (`-headers`), curl (`-H`), or HTTP requests.
 **Learning:** Header normalization across core pipelines must strip control characters and prototype pollution keys before headers reach external CLI tools or network transports.
 **Prevention:** Filter prototype keys and strip `[\r\n\0]` from header values centrally in `normalizeHeaders`.
+
+## 2026-10-14 - Unsanitized File Path in IPC History Export Vulnerable to Arbitrary File Write
+**Vulnerability:** The `history:export` Electron IPC handler accepted a user-supplied `filePath` directly without checking for `..` path traversal or enforcing directory restriction against allowed reveal roots.
+**Learning:** File export handlers in IPC must strictly validate custom destination paths with `isSafeAbsolutePath` and `isPathWithin` against allowed directory roots before writing file contents to disk.
+**Prevention:** Always filter IPC export payloads through dedicated validation functions that restrict target paths to permitted application directory roots.
