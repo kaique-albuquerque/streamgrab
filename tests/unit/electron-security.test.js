@@ -21,6 +21,7 @@ import {
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
+  validateExportHistoryPayload,
   registerRevealRoot,
 } from '../../electron/security.js';
 
@@ -445,6 +446,18 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
+});
+
+test('validateExportHistoryPayload valida caminho e restringe a raizes permitidas', () => {
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
+  assert.deepEqual(validateExportHistoryPayload({}, roots), { filePath: null });
+  assert.deepEqual(
+    validateExportHistoryPayload({ filePath: 'C:\\Users\\teste\\Downloads\\historico.json' }, roots),
+    { filePath: 'C:\\Users\\teste\\Downloads\\historico.json' }
+  );
+  assert.equal(validateExportHistoryPayload({ filePath: 'C:\\Windows\\System32\\malicious.json' }, roots), null);
+  assert.equal(validateExportHistoryPayload({ filePath: 'C:\\Users\\teste\\..\\evil.json' }, roots), null);
+  assert.equal(validateExportHistoryPayload({ filePath: 'relative-history.json' }, roots), null);
 });
 
 test('registerRevealRoot só aceita caminhos absolutos seguros e sem traversal', () => {

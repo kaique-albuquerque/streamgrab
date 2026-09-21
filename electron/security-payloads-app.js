@@ -26,6 +26,17 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
   return { path: customPath };
 }
 
+/** Valida o payload de `history:export`. */
+export function validateExportHistoryPayload(payload = {}, allowedRoots = []) {
+  const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
+  if (!filePath) return { filePath: null };
+  if (!isSafeAbsolutePath(filePath)) return null;
+  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(filePath, root))) {
+    return null;
+  }
+  return { filePath };
+}
+
 /**
  * Registra uma raiz permitida para abertura/exportação de arquivos se for um caminho absoluto seguro.
  */

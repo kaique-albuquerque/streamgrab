@@ -9,8 +9,9 @@ import { friendlyReport } from '../../src/core/errors.js';
 import {
   validateHistoryIdPayload,
   validateSettingsPayload,
+  validateExportHistoryPayload,
 } from '../security.js';
-import { PROJECT_ROOT, getServices, addRevealRoot } from './state.js';
+import { PROJECT_ROOT, getServices, addRevealRoot, getAllowedRevealRoots } from './state.js';
 import { enqueueDownload } from './queue-handlers.js';
 
 export function registerHistoryHandlers() {
@@ -62,10 +63,14 @@ export function registerHistoryHandlers() {
       entries = services.history.list();
     }
 
-    let destPath = typeof payload.filePath === 'string' ? payload.filePath : '';
+    const validatedExport = validateExportHistoryPayload(payload, [...getAllowedRevealRoots()]);
+    if (!validatedExport) {
+      return { ok: false, error: 'Caminho de destino inválido ou fora das pastas permitidas.' };
+    }
+
+    let destPath = validatedExport.filePath;
     if (!destPath) {
       const { suggestExportFilename } = await import('../../src/core/history-export.js');
-      const { app } = await import('electron');
       const result = await dialog.showSaveDialog({
         title: 'Exportar histórico',
         defaultPath: suggestExportFilename(format),
@@ -76,8 +81,6 @@ export function registerHistoryHandlers() {
       if (result.canceled || !result.filePath) return { ok: false, canceled: true };
       destPath = result.filePath;
       addRevealRoot(path.dirname(destPath));
-    } else if (!path.isAbsolute(destPath)) {
-      return { ok: false, error: 'Caminho de destino inválido.' };
     }
 
     const { exportHistoryToFile } = await import('../../src/core/history-export.js');
