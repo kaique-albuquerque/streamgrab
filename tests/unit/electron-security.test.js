@@ -21,6 +21,7 @@ import {
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
+  validatePreviewFilePathPayload,
   registerRevealRoot,
 } from '../../electron/security.js';
 
@@ -445,6 +446,32 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
+});
+
+test('validatePreviewFilePathPayload valida e restringe caminho ao diretório de preview', () => {
+  const previewDirPOSIX = '/tmp/streamgrab-preview';
+  const previewDirWin = 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview';
+
+  assert.deepEqual(
+    validatePreviewFilePathPayload({ filePath: '/tmp/streamgrab-preview/preview-123.mp4' }, previewDirPOSIX),
+    { filePath: '/tmp/streamgrab-preview/preview-123.mp4' }
+  );
+  assert.deepEqual(
+    validatePreviewFilePathPayload({ filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-123.mp4' }, previewDirWin),
+    { filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-123.mp4' }
+  );
+
+  // Path traversal attempts
+  assert.equal(validatePreviewFilePathPayload({ filePath: '/etc/passwd' }, previewDirPOSIX), null);
+  assert.equal(validatePreviewFilePathPayload({ filePath: '/tmp/streamgrab-preview/../passwd' }, previewDirPOSIX), null);
+  assert.equal(validatePreviewFilePathPayload({ filePath: 'C:\\Windows\\System32\\cmd.exe' }, previewDirWin), null);
+  assert.equal(validatePreviewFilePathPayload({ filePath: 'relative/preview.mp4' }, previewDirPOSIX), null);
+
+  // Edge cases
+  assert.equal(validatePreviewFilePathPayload({}, previewDirPOSIX), null);
+  assert.equal(validatePreviewFilePathPayload(null, previewDirPOSIX), null);
+  assert.equal(validatePreviewFilePathPayload({ filePath: '/tmp/streamgrab-preview/file.mp4' }, ''), null);
+  assert.equal(validatePreviewFilePathPayload({ filePath: '/tmp/streamgrab-preview/file.mp4' }, null), null);
 });
 
 test('registerRevealRoot só aceita caminhos absolutos seguros e sem traversal', () => {

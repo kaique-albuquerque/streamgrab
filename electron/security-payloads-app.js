@@ -26,6 +26,17 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
   return { path: customPath };
 }
 
+/** Valida o payload de `preview:read-file` / `preview:clear`. */
+export function validatePreviewFilePathPayload(payload = {}, previewDir = '') {
+  const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
+  if (!filePath) return null;
+  if (!isSafeAbsolutePath(filePath)) return null;
+  if (typeof previewDir !== 'string' || !previewDir.trim() || !isPathWithin(filePath, previewDir)) {
+    return null;
+  }
+  return { filePath };
+}
+
 /**
  * Registra uma raiz permitida para abertura/exportação de arquivos se for um caminho absoluto seguro.
  */
