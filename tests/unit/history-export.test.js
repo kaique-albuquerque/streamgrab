@@ -96,6 +96,18 @@ test('escapeCsvValue cobre aspas, vírgula, quebra de linha e valores nulos', ()
   assert.equal(escapeCsvValue(0), '0');
 });
 
+test('escapeCsvValue e exportHistoryAsCsv sanitizam caracteres de fórmula no início de strings', () => {
+  assert.equal(escapeCsvValue('=SUM(1+1)'), "'=SUM(1+1)");
+  assert.equal(escapeCsvValue('+cmd|\' /C calc\'!A0'), "'+cmd|' /C calc'!A0");
+  assert.equal(escapeCsvValue('-100'), "'-100");
+  assert.equal(escapeCsvValue(-100), '-100'); // numeros permanecem intocados
+  assert.equal(escapeCsvValue('@SUM(1;2)'), "'@SUM(1;2)");
+  assert.equal(escapeCsvValue('@SUM(1,2)'), `"'@SUM(1,2)"`);
+
+  const csv = exportHistoryAsCsv([entry({ title: '=1+1' })]);
+  assert.ok(csv.includes("'=1+1"));
+});
+
 // ---------------------------------------------------------------------------
 // serializeHistory
 // ---------------------------------------------------------------------------
