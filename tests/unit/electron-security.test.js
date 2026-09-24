@@ -21,6 +21,7 @@ import {
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
+  validatePreviewFilePathPayload,
   registerRevealRoot,
 } from '../../electron/security.js';
 
@@ -433,6 +434,19 @@ test('validateRevealPayload restringe abertura a raízes permitidas', () => {
   assert.equal(validateRevealPayload({ filePath: '/home/user/project/src/index.js' }, roots), null);
   assert.equal(validateRevealPayload({}, roots), null);
   assert.equal(validateRevealPayload({ filePath: 'relative.mp4' }, roots), null);
+});
+
+test('validatePreviewFilePathPayload valida caminho de preview e restringe ao previewDir', () => {
+  const previewDir = '/tmp/app/streamgrab-preview';
+  assert.deepEqual(
+    validatePreviewFilePathPayload({ filePath: '/tmp/app/streamgrab-preview/preview-123.mp4' }, previewDir),
+    { filePath: '/tmp/app/streamgrab-preview/preview-123.mp4' }
+  );
+  assert.equal(validatePreviewFilePathPayload({ filePath: '/etc/passwd' }, previewDir), null);
+  assert.equal(validatePreviewFilePathPayload({ filePath: '/tmp/app/streamgrab-preview/../passwd' }, previewDir), null);
+  assert.equal(validatePreviewFilePathPayload({ filePath: 'relative-preview.mp4' }, previewDir), null);
+  assert.equal(validatePreviewFilePathPayload({}, previewDir), null);
+  assert.equal(validatePreviewFilePathPayload({ filePath: '/tmp/app/streamgrab-preview/p.mp4' }, ''), null);
 });
 
 test('validateExportLogsPayload valida caminho e restringe a raizes permitidas', () => {
