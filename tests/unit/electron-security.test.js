@@ -21,6 +21,7 @@ import {
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
+  validateExportHistoryPayload,
   registerRevealRoot,
 } from '../../electron/security.js';
 
@@ -445,6 +446,45 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
+});
+
+test('validateExportHistoryPayload valida formato, caminho e sanitiza entradas', () => {
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
+  const validPath = 'C:\\Users\\teste\\Downloads\\history.json';
+
+  // Payload padrão sem filePath
+  const defaultPayload = validateExportHistoryPayload({ format: 'csv' }, roots);
+  assert.ok(defaultPayload);
+  assert.equal(defaultPayload.format, 'csv');
+  assert.equal(defaultPayload.filePath, '');
+  assert.equal(defaultPayload.entries, null);
+
+  // Payload válido com filePath em raiz permitida
+  const validPayload = validateExportHistoryPayload({ format: 'json', filePath: validPath }, roots);
+  assert.ok(validPayload);
+  assert.equal(validPayload.format, 'json');
+  assert.equal(validPayload.filePath, validPath);
+
+  // Caminho fora das raízes permitidas ou com path traversal
+  assert.equal(validateExportHistoryPayload({ filePath: 'C:\\Windows\\System32\\export.json' }, roots), null);
+  assert.equal(validateExportHistoryPayload({ filePath: 'C:\\Users\\teste\\..\\evil.json' }, roots), null);
+  assert.equal(validateExportHistoryPayload({ filePath: 'relative-export.json' }, roots), null);
+
+  // Sanitização de entradas
+  const entryPayload = validateExportHistoryPayload({
+    format: 'json',
+    entries: [
+      { id: '123', title: '  Vídeo Teste  ', size: '1024', extraField: 'ignored' },
+      null,
+      'invalid entry',
+    ],
+  }, roots);
+  assert.ok(entryPayload);
+  assert.equal(entryPayload.entries.length, 1);
+  assert.equal(entryPayload.entries[0].id, '123');
+  assert.equal(entryPayload.entries[0].title, '  Vídeo Teste  ');
+  assert.equal(entryPayload.entries[0].size, 1024);
+  assert.equal(entryPayload.entries[0].extraField, undefined);
 });
 
 test('registerRevealRoot só aceita caminhos absolutos seguros e sem traversal', () => {
