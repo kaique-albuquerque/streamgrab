@@ -13,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
-import { binName } from '../core/binaries.js';
+import { binName, packagedBinaryPath } from '../core/binaries.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -23,10 +23,15 @@ const BIN_NAME = binName('whisper-cli');
 const VENDOR_DIR = path.join(PROJECT_ROOT, 'vendor', 'whisper');
 const VENDOR_BIN = path.join(VENDOR_DIR, BIN_NAME);
 const VENDOR_MODELS = path.join(VENDOR_DIR, 'models');
+const VENDOR_MARKER = path.join(VENDOR_DIR, '.installed');
 
 // Apenas modelo small - unico suportado
 const MODEL_MAP = {
   small: 'ggml-small.bin',
+};
+
+const MODEL_MIN_SIZE = {
+  small: 244_000_000 * 0.9,
 };
 
 /**
@@ -41,22 +46,116 @@ export function checkWhisperCpp() {
     return { available: true, binPath: envBin, modelsDir: envModels };
   }
 
-  if (fs.existsSync(VENDOR_BIN)) {
+  const packagedBin = packagedBinaryPath(BIN_NAME);
+  if (packagedBin && fs.existsSync(packagedBin)) {
+    const packagedModels = path.join(path.dirname(packagedBin), '..', 'whisper', 'models');
+    const modelsDir = process.env.WHISPER_MODEL_DIR || path.normalize(packagedModels);
+    return { available: true, binPath: packagedBin, modelsDir };
+  }
+
+  if (isVendorWhisperReady()) {
     return { available: true, binPath: VENDOR_BIN, modelsDir: VENDOR_MODELS };
   }
 
-  const which = process.platform === 'win32' ? 'where' : 'which';
-  try {
-    const result = spawnSync(which, ['whisper'], { encoding: 'utf8', windowsHide: true });
-    if (result.status === 0 && result.stdout.trim()) {
-      const binPath = result.stdout.trim().split('\n')[0].trim();
+  for (const command of ['whisper-cli', 'whisper', 'main']) {
+    const binPath = findCommand(command);
+    if (binPath) {
       return { available: true, binPath, modelsDir: path.join(path.dirname(binPath), 'models') };
+    }
+  }
+
+  return { available: false, binPath: '', modelsDir: '' };
+}
+
+function isVendorWhisperReady() {
+  if (!fs.existsSync(VENDOR_BIN) || !fs.existsSync(VENDOR_MARKER)) {
+    return false;
+  }
+
+  const marker = readVendorMarker();
+  if (!marker) {
+    return false;
+  }
+
+  return (
+    marker.platform === process.platform &&
+    marker.arch === os.arch() &&
+    marker.bin === BIN_NAME &&
+    fs.existsSync(path.join(VENDOR_MODELS, MODEL_MAP.small)) &&
+    fs.statSync(path.join(VENDOR_MODELS, MODEL_MAP.small)).size > MODEL_MIN_SIZE.small
+  );
+}
+
+function readVendorMarker() {
+  try {
+    const raw = fs.readFileSync(VENDOR_MARKER, 'utf8');
+    const marker = JSON.parse(raw);
+    if (!marker || typeof marker !== 'object') return null;
+    return marker;
+  } catch {
+    return null;
+  }
+}
+
+function findCommand(command) {
+  const which = process.platform === 'win32' ? 'where' : 'which';
+  const executable = binName(command);
+
+  try {
+    const result = spawnSync(which, [executable], { encoding: 'utf8', windowsHide: true });
+    if (result.status === 0 && result.stdout.trim()) {
+      return result.stdout.trim().split(/\r?\n/)[0].trim();
     }
   } catch {
     // Ignorar
   }
 
-  return { available: false, binPath: '', modelsDir: '' };
+  return '';
+}
+
+function detectWhisperFlags(binPath) {
+  const help = getWhisperHelp(binPath);
+  const outputFile = pickFlag(help, ['-of', '--output-file']);
+  const outputTxt = pickFlag(help, ['--output-txt', '-otxt']);
+  const outputSrt = pickFlag(help, ['--output-srt', '-osrt']);
+  const printProgress = pickFlag(help, ['--print-progress', '-pp'], { required: false });
+
+  if (!outputFile || !outputTxt || !outputSrt) {
+    throw new Error(
+      'whisper.cpp instalado nao expoe flags de saida compativeis.\n' +
+      'Atualize o whisper.cpp com: npm run whisper:install'
+    );
+  }
+
+  return {
+    outputFile,
+    outputTxt,
+    outputSrt,
+    printProgress,
+  };
+}
+
+function getWhisperHelp(binPath) {
+  try {
+    const result = spawnSync(binPath, ['--help'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 15000,
+    });
+    return `${result.stdout || ''}\n${result.stderr || ''}`;
+  } catch {
+    return '';
+  }
+}
+
+function pickFlag(help, flags, { required = true } = {}) {
+  for (const flag of flags) {
+    if (help.includes(flag)) {
+      return flag;
+    }
+  }
+
+  return required ? flags[0] : '';
 }
 
 /**
@@ -74,19 +173,47 @@ function resolveModelPath(model, modelsDir) {
   }
 
   const envModel = process.env.WHISPER_MODEL_PATH;
-  if (envModel && fs.existsSync(envModel)) {
-    return envModel;
+  if (envModel) {
+    if (isModelFileReady(envModel, model)) {
+      return envModel;
+    }
+
+    throw new Error(
+      `Modelo definido em WHISPER_MODEL_PATH parece incompleto: ${envModel}\n` +
+      `Execute: npm run whisper:install`
+    );
   }
 
   const vendorPath = path.join(modelsDir, fileName);
-  if (fs.existsSync(vendorPath)) {
+  if (isModelFileReady(vendorPath, model)) {
     return vendorPath;
+  }
+
+  if (fs.existsSync(vendorPath)) {
+    throw new Error(
+      `Modelo ${model} encontrado, mas parece incompleto: ${vendorPath}\n` +
+      `Execute: npm run whisper:install`
+    );
   }
 
   throw new Error(
     `Modelo ${model} nao encontrado em: ${vendorPath}\n` +
     `Execute: npm run whisper:install`
   );
+}
+
+function isModelFileReady(modelPath, model) {
+  if (!modelPath || !fs.existsSync(modelPath)) {
+    return false;
+  }
+
+  const minSize = MODEL_MIN_SIZE[model] || 0;
+  if (minSize <= 0) {
+    return true;
+  }
+
+  const stat = fs.statSync(modelPath);
+  return stat.isFile() && stat.size > minSize;
 }
 
 /**
@@ -126,21 +253,23 @@ export async function transcribeWithCpp({
   onLog?.(`[whisper-cpp] Modelo: ${model} (${path.basename(modelPath)})`);
   onLog?.(`[whisper-cpp] Binario: ${binPath}`);
 
+  const cliFlags = detectWhisperFlags(binPath);
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'whisper-out-'));
 
-  // Algumas builds do whisper-cli nao suportam --output-dir.
-  // -of/--output-file define o caminho base e funciona nesta instalacao.
   const outputBase = path.join(tmpDir, path.basename(audioPath, path.extname(audioPath)));
   const args = [
     '-m', modelPath,
     '-f', audioPath,
     '-l', language,
     '-t', String(threads),
-    '-of', outputBase,
-    '--output-txt',
-    '--output-srt',
-    '--print-progress',
+    cliFlags.outputFile, outputBase,
+    cliFlags.outputTxt,
+    cliFlags.outputSrt,
   ];
+
+  if (cliFlags.printProgress) {
+    args.push(cliFlags.printProgress);
+  }
 
   onLog?.(`[whisper-cpp] Iniciando transcricao...`);
   onLog?.(`[whisper-cpp] Args: whisper ${args.join(' ')}`);
@@ -198,7 +327,7 @@ function spawnWhisper(binPath, args, { signal, onProgress, onLog }) {
   try {
     child = spawn(binPath, args, {
       windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
   } catch (err) {
     return {

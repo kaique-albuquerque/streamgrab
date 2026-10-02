@@ -21,10 +21,11 @@ import { ffmpegService } from '../ffmpeg/service.js';
  * @param {string} [params.outputDir] - Diretorio para arquivo temporario
  * @param {AbortSignal} [params.signal] - Sinal de cancelamento
  * @param {Function} [params.onLog] - Callback para mensagens de log
+ * @param {Function} [params.onProgress] - Callback de progresso
  * @returns {Promise<{ audioPath: string, cleanup: () => Promise<void> }>}
  * @throws {Error} Se o video nao existir ou nao tiver audio
  */
-export async function extractAudio({ videoPath, outputDir, signal, onLog }) {
+export async function extractAudio({ videoPath, outputDir, signal, onLog, onProgress }) {
   if (!videoPath || !fs.existsSync(videoPath)) {
     throw new Error(`Arquivo de video nao encontrado: ${videoPath}`);
   }
@@ -38,22 +39,58 @@ export async function extractAudio({ videoPath, outputDir, signal, onLog }) {
     const args = [
       '-hide_banner',
       '-loglevel', 'error',
-      '-nostats',
       '-y',
       '-i', videoPath,
       '-vn',
       '-acodec', 'pcm_s16le',
       '-ar', '16000',
       '-ac', '1',
+      '-progress', 'pipe:1',
+      '-nostats',
       audioPath,
     ];
 
-    const { promise } = ffmpegService.run({ args, signal });
+    const durationSeconds = await getAudioDuration(videoPath);
+    let lastPercent = 0;
+    onProgress?.({
+      stage: 'extracting',
+      percent: 0,
+      elapsed: 0,
+      total: durationSeconds,
+    });
+    const { promise } = ffmpegService.run({
+      args,
+      signal,
+      onProgress: ({ key, value }) => {
+        if (!durationSeconds) return;
+
+        const elapsedSeconds = parseFfmpegProgressSeconds(key, value);
+        if (!Number.isFinite(elapsedSeconds)) return;
+
+        const percent = Math.max(0, Math.min(100, Math.round((elapsedSeconds / durationSeconds) * 100)));
+        if (percent > lastPercent || percent === 100) {
+          lastPercent = percent;
+          onProgress?.({
+            stage: 'extracting',
+            percent,
+            elapsed: elapsedSeconds,
+            total: durationSeconds,
+          });
+        }
+      },
+    });
     const result = await promise;
 
     if (!result.ok) {
       throw new Error(result.error || result.stderr || 'Falha na extracao de audio');
     }
+
+    onProgress?.({
+      stage: 'extracting',
+      percent: 100,
+      elapsed: durationSeconds,
+      total: durationSeconds,
+    });
 
     if (!fs.existsSync(audioPath)) {
       throw new Error('Arquivo de audio nao foi gerado pelo FFmpeg');
@@ -88,6 +125,31 @@ export async function extractAudio({ videoPath, outputDir, signal, onLog }) {
     cleanupFileSync(audioPath);
     throw err;
   }
+}
+
+function parseFfmpegProgressSeconds(key, value) {
+  if (key === 'out_time_ms' || key === 'out_time_us') {
+    return Number(value) / 1_000_000;
+  }
+
+  if (key === 'out_time') {
+    return parseTimeToSeconds(value);
+  }
+
+  return NaN;
+}
+
+function parseTimeToSeconds(timeStr) {
+  if (!timeStr || typeof timeStr !== 'string') return NaN;
+
+  const [time, fraction = '0'] = timeStr.split('.');
+  const parts = time.split(':').map((part) => Number.parseInt(part, 10));
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+    return NaN;
+  }
+
+  const [hours, minutes, seconds] = parts;
+  return (hours * 3600) + (minutes * 60) + seconds + (Number(`0.${fraction}`) || 0);
 }
 
 /**

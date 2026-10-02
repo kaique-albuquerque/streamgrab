@@ -139,6 +139,12 @@ export async function transcribeVideo({
     videoPath,
     signal,
     onLog,
+    onProgress: (progress) => {
+      onProgress?.({
+        stage: 'extracting',
+        ...progress,
+      });
+    },
   });
 
   try {

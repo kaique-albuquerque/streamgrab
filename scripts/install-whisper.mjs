@@ -43,7 +43,7 @@ if (process.env.WHISPER_SKIP_DOWNLOAD === '1') {
 }
 
 if (isLocalWhisperReady()) {
-  console.log(`[whisper] J instalado: ${BIN_PATH}`);
+  console.log(`[whisper] Ja instalado: ${BIN_PATH}`);
   console.log(`[whisper] Modelos: ${listInstalledModels().join(', ')}`);
   process.exit(0);
 }
@@ -57,8 +57,8 @@ try {
   // Etapa 2: Baixar modelos
   await downloadModels();
 
-  // Etapa 3: Criar marker de instalao
-  fs.writeFileSync(INSTALLED_MARKER, new Date().toISOString());
+  // Etapa 3: Criar marker de instalacao
+  writeInstalledMarker();
 
   console.log('\n[whisper]  Instalao concluda com sucesso!');
   console.log(`[whisper] Binrio: ${BIN_PATH}`);
@@ -76,14 +76,57 @@ try {
 // ---------------------------------------------------------------------------
 
 function isLocalWhisperReady() {
-  return fs.existsSync(BIN_PATH) && fs.existsSync(INSTALLED_MARKER);
+  if (!fs.existsSync(BIN_PATH) || !fs.existsSync(INSTALLED_MARKER)) {
+    return false;
+  }
+
+  const marker = readInstalledMarker();
+  if (!marker) {
+    return false;
+  }
+
+  return (
+    marker.platform === process.platform &&
+    marker.arch === os.arch() &&
+    marker.bin === BIN_NAME &&
+    MODELS.every((model) => isModelReady(model))
+  );
 }
 
 function listInstalledModels() {
   if (!fs.existsSync(MODELS_DIR)) return [];
   return MODELS
-    .filter((m) => fs.existsSync(path.join(MODELS_DIR, m.name)))
+    .filter((m) => isModelReady(m))
     .map((m) => m.label);
+}
+
+function readInstalledMarker() {
+  try {
+    const raw = fs.readFileSync(INSTALLED_MARKER, 'utf8');
+    const marker = JSON.parse(raw);
+    if (!marker || typeof marker !== 'object') return null;
+    return marker;
+  } catch {
+    return null;
+  }
+}
+
+function writeInstalledMarker() {
+  const marker = {
+    installedAt: new Date().toISOString(),
+    platform: process.platform,
+    arch: os.arch(),
+    bin: BIN_NAME,
+    models: listInstalledModels(),
+  };
+  fs.writeFileSync(INSTALLED_MARKER, `${JSON.stringify(marker, null, 2)}\n`);
+}
+
+function isModelReady(model) {
+  const modelPath = path.join(MODELS_DIR, model.name);
+  if (!fs.existsSync(modelPath)) return false;
+  const stat = fs.statSync(modelPath);
+  return stat.size > model.size * 0.9;
 }
 
 /**
@@ -119,9 +162,7 @@ async function buildBinary() {
 
     // Configurar com cmake
     console.log(`[whisper] Configurando com cmake...`);
-    const cmakeArgs = process.platform === 'win32'
-      ? ['-G', 'Visual Studio 17 2022', '-A', 'x64']
-      : [];
+    const cmakeArgs = getCmakeConfigureArgs();
     const cmakeResult = spawnSync('cmake', [
       ...cmakeArgs,
       '-DWHISPER_BUILD_TESTS=OFF',
@@ -180,21 +221,12 @@ async function buildBinary() {
 function checkBuildDependencies() {
   const missing = [];
 
-  // Verificar git
-  const gitResult = spawnSync('git', ['--version'], { encoding: 'utf8', windowsHide: true });
-  if (gitResult.status !== 0) missing.push('git');
-
-  // Verificar cmake
-  const cmakeResult = spawnSync('cmake', ['--version'], { encoding: 'utf8', windowsHide: true });
-  if (cmakeResult.status !== 0) missing.push('cmake');
+  if (!hasCommand('git', ['--version'])) missing.push('git');
+  if (!hasCommand('cmake', ['--version'])) missing.push('cmake');
 
   if (process.platform === 'win32') {
     // No Windows, verificar MSVC (cl.exe) ou MinGW
-    const clResult = spawnSync('where', ['cl.exe'], { encoding: 'utf8', windowsHide: true });
-    const msbuildResult = spawnSync('where', ['msbuild'], { encoding: 'utf8', windowsHide: true });
-
-    // Verificar tambm nos caminhos padro do Visual Studio Build Tools
-    let msbuildFound = clResult.status === 0 || msbuildResult.status === 0;
+    let msbuildFound = hasCommand('cl.exe') || hasCommand('msbuild');
     if (!msbuildFound) {
       // Procurar em locais conhecidos do VS Build Tools
       const vsPaths = [
@@ -215,19 +247,18 @@ function checkBuildDependencies() {
     if (!msbuildFound) {
       missing.push('Visual Studio Build Tools ou MSVC');
     }
-  } else {
-    // No Linux/Mac, verificar gcc
-    const gccResult = spawnSync('gcc', ['--version'], { encoding: 'utf8', windowsHide: true });
-    if (gccResult.status !== 0) missing.push('gcc/g++');
-  }
+  } else if (process.platform === 'darwin') {
+    const hasXcodeCli = hasCommand('xcode-select', ['--print-path']);
+    const hasClang = hasCommand('clang', ['--version']);
+    const hasCxx = hasAnyCommand(['clang++', 'c++'], ['--version']);
 
-  // Se faltar algo, tentar instalar automaticamente no Linux/Mac
-  if (missing.length > 0 && process.platform !== 'win32') {
-    console.log(`[whisper] Dependncias faltando: ${missing.join(', ')}`);
-    console.log('[whisper] Tentando instalar automaticamente...');
-    autoInstallDeps(missing);
-    // Re-verificar aps instalao
-    return checkBuildDependencies();
+    if (!hasXcodeCli && (!hasClang || !hasCxx)) {
+      missing.push('Xcode Command Line Tools ou clang/clang++');
+    }
+  } else {
+    const hasCc = hasAnyCommand(['gcc', 'cc'], ['--version']);
+    const hasCxx = hasAnyCommand(['g++', 'c++'], ['--version']);
+    if (!hasCc || !hasCxx) missing.push('gcc/g++ ou cc/c++');
   }
 
   if (missing.length > 0) {
@@ -238,6 +269,58 @@ function checkBuildDependencies() {
       'Mac: xcode-select --install && brew install cmake\n' +
       '\nAlternativa: npm install @xenova/transformers'
     );
+  }
+}
+
+function hasAnyCommand(commands, args = []) {
+  return commands.some((command) => hasCommand(command, args));
+}
+
+function hasCommand(command, args = []) {
+  if (args.length > 0) {
+    const result = spawnSync(command, args, { encoding: 'utf8', windowsHide: true });
+    return result.status === 0;
+  }
+
+  const which = process.platform === 'win32' ? 'where' : 'which';
+  const result = spawnSync(which, [command], { encoding: 'utf8', windowsHide: true });
+  return result.status === 0;
+}
+
+function getCmakeConfigureArgs() {
+  if (process.platform !== 'win32') {
+    return [];
+  }
+
+  if (hasCommand('ninja', ['--version'])) {
+    return ['-G', 'Ninja'];
+  }
+
+  const arch = getWindowsCmakeArch();
+  const generators = getCmakeGenerators();
+
+  if (generators.includes('Visual Studio 17 2022')) {
+    return ['-G', 'Visual Studio 17 2022', '-A', arch];
+  }
+
+  if (generators.includes('Visual Studio 16 2019')) {
+    return ['-G', 'Visual Studio 16 2019', '-A', arch];
+  }
+
+  return [];
+}
+
+function getWindowsCmakeArch() {
+  if (process.arch === 'arm64') return 'ARM64';
+  return 'x64';
+}
+
+function getCmakeGenerators() {
+  try {
+    const result = spawnSync('cmake', ['--help'], { encoding: 'utf8', windowsHide: true });
+    return `${result.stdout || ''}\n${result.stderr || ''}`;
+  } catch {
+    return '';
   }
 }
 

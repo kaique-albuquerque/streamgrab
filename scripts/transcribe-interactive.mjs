@@ -125,13 +125,14 @@ const { transcribeVideo } = await import('../src/transcribe/index.js');
 const startedAt = Date.now();
 let progressActive = false;
 
-function renderProgress(percent) {
+function renderProgress(percent, stage = 'transcribing') {
   const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
   const width = 28;
   const filled = Math.round((safePercent / 100) * width);
   const bar = '#'.repeat(filled).padEnd(width, '-');
+  const label = stage === 'extracting' ? 'Extraindo audio' : 'Transcrevendo';
   progressActive = true;
-  process.stdout.write(`\r   Transcrevendo [${bar}] ${String(safePercent).padStart(3, ' ')}%`);
+  process.stdout.write(`\r   ${label} [${bar}] ${String(safePercent).padStart(3, ' ')}%`);
 }
 
 function clearProgressLine() {
@@ -145,9 +146,9 @@ try {
     videoPath,
     language: lang,
     formats: ['txt', 'srt'],
-    onProgress: ({ percent }) => {
+    onProgress: ({ stage, percent }) => {
       if (percent !== undefined) {
-        renderProgress(percent);
+        renderProgress(percent, stage);
       }
     },
     onLog: (msg) => {
