@@ -31,7 +31,7 @@
   ],
   "scripts": {
     "analyze": "node bin/streamgrab.mjs analyze",
-    "audit": "npm audit --omit=dev 2>&1 || echo '[audit] Vulnerabilities found — review above'",
+    "audit": "npm audit --omit=dev 2>&1 || echo '[audit] Vulnerabilities found  review above'",
     "curl:install": "node scripts/install-curl-impersonate.mjs",
     "dist": "npm run pack:resources && electron-builder --win",
     "dist:dir": "npm run pack:resources && electron-builder --win --dir",
@@ -47,12 +47,9 @@
     "download:turbo": "node src/index.js --turbo",
     "download:turbo:smart": "node src/index.js --turbo --smart-turbo",
     "download:youtube": "node src/index.js --youtube",
-    "test:transcribe": "node scripts/test-transcribe.mjs",
-    "transcribe": "node scripts/transcribe-interactive.mjs",
     "electron:dev": "electron .",
     "electron:install": "node scripts/install-electron.mjs",
     "ffmpeg:install": "node scripts/install-ffmpeg.mjs",
-    "whisper:install": "node scripts/install-whisper.mjs",
     "format": "prettier --write .",
     "git": "node scripts/git-menu.mjs",
     "git:workflow": "node scripts/git-workflow.mjs",
@@ -64,8 +61,11 @@
     "test": "node --experimental-test-module-mocks --test \"tests/unit/*.test.js\" \"tests/integration/*.test.js\" && node tests/e2e/curl-e2e.mjs",
     "test:e2e": "node tests/e2e/curl-e2e.mjs",
     "test:integration": "node --experimental-test-module-mocks --test \"tests/integration/*.test.js\"",
+    "test:transcribe": "node scripts/test-transcribe.mjs",
     "test:unit": "node --experimental-test-module-mocks --test \"tests/unit/*.test.js\"",
-    "update:ytdlp": "node scripts/update-ytdlp.mjs"
+    "transcribe": "node scripts/transcribe-interactive.mjs",
+    "update:ytdlp": "node scripts/update-ytdlp.mjs",
+    "whisper:install": "node scripts/install-whisper.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -104,3 +104,4 @@
     "electron@37.10.3": true
   }
 }
+

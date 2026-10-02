@@ -1,31 +1,22 @@
 /**
- * Fallback: transcrição via @xenova/transformers (Node.js puro).
+ * Fallback: transcricao via @xenova/transformers (Node.js puro).
  *
- * Usa o pacote @xenova/transformers para transcrever áudio sem
- * necessidade de binário externo (whisper.cpp). Mais lento que
+ * Usa o pacote @xenova/transformers para transcrever audio sem
+ * necessidade de binario externo (whisper.cpp). Mais lento que
  * o whisper.cpp, mas funciona em qualquer ambiente com Node.js.
- *
- * Uso:
- *   const result = await transcribeWithTransformers({ audioPath, language: 'pt' });
- *   console.log(result.text); // Texto transcrito
- *
- * Nota: O pacote @xenova/transformers precisa estar instalado.
- *       npm install @xenova/transformers
  */
 import fs from 'node:fs';
-import path from 'node:path';
 
-// Modelo único: small — bom equilíbrio qualidade/velocidade
+// Modelo unico: small
 const MODEL_MAP = {
   small: 'Xenova/whisper-small',
 };
 
-// Cache do transcriber para evitar recarregar o modelo
 let cachedTranscriber = null;
 let cachedModelId = null;
 
 /**
- * Verifica se @xenova/transformers está disponível.
+ * Verifica se @xenova/transformers esta disponivel.
  *
  * @returns {Promise<boolean>}
  */
@@ -39,15 +30,15 @@ export async function checkTransformers() {
 }
 
 /**
- * Transcreve áudio usando @xenova/transformers.
+ * Transcreve audio usando @xenova/transformers.
  *
  * @param {object} params
- * @param {string} params.audioPath — Caminho do arquivo de áudio
- * @param {string} [params.language='pt'] — Código do idioma (pt, en, es, etc.)
- * @param {string} [params.model='small'] — Modelo (tiny, base, small, medium)
- * @param {AbortSignal} [params.signal] — Sinal de cancelamento
- * @param {Function} [params.onProgress] — Callback de progresso
- * @param {Function} [params.onLog] — Callback de log
+ * @param {string} params.audioPath - Caminho do arquivo de audio
+ * @param {string} [params.language='pt'] - Codigo do idioma
+ * @param {string} [params.model='small'] - Modelo
+ * @param {AbortSignal} [params.signal] - Sinal de cancelamento
+ * @param {Function} [params.onProgress] - Callback de progresso
+ * @param {Function} [params.onLog] - Callback de log
  * @returns {Promise<{ text: string, segments: Array, durationMs: number }>}
  */
 export async function transcribeWithTransformers({
@@ -61,36 +52,31 @@ export async function transcribeWithTransformers({
   const startedAt = Date.now();
 
   if (!fs.existsSync(audioPath)) {
-    throw new Error(`Arquivo de áudio não encontrado: ${audioPath}`);
+    throw new Error(`Arquivo de audio nao encontrado: ${audioPath}`);
   }
 
-  // Verificar se o pacote está disponível
   const available = await checkTransformers();
   if (!available) {
     throw new Error(
-      '@xenova/transformers não encontrado.\n' +
+      '@xenova/transformers nao encontrado.\n' +
       'Execute: npm install @xenova/transformers\n' +
       'Ou instale o whisper.cpp: npm run whisper:install'
     );
   }
 
-  // Resolver modelo
   const modelId = MODEL_MAP[model];
   if (!modelId) {
-    throw new Error(`Modelo desconhecido: ${model}. Opções: ${Object.keys(MODEL_MAP).join(', ')}`);
+    throw new Error(`Modelo desconhecido: ${model}. Opcoes: ${Object.keys(MODEL_MAP).join(', ')}`);
   }
 
   onLog?.(`[whisper-transformers] Modelo: ${model} (${modelId})`);
 
   try {
-    // Importar dinamicamente
     const { pipeline, env } = await import('@xenova/transformers');
 
-    // Configurar para não usar Remote Code (segurança)
     env.allowLocalModels = true;
     env.useBrowserCache = false;
 
-    // Carregar ou reutilizar transcriber
     if (cachedTranscriber && cachedModelId === modelId) {
       onLog?.(`[whisper-transformers] Reutilizando modelo em cache`);
     } else {
@@ -115,25 +101,23 @@ export async function transcribeWithTransformers({
       cachedModelId = modelId;
     }
 
-    onLog?.(`[whisper-transformers] Iniciando transcrição...`);
+    onLog?.(`[whisper-transformers] Iniciando transcricao...`);
 
-    // Executar transcrição
     const result = await cachedTranscriber(audioPath, {
       language,
       task: 'transcribe',
       return_timestamps: true,
+      signal,
     });
 
     const durationMs = Date.now() - startedAt;
-    onLog?.(`[whisper-transformers] Transcrição concluída em ${formatElapsed(durationMs)}`);
+    onLog?.(`[whisper-transformers] Transcricao concluida em ${formatElapsed(durationMs)}`);
 
-    // Processar resultado
     const text = result.text || '';
     const segments = extractSegments(result);
 
     return { text, segments, durationMs };
   } catch (err) {
-    // Limpar cache em caso de erro
     cachedTranscriber = null;
     cachedModelId = null;
     throw err;
@@ -143,7 +127,7 @@ export async function transcribeWithTransformers({
 /**
  * Extrai segmentos do resultado do transformers.
  *
- * @param {object} result — Resultado do pipeline
+ * @param {object} result - Resultado do pipeline
  * @returns {Array<{ index: number, startMs: number, endMs: number, text: string }>}
  */
 function extractSegments(result) {

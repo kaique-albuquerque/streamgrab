@@ -1,28 +1,20 @@
 /**
- * Formatação de saída da transcrição.
+ * Formatacao de saida da transcricao.
  *
- * Converte o resultado do Whisper em arquivos de saída formatados:
+ * Converte o resultado do Whisper em arquivos de saida formatados:
  * - .txt: Texto puro (ideal para NotebookLM)
- * - .md: Texto com timestamps (para referência)
- * - .srt: Legendas SRT (padrão Whisper)
- *
- * Uso:
- *   const files = await writeTranscription({
- *     videoPath: '/path/to/video.mp4',
- *     text: 'Texto transcrito...',
- *     segments: [...],
- *     formats: ['txt', 'md'],
- *   });
+ * - .md: Texto com timestamps (para referencia)
+ * - .srt: Legendas SRT
  */
 import fs from 'node:fs';
 import path from 'node:path';
 
 /**
- * Gera texto puro formatado (para NotebookLM).
+ * Gera texto puro formatado.
  *
  * @param {object} params
- * @param {string} params.text — Texto branco da transcrição
- * @param {string} [params.title] — Título do documento
+ * @param {string} params.text - Texto bruto da transcricao
+ * @param {string} [params.title] - Titulo do documento
  * @returns {string} Texto formatado
  */
 export function formatTxt({ text, title }) {
@@ -31,18 +23,18 @@ export function formatTxt({ text, title }) {
     lines.push(title);
     lines.push('');
   }
-  // Limpar e formatar texto
+
   const cleanText = cleanTranscriptionText(text);
   lines.push(cleanText);
   return lines.join('\n').trim() + '\n';
 }
 
 /**
- * Gera Markdown com timestamps (para referência).
+ * Gera Markdown com timestamps.
  *
  * @param {object} params
- * @param {Array} params.segments — Segmentos da transcrição
- * @param {string} [params.title] — Título do documento
+ * @param {Array} params.segments - Segmentos da transcricao
+ * @param {string} [params.title] - Titulo do documento
  * @returns {string} Markdown formatado
  */
 export function formatMd({ segments, title }) {
@@ -53,7 +45,7 @@ export function formatMd({ segments, title }) {
   }
 
   if (!segments || segments.length === 0) {
-    lines.push('*Nenhum segmento com timestamps disponível.*');
+    lines.push('*Nenhum segmento com timestamps disponivel.*');
     return lines.join('\n') + '\n';
   }
 
@@ -67,7 +59,6 @@ export function formatMd({ segments, title }) {
 
     if (!text) continue;
 
-    // Nova linha a cada minuto ou quebra de parágrafo
     if (minute !== lastMinute && lastParagraph.length > 0) {
       lines.push(`**[${lastParagraph[0].timestamp}]** ${lastParagraph.map((s) => s.text).join(' ')}`);
       lines.push('');
@@ -78,7 +69,6 @@ export function formatMd({ segments, title }) {
     lastMinute = minute;
   }
 
-  // Último parágrafo
   if (lastParagraph.length > 0) {
     lines.push(`**[${lastParagraph[0].timestamp}]** ${lastParagraph.map((s) => s.text).join(' ')}`);
   }
@@ -87,14 +77,14 @@ export function formatMd({ segments, title }) {
 }
 
 /**
- * Salva arquivos de transcrição ao lado do vídeo.
+ * Salva arquivos de transcricao ao lado do video.
  *
  * @param {object} params
- * @param {string} params.videoPath — Caminho do vídeo original
- * @param {string} params.text — Texto da transcrição
- * @param {Array} params.segments — Segmentos com timestamps
- * @param {string} [params.title] — Título do documento
- * @param {string[]} [params.formats=['txt', 'md']] — Formatos de saída
+ * @param {string} params.videoPath - Caminho do video original
+ * @param {string} params.text - Texto da transcricao
+ * @param {Array} params.segments - Segmentos com timestamps
+ * @param {string} [params.title] - Titulo do documento
+ * @param {string[]} [params.formats=['txt', 'md']] - Formatos de saida
  * @returns {Promise<{ files: Array<{ path: string, format: string, size: number }> }>}
  */
 export async function writeTranscription({
@@ -120,7 +110,7 @@ export async function writeTranscription({
     } else if (format === 'srt') {
       content = formatSrt({ segments });
     } else {
-      continue; // Formato não suportado
+      continue;
     }
 
     fs.writeFileSync(filePath, content, 'utf8');
@@ -140,8 +130,8 @@ export async function writeTranscription({
  * Gera SRT a partir dos segmentos.
  *
  * @param {object} params
- * @param {Array} params.segments — Segmentos da transcrição
- * @returns {string} Conteúdo SRT
+ * @param {Array} params.segments - Segmentos da transcricao
+ * @returns {string} Conteudo SRT
  */
 export function formatSrt({ segments }) {
   if (!segments || segments.length === 0) return '';
@@ -156,53 +146,28 @@ export function formatSrt({ segments }) {
   return lines.join('\n').trim() + '\n';
 }
 
-// ---------------------------------------------------------------------------
-// Funções auxiliares
-// ---------------------------------------------------------------------------
-
-/**
- * Limpa artefatos de transcrição do texto.
- *
- * @param {string} text
- * @returns {string}
- */
 function cleanTranscriptionText(text) {
   if (!text) return '';
   return text
-    // Remover marcações de áudio
-    .replace(/\[(?:Música|Music|Música de fundo|Background music)\]/gi, '')
+    .replace(/\[(?:Musica|Music|Musica de fundo|Background music)\]/gi, '')
     .replace(/\[(?:Risadas|Laughter|Laughing)\]/gi, '')
     .replace(/\[(?:Aplausos|Applause)\]/gi, '')
-    .replace(/\[(?:Silêncio|Silence)\]/gi, '')
+    .replace(/\[(?:Silencio|Silence)\]/gi, '')
     .replace(/\[(?:Apito|Whistle)\]/gi, '')
-    // Remover timestamps SRT que possam ter vazado
     .replace(/\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[,.]\d{3}/g, '')
-    // Limpar espaços extras
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
 
-/**
- * Limpa texto de um segmento.
- *
- * @param {string} text
- * @returns {string}
- */
 function cleanSegmentText(text) {
   if (!text) return '';
   return text
-    .replace(/\[(?:Música|Music)\]/gi, '')
+    .replace(/\[(?:Musica|Music)\]/gi, '')
     .replace(/\[(?:Risadas|Laughter)\]/gi, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
 
-/**
- * Formata timestamp em milissegundos para MM:SS.
- *
- * @param {number} ms — Milissegundos
- * @returns {string} Timestamp formatado
- */
 function formatTimestamp(ms) {
   if (!ms || ms < 0) return '00:00';
   const totalSeconds = Math.floor(ms / 1000);
@@ -211,12 +176,6 @@ function formatTimestamp(ms) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-/**
- * Formata timestamp em milissegundos para SRT (HH:MM:SS,mmm).
- *
- * @param {number} ms — Milissegundos
- * @returns {string} Timestamp SRT
- */
 function formatSrtTime(ms) {
   if (!ms || ms < 0) return '00:00:00,000';
   const hours = Math.floor(ms / 3_600_000);
@@ -232,14 +191,13 @@ function formatSrtTime(ms) {
 }
 
 /**
- * Obtém um título legível a partir do nome do arquivo de vídeo.
+ * Obtem um titulo legivel a partir do nome do arquivo de video.
  *
- * @param {string} videoPath — Caminho do vídeo
- * @returns {string} Título formatado
+ * @param {string} videoPath - Caminho do video
+ * @returns {string} Titulo formatado
  */
 export function titleFromVideoPath(videoPath) {
   const base = path.basename(videoPath, path.extname(videoPath));
-  // Substituir underscores e hífens por espaços
   return base.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 

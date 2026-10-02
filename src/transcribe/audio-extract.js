@@ -1,13 +1,12 @@
 /**
- * Extração de áudio para transcrição.
+ * Extracao de audio para transcricao.
  *
- * Extrai áudio de um vídeo em formato WAV 16kHz mono (ideal para Whisper).
- * Usa o FfmpegService existente para consistência com o resto do projeto.
+ * Extrai audio de um video em formato WAV 16kHz mono (ideal para Whisper).
+ * Usa o FfmpegService existente para consistencia com o resto do projeto.
  *
  * Uso:
  *   const { audioPath, cleanup } = await extractAudio({ videoPath });
- *   // ... usar audioPath ...
- *   await cleanup(); // limpar arquivo temporário
+ *   await cleanup(); // limpar arquivo temporario
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -15,69 +14,64 @@ import path from 'node:path';
 import { ffmpegService } from '../ffmpeg/service.js';
 
 /**
- * Extrai áudio de um vídeo para WAV 16kHz mono.
+ * Extrai audio de um video para WAV 16kHz mono.
  *
  * @param {object} params
- * @param {string} params.videoPath — Caminho do vídeo de entrada
- * @param {string} [params.outputDir] — Diretório para arquivo temporário (default: os.tmpdir())
- * @param {AbortSignal} [params.signal] — Sinal de cancelamento
- * @param {Function} [params.onLog] — Callback para mensagens de log
+ * @param {string} params.videoPath - Caminho do video de entrada
+ * @param {string} [params.outputDir] - Diretorio para arquivo temporario
+ * @param {AbortSignal} [params.signal] - Sinal de cancelamento
+ * @param {Function} [params.onLog] - Callback para mensagens de log
  * @returns {Promise<{ audioPath: string, cleanup: () => Promise<void> }>}
- * @throws {Error} Se o vídeo não existir ou não tiver áudio
+ * @throws {Error} Se o video nao existir ou nao tiver audio
  */
 export async function extractAudio({ videoPath, outputDir, signal, onLog }) {
   if (!videoPath || !fs.existsSync(videoPath)) {
-    throw new Error(`Arquivo de vídeo não encontrado: ${videoPath}`);
+    throw new Error(`Arquivo de video nao encontrado: ${videoPath}`);
   }
 
   const tmpDir = outputDir || fs.mkdtempSync(path.join(os.tmpdir(), 'sg-audio-'));
   const audioPath = path.join(tmpDir, `audio_${Date.now()}.wav`);
 
-  onLog?.(`[audio-extract] Extraindo áudio de: ${path.basename(videoPath)}`);
+  onLog?.(`[audio-extract] Extraindo audio de: ${path.basename(videoPath)}`);
 
   try {
-    // Comando FFmpeg para extrair áudio WAV 16kHz mono
     const args = [
       '-hide_banner',
       '-loglevel', 'error',
       '-nostats',
-      '-y', // Sobrescrever se existir
+      '-y',
       '-i', videoPath,
-      '-vn', // Sem vídeo
-      '-acodec', 'pcm_s16le', // PCM 16-bit (formato nativo do Whisper)
-      '-ar', '16000', // 16kHz (padrão Whisper)
-      '-ac', '1', // Mono
+      '-vn',
+      '-acodec', 'pcm_s16le',
+      '-ar', '16000',
+      '-ac', '1',
       audioPath,
     ];
 
-    // ffmpegService.run() retorna { promise, stop, child }
     const { promise } = ffmpegService.run({ args, signal });
     const result = await promise;
 
     if (!result.ok) {
-      throw new Error(result.error || result.stderr || 'Falha na extração de áudio');
+      throw new Error(result.error || result.stderr || 'Falha na extracao de audio');
     }
 
-    // Verificar se o arquivo foi gerado
     if (!fs.existsSync(audioPath)) {
-      throw new Error('Arquivo de áudio não foi gerado pelo FFmpeg');
+      throw new Error('Arquivo de audio nao foi gerado pelo FFmpeg');
     }
 
     const stat = fs.statSync(audioPath);
     if (stat.size === 0) {
-      throw new Error('Arquivo de áudio gerado está vazio (vídeo pode não ter áudio)');
+      throw new Error('Arquivo de audio gerado esta vazio (video pode nao ter audio)');
     }
 
-    onLog?.(`[audio-extract] Áudio extraído: ${formatSize(stat.size)}`);
+    onLog?.(`[audio-extract] Audio extraido: ${formatSize(stat.size)}`);
 
-    // Função de limpeza
     const cleanup = async () => {
       try {
         if (fs.existsSync(audioPath)) {
           fs.unlinkSync(audioPath);
-          onLog?.(`[audio-extract] Arquivo temporário removido: ${path.basename(audioPath)}`);
+          onLog?.(`[audio-extract] Arquivo temporario removido: ${path.basename(audioPath)}`);
         }
-        // Tentar remover o diretório temporário se estiver vazio
         if (tmpDir !== outputDir && fs.existsSync(tmpDir)) {
           const remaining = fs.readdirSync(tmpDir);
           if (remaining.length === 0) {
@@ -85,20 +79,19 @@ export async function extractAudio({ videoPath, outputDir, signal, onLog }) {
           }
         }
       } catch (err) {
-        onLog?.(`[audio-extract] Aviso: falha ao limpar temporário: ${err.message}`);
+        onLog?.(`[audio-extract] AVISO: falha ao limpar temporario: ${err.message}`);
       }
     };
 
     return { audioPath, cleanup };
   } catch (err) {
-    // Limpar arquivo parcial em caso de erro
     cleanupFileSync(audioPath);
     throw err;
   }
 }
 
 /**
- * Verifica se um arquivo de vídeo tem áudio.
+ * Verifica se um arquivo de video tem audio.
  *
  * @param {string} videoPath
  * @returns {Promise<boolean>}
@@ -122,10 +115,10 @@ export async function hasAudio(videoPath) {
 }
 
 /**
- * Obtém a duração do áudio em segundos.
+ * Obtem a duracao do audio em segundos.
  *
- * @param {string} audioPath — Caminho do arquivo de áudio/vídeo
- * @returns {Promise<number>} Duração em segundos, ou 0 se não conseguir detectar
+ * @param {string} audioPath - Caminho do arquivo de audio/video
+ * @returns {Promise<number>} Duracao em segundos, ou 0 se nao conseguir detectar
  */
 export async function getAudioDuration(audioPath) {
   try {
@@ -149,10 +142,6 @@ export async function getAudioDuration(audioPath) {
   }
   return 0;
 }
-
-// ---------------------------------------------------------------------------
-// Funções auxiliares
-// ---------------------------------------------------------------------------
 
 function cleanupFileSync(filePath) {
   try {

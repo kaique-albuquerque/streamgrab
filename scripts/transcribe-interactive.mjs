@@ -1,9 +1,9 @@
-﻿/**
- * Script interativo de transcriÃ§Ã£o para testes via ntl.
+/**
+ * Script interativo de transcricao para testes via ntl.
  *
  * Uso: npm run transcribe
- * - Detecta vÃ­deos automaticamente em downloads/ e C:\Users\...\Downloads\
- * - Pede confirmaÃ§Ã£o antes de transcrever
+ * - Detecta videos automaticamente em downloads/ e C:\Users\...\Downloads\
+ * - Pede confirmacao antes de transcrever
  * - Mostra progresso e resultado
  */
 import fs from 'node:fs';
@@ -15,7 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DOWNLOADS_DIR = path.join(PROJECT_ROOT, 'downloads');
 
-// Pastas onde procurar vÃ­deos
+// Pastas onde procurar videos
 const SEARCH_DIRS = [
   DOWNLOADS_DIR,
   'C:\\Users\\Kaique Dias\\Downloads',
@@ -46,87 +46,79 @@ function findVideos() {
           return { name: f, path: full, sizeMB: (stat.size / 1e6).toFixed(1), mtime: stat.mtimeMs };
         })
         .sort((a, b) => b.mtime - a.mtime)
-        .slice(0, 5); // Ãšltimos 5 vÃ­deos
+        .slice(0, 5);
       videos.push(...files);
     } catch {}
   }
   return videos;
 }
 
-// Main
 console.log('');
-console.log('ðŸŽ¤ ========================================');
-console.log('   TRANSCRIÃ‡ÃƒO DE VÃDEO â€” StreamGrab');
-console.log('ðŸŽ¤ ========================================');
+console.log('[TRANSCRICAO DE VIDEO - StreamGrab]');
+console.log('========================================');
 console.log('');
 
-// 1. Verificar engine
 const { checkTranscriptionAvailable } = await import('../src/transcribe/index.js');
 const status = await checkTranscriptionAvailable();
 if (!status.available) {
-  console.error(`âŒ Engine nÃ£o disponÃ­vel: ${status.reason}`);
+  console.error(`ERRO: Engine nao disponivel: ${status.reason}`);
   process.exit(1);
 }
-console.log(`âœ… Engine: ${status.engine}`);
+console.log(`OK: Engine: ${status.engine}`);
 console.log('');
 
-// 2. Encontrar vÃ­deos
-console.log('ðŸ” Procurando vÃ­deos...');
+console.log('Procurando videos...');
 const videos = findVideos();
 
 if (videos.length === 0) {
   console.log('');
-  console.log('âš ï¸  Nenhum vÃ­deo encontrado nas pastas:');
+  console.log('AVISO: Nenhum video encontrado nas pastas:');
   for (const dir of SEARCH_DIRS) {
     console.log(`   - ${dir}`);
   }
   console.log('');
-  console.log('   Copie um vÃ­deo .mp4 para uma dessas pastas e tente novamente.');
+  console.log('   Copie um video .mp4 para uma dessas pastas e tente novamente.');
   process.exit(0);
 }
 
-// 3. Mostrar opÃ§Ãµes
 console.log('');
-console.log('ðŸ“¹ VÃ­deos encontrados:');
+console.log('Videos encontrados:');
 console.log('');
 for (let i = 0; i < videos.length; i++) {
   const v = videos[i];
   console.log(`   [${i + 1}] ${v.name} (${v.sizeMB} MB)`);
 }
 console.log('');
-console.log(`   [0] Digitar caminho manualmente`);
+console.log('   [0] Digitar caminho manualmente');
 console.log('');
 
-// 4. Selecionar vÃ­deo
-const choice = await ask('Selecionar vÃ­deo (nÃºmero): ');
+const choice = await ask('Selecionar video (numero): ');
 const index = parseInt(choice, 10) - 1;
 
 let videoPath = '';
 if (choice === '0') {
-  const manual = await ask('Caminho do vÃ­deo: ');
+  const manual = await ask('Caminho do video: ');
   videoPath = manual.replace(/"/g, '');
   if (!fs.existsSync(videoPath)) {
-    console.error(`âŒ Arquivo nÃ£o encontrado: ${videoPath}`);
+    console.error(`ERRO: Arquivo nao encontrado: ${videoPath}`);
     process.exit(1);
   }
 } else if (index >= 0 && index < videos.length) {
   videoPath = videos[index].path;
 } else {
-  console.error('âŒ OpÃ§Ã£o invÃ¡lida');
+  console.error('ERRO: Opcao invalida');
   process.exit(1);
 }
 
 console.log('');
-console.log(`ðŸ“¹ VÃ­deo: ${path.basename(videoPath)}`);
-console.log(`ðŸ“Š Tamanho: ${(fs.statSync(videoPath).size / 1e6).toFixed(1)} MB`);
+console.log(`Video: ${path.basename(videoPath)}`);
+console.log(`Tamanho: ${(fs.statSync(videoPath).size / 1e6).toFixed(1)} MB`);
 console.log('');
 
-// 5. Perguntar idioma
-const lang = await ask('Idioma (pt/en/es) [padrÃ£o: pt]: ') || 'pt';
+const lang = await ask('Idioma (pt/en/es) [padrao: pt]: ') || 'pt';
 console.log('');
 
-// 6. Transcrever
-console.log('ðŸŽ¤ Transcrevendo... (pode demorar alguns minutos)');
+console.log('Transcrevendo... (pode demorar alguns minutos)');
 console.log('');
 
 const { transcribeVideo } = await import('../src/transcribe/index.js');
@@ -159,7 +151,7 @@ try {
       }
     },
     onLog: (msg) => {
-      if (msg.includes('âœ…') || msg.includes('âš ï¸') || msg.includes('Etapa')) {
+      if (msg.includes('OK') || msg.includes('AVISO') || msg.includes('Etapa')) {
         clearProgressLine();
         console.log(`\n   ${msg}`);
       }
@@ -169,21 +161,21 @@ try {
   clearProgressLine();
   console.log('');
   console.log('');
-  console.log('âœ… TranscriÃ§Ã£o concluÃ­da!');
+  console.log('OK: Transcricao concluida!');
   console.log('');
-  console.log(`   â±ï¸  Tempo: ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
-  console.log(`   ðŸ”§ Engine: ${result.engine}`);
+  console.log(`   Tempo: ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
+  console.log(`   Engine: ${result.engine}`);
   console.log('');
-  console.log('   ðŸ“„ Arquivos gerados:');
+  console.log('   Arquivos gerados:');
   for (const file of result.files) {
     console.log(`      ${file.path}`);
   }
   console.log('');
-  console.log('ðŸ’¡ Cole o conteÃºdo do .txt no NotebookLM para estudar!');
+  console.log('Dica: Cole o conteudo do .txt no NotebookLM para estudar!');
   console.log('');
-
 } catch (err) {
+  clearProgressLine();
   console.error('');
-  console.error(`âŒ Erro: ${err.message}`);
+  console.error(`ERRO: ${err.message}`);
   process.exit(1);
 }

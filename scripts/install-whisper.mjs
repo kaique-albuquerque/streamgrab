@@ -1,15 +1,15 @@
 /**
- * Instala o whisper.cpp localmente em vendor/whisper/ (binário + modelos GGML).
+ * Instala o whisper.cpp localmente em vendor/whisper/ (binrio + modelos GGML).
  *
  * Roda automaticamente no `npm install` (via script "postinstall") ou
  * manualmente com: npm run whisper:install
  *
- * - Se o binário local já existir, pula (não baixa de novo).
- * - Compila whisper.cpp a partir do código fonte (requer cmake/gcc).
+ * - Se o binrio local j existir, pula (no baixa de novo).
+ * - Compila whisper.cpp a partir do cdigo fonte (requer cmake/gcc).
  * - Baixa modelos GGML do Hugging Face (small + medium).
  * - Verifica integridade dos arquivos baixados.
  *
- * Alternativa: Se não for possível compilar, instala @xenova/transformers como fallback.
+ * Alternativa: Se no for possvel compilar, instala @xenova/transformers como fallback.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -29,21 +29,21 @@ const INSTALLED_MARKER = path.join(VENDOR_DIR, '.installed');
 const WHISPER_CPP_REPO = 'https://github.com/ggerganov/whisper.cpp.git';
 const HUGGINGFACE_BASE_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';
 
-// Apenas modelo small (~244 MB) — bom equilíbrio qualidade/velocidade
+// Apenas modelo small (~244 MB)  bom equilbrio qualidade/velocidade
 const MODELS = [
   { name: 'ggml-small.bin', size: 244_000_000, label: 'small' },
 ];
 
-console.log('\n[whisper] Verificando instalação local do whisper.cpp...');
+console.log('\n[whisper] Verificando instalao local do whisper.cpp...');
 
-// Permite pular a instalação (ex: CI já instalou manualmente)
+// Permite pular a instalao (ex: CI j instalou manualmente)
 if (process.env.WHISPER_SKIP_DOWNLOAD === '1') {
-  console.log('[whisper] WHISPER_SKIP_DOWNLOAD=1 — pulando instalação.');
+  console.log('[whisper] WHISPER_SKIP_DOWNLOAD=1  pulando instalao.');
   process.exit(0);
 }
 
 if (isLocalWhisperReady()) {
-  console.log(`[whisper] Já instalado: ${BIN_PATH}`);
+  console.log(`[whisper] J instalado: ${BIN_PATH}`);
   console.log(`[whisper] Modelos: ${listInstalledModels().join(', ')}`);
   process.exit(0);
 }
@@ -51,20 +51,20 @@ if (isLocalWhisperReady()) {
 console.log('[whisper] Instalando whisper.cpp...');
 
 try {
-  // Etapa 1: Compilar binário
+  // Etapa 1: Compilar binrio
   await buildBinary();
 
   // Etapa 2: Baixar modelos
   await downloadModels();
 
-  // Etapa 3: Criar marker de instalação
+  // Etapa 3: Criar marker de instalao
   fs.writeFileSync(INSTALLED_MARKER, new Date().toISOString());
 
-  console.log('\n[whisper] ✅ Instalação concluída com sucesso!');
-  console.log(`[whisper] Binário: ${BIN_PATH}`);
+  console.log('\n[whisper]  Instalao concluda com sucesso!');
+  console.log(`[whisper] Binrio: ${BIN_PATH}`);
   console.log(`[whisper] Modelos: ${listInstalledModels().join(', ')}`);
 } catch (err) {
-  console.error(`\n[whisper] ❌ Falha na instalação: ${err.message}`);
+  console.error(`\n[whisper]  Falha na instalao: ${err.message}`);
   console.log('\n[whisper] Alternativas:');
   console.log('  1. Instale manualmente: https://github.com/ggerganov/whisper.cpp#build');
   console.log('  2. Use o fallback Node.js: npm install @xenova/transformers');
@@ -72,7 +72,7 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// Funções auxiliares
+// Funes auxiliares
 // ---------------------------------------------------------------------------
 
 function isLocalWhisperReady() {
@@ -87,7 +87,7 @@ function listInstalledModels() {
 }
 
 /**
- * Compila o whisper.cpp a partir do código fonte.
+ * Compila o whisper.cpp a partir do cdigo fonte.
  * Requer: git, cmake, gcc/g++ (ou MSVC no Windows)
  */
 async function buildBinary() {
@@ -97,11 +97,11 @@ async function buildBinary() {
   const sourceDir = path.join(buildDir, 'whisper.cpp');
 
   try {
-    // Verificar dependências
+    // Verificar dependncias
     checkBuildDependencies();
 
-    // Clonar repositório
-    console.log(`[whisper] Clonando repositório...`);
+    // Clonar repositrio
+    console.log(`[whisper] Clonando repositrio...`);
     fs.mkdirSync(buildDir, { recursive: true });
     const cloneResult = spawnSync('git', [
       'clone', '--depth', '1', '--recursive',
@@ -113,7 +113,7 @@ async function buildBinary() {
       throw new Error(`Falha ao clonar: ${cloneResult.stderr}`);
     }
 
-    // Criar diretório de build
+    // Criar diretrio de build
     const cmakeBuildDir = path.join(sourceDir, 'build');
     fs.mkdirSync(cmakeBuildDir, { recursive: true });
 
@@ -145,10 +145,10 @@ async function buildBinary() {
     ], { encoding: 'utf8', windowsHide: true, cwd: cmakeBuildDir, timeout: 600_000 });
 
     if (buildResult.status !== 0) {
-      throw new Error(`Falha na compilação: ${buildResult.stderr}`);
+      throw new Error(`Falha na compilao: ${buildResult.stderr}`);
     }
 
-    // Encontrar o binário compilado (whisper-cli é o target correto)
+    // Encontrar o binrio compilado (whisper-cli  o target correto)
     let binSource;
     if (process.platform === 'win32') {
       binSource = findFileRecursive(cmakeBuildDir, 'whisper-cli.exe');
@@ -159,7 +159,7 @@ async function buildBinary() {
     }
 
     if (!binSource) {
-      throw new Error('Binário não encontrado após compilação');
+      throw new Error('Binrio no encontrado aps compilao');
     }
 
     // Copiar para vendor/whisper/
@@ -170,9 +170,9 @@ async function buildBinary() {
       spawnSync('chmod', ['+x', BIN_PATH]);
     }
 
-    console.log(`[whisper] Binário compilado: ${BIN_PATH}`);
+    console.log(`[whisper] Binrio compilado: ${BIN_PATH}`);
   } finally {
-    // Limpar diretório de build
+    // Limpar diretrio de build
     cleanupTemp(buildDir);
   }
 }
@@ -193,7 +193,7 @@ function checkBuildDependencies() {
     const clResult = spawnSync('where', ['cl.exe'], { encoding: 'utf8', windowsHide: true });
     const msbuildResult = spawnSync('where', ['msbuild'], { encoding: 'utf8', windowsHide: true });
 
-    // Verificar também nos caminhos padrão do Visual Studio Build Tools
+    // Verificar tambm nos caminhos padro do Visual Studio Build Tools
     let msbuildFound = clResult.status === 0 || msbuildResult.status === 0;
     if (!msbuildFound) {
       // Procurar em locais conhecidos do VS Build Tools
@@ -223,16 +223,16 @@ function checkBuildDependencies() {
 
   // Se faltar algo, tentar instalar automaticamente no Linux/Mac
   if (missing.length > 0 && process.platform !== 'win32') {
-    console.log(`[whisper] Dependências faltando: ${missing.join(', ')}`);
+    console.log(`[whisper] Dependncias faltando: ${missing.join(', ')}`);
     console.log('[whisper] Tentando instalar automaticamente...');
     autoInstallDeps(missing);
-    // Re-verificar após instalação
+    // Re-verificar aps instalao
     return checkBuildDependencies();
   }
 
   if (missing.length > 0) {
     throw new Error(
-      `Dependências de compilação faltando: ${missing.join(', ')}\n` +
+      `Dependncias de compilao faltando: ${missing.join(', ')}\n` +
       '\nWindows: instale o Visual Studio Build Tools com "Desenvolvimento para Desktop com C++"\n' +
       'Linux: sudo apt install git cmake build-essential\n' +
       'Mac: xcode-select --install && brew install cmake\n' +
@@ -242,7 +242,7 @@ function checkBuildDependencies() {
 }
 
 /**
- * Instala dependências automaticamente no Linux/Mac.
+ * Instala dependncias automaticamente no Linux/Mac.
  */
 function autoInstallDeps(missing) {
   if (process.platform === 'linux') {
@@ -301,7 +301,7 @@ function autoInstallDeps(missing) {
     const hasBrew = spawnSync('which', ['brew'], { encoding: 'utf8', windowsHide: true }).status === 0;
 
     if (!hasBrew) {
-      console.log('[whisper] Homebrew não encontrado. Instale manualmente:');
+      console.log('[whisper] Homebrew no encontrado. Instale manualmente:');
       console.log('[whisper] /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"');
       return;
     }
@@ -325,7 +325,7 @@ function autoInstallDeps(missing) {
     if (xcodeResult.status !== 0) {
       console.log('[whisper] Instalando Xcode Command Line Tools...');
       spawnSync('xcode-select', ['--install'], { windowsHide: true });
-      console.log('[whisper] Siga as instruções na tela para instalar o Xcode CLI Tools.');
+      console.log('[whisper] Siga as instrues na tela para instalar o Xcode CLI Tools.');
     }
 
     // Detectar chip (ARM/Apple Silicon vs Intel)
@@ -333,12 +333,12 @@ function autoInstallDeps(missing) {
     const chipType = arch === 'arm64' ? 'Apple Silicon (ARM)' : 'Intel';
     console.log(`[whisper] Arquitetura detectada: ${chipType} (${arch})`);
 
-    // No Apple Silicon, verificar se o Homebrew está no path correto
+    // No Apple Silicon, verificar se o Homebrew est no path correto
     if (arch === 'arm64') {
       const brewPath = '/opt/homebrew/bin/brew';
       const brewAltPath = '/usr/local/bin/brew';
       if (!fs.existsSync(brewPath) && !fs.existsSync(brewAltPath)) {
-        console.log('[whisper] Homebrew não encontrado para Apple Silicon.');
+        console.log('[whisper] Homebrew no encontrado para Apple Silicon.');
         console.log('[whisper] Instale: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"');
         console.log('[whisper] Depois adicione ao PATH: eval "$(/opt/homebrew/bin/brew shellenv)"');
       }
@@ -355,8 +355,8 @@ async function downloadModels() {
 
     if (fs.existsSync(modelPath)) {
       const stat = fs.statSync(modelPath);
-      if (stat.size > model.size * 0.9) { // Tolerância de 10%
-        console.log(`[whisper] Modelo ${model.label} já existe, pulando...`);
+      if (stat.size > model.size * 0.9) { // Tolerncia de 10%
+        console.log(`[whisper] Modelo ${model.label} j existe, pulando...`);
         continue;
       }
     }
@@ -375,7 +375,7 @@ async function downloadModels() {
 async function downloadFile(url, destPath) {
   const startedAt = Date.now();
 
-  // Tentar com curl primeiro (mais confiável)
+  // Tentar com curl primeiro (mais confivel)
   const curlResult = spawnSync('curl', [
     '-L', '-f', '--progress-bar',
     '-o', destPath,
@@ -385,7 +385,7 @@ async function downloadFile(url, destPath) {
   if (curlResult.status === 0 && fs.existsSync(destPath)) {
     const elapsed = Date.now() - startedAt;
     const size = fs.statSync(destPath).size;
-    console.log(`[whisper] Download concluído: ${formatSize(size)} em ${formatElapsed(elapsed)}`);
+    console.log(`[whisper] Download concludo: ${formatSize(size)} em ${formatElapsed(elapsed)}`);
     return;
   }
 
@@ -405,7 +405,7 @@ async function downloadFile(url, destPath) {
   fs.writeFileSync(destPath, buffer);
 
   const elapsed = Date.now() - startedAt;
-  console.log(`[whisper] Download concluído: ${formatSize(buffer.length)} em ${formatElapsed(elapsed)}`);
+  console.log(`[whisper] Download concludo: ${formatSize(buffer.length)} em ${formatElapsed(elapsed)}`);
 }
 
 function findFileRecursive(dir, fileName) {
@@ -448,3 +448,4 @@ function formatElapsed(ms) {
   if (ms >= 1_000) return `${Math.round(ms / 1_000)}s`;
   return `${ms}ms`;
 }
+
