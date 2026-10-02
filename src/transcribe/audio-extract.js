@@ -50,10 +50,12 @@ export async function extractAudio({ videoPath, outputDir, signal, onLog }) {
       audioPath,
     ];
 
-    const result = await ffmpegService.run(args, { signal });
+    // ffmpegService.run() retorna { promise, stop, child }
+    const { promise } = ffmpegService.run({ args, signal });
+    const result = await promise;
 
     if (!result.ok) {
-      throw new Error(result.error || 'Falha na extração de áudio');
+      throw new Error(result.error || result.stderr || 'Falha na extração de áudio');
     }
 
     // Verificar se o arquivo foi gerado

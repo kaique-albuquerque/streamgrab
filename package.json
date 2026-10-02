@@ -48,6 +48,7 @@
     "download:turbo:smart": "node src/index.js --turbo --smart-turbo",
     "download:youtube": "node src/index.js --youtube",
     "test:transcribe": "node scripts/test-transcribe.mjs",
+    "transcribe": "node scripts/transcribe-interactive.mjs",
     "electron:dev": "electron .",
     "electron:install": "node scripts/install-electron.mjs",
     "ffmpeg:install": "node scripts/install-ffmpeg.mjs",

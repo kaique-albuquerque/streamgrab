@@ -135,17 +135,19 @@ export async function transcribeWithCpp({
 
   // Criar diretório temporário para saída
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'whisper-out-'));
-  const outputPrefix = path.join(tmpDir, 'output');
 
-  // Montar argumentos
+  // Montar argumentos. Algumas builds do whisper-cli não suportam --output-dir;
+  // -of/--output-file define o caminho base e é compatível com essa instalação.
+  const outputBase = path.join(tmpDir, path.basename(audioPath, path.extname(audioPath)));
   const args = [
     '-m', modelPath,
     '-f', audioPath,
     '-l', language,
     '-t', String(threads),
-    '-o', outputPrefix,
-    '-osrt', // Gerar SRT para timestamps
-    '--no-prints', // Reduzir ruído no stdout
+    '-of', outputBase,
+    '--output-txt',
+    '--output-srt',
+    '--print-progress',
   ];
 
   onLog?.(`[whisper-cpp] Iniciando transcrição...`);
@@ -167,26 +169,32 @@ export async function transcribeWithCpp({
   try {
     const result = await promise;
 
-    if (!result.ok) {
+    // whisper-cli pode retornar exit code 1 mesmo com sucesso
+    // Verificar se os arquivos de saída foram criados
+    const txtFile = path.join(tmpDir, `${path.basename(audioPath, path.extname(audioPath))}.txt`);
+    const srtFile = path.join(tmpDir, `${path.basename(audioPath, path.extname(audioPath))}.srt`);
+
+    // Também procurar por qualquer .txt/.srt no diretório
+    let actualTxt = fs.existsSync(txtFile) ? txtFile : '';
+    let actualSrt = fs.existsSync(srtFile) ? srtFile : '';
+
+    if (!actualTxt || !actualSrt) {
+      const files = fs.readdirSync(tmpDir);
+      const txtFound = files.find(f => f.endsWith('.txt'));
+      const srtFound = files.find(f => f.endsWith('.srt'));
+      if (txtFound) actualTxt = path.join(tmpDir, txtFound);
+      if (srtFound) actualSrt = path.join(tmpDir, srtFound);
+    }
+
+    if (!actualTxt && !actualSrt) {
       throw new Error(
-        `whisper.cpp falhou (code ${result.code}):\n${result.stderr.slice(-500)}`
+        `whisper.cpp não gerou arquivos de saída (code ${result.code}):\n${result.stderr.slice(-500)}`
       );
     }
 
-    // Ler saída SRT
-    const srtPath = `${outputPrefix}.srt`;
-    const txtPath = `${outputPrefix}.txt`;
-
-    let text = '';
-    let segments = [];
-
-    if (fs.existsSync(txtPath)) {
-      text = fs.readFileSync(txtPath, 'utf8').trim();
-    }
-
-    if (fs.existsSync(srtPath)) {
-      segments = parseSrt(fs.readFileSync(srtPath, 'utf8'));
-    }
+    // Ler saída
+    let text = actualTxt ? fs.readFileSync(actualTxt, 'utf8').trim() : '';
+    let segments = actualSrt ? parseSrt(fs.readFileSync(actualSrt, 'utf8')) : [];
 
     const durationMs = Date.now() - startedAt;
     onLog?.(`[whisper-cpp] Transcrição concluída em ${formatElapsed(durationMs)}`);
@@ -223,7 +231,14 @@ function spawnWhisper(binPath, args, { signal, onProgress, onLog }) {
   let lastProgress = 0;
 
   child.stdout?.on('data', (d) => {
-    stdout += d.toString();
+    const chunk = d.toString();
+    stdout += chunk;
+    lastProgress = handleWhisperOutput(chunk, {
+      lastProgress,
+      onProgress,
+      onLog,
+      captureImportantLogs: false,
+    });
   });
 
   child.stderr?.on('data', (d) => {
@@ -251,6 +266,13 @@ function spawnWhisper(binPath, args, { signal, onProgress, onLog }) {
     }
 
     // Log de informações importantes
+    lastProgress = handleWhisperOutput(chunk, {
+      lastProgress,
+      onProgress,
+      onLog,
+      captureImportantLogs: false,
+    });
+
     if (chunk.includes('whisper_init_from_file')) {
       onLog?.(`[whisper-cpp] ${chunk.trim()}`);
     }
@@ -291,10 +313,33 @@ function spawnWhisper(binPath, args, { signal, onProgress, onLog }) {
 
   const promise = new Promise((resolve) => {
     child.on('error', (err) => resolve(done({ ok: false, code: -1, error: err, stderr, interrupted })));
-    child.on('close', (code) => resolve(done({ ok: code === 0 && !interrupted, code, stderr, stdout, interrupted })));
+    // whisper-cli retorna exit code 1 mesmo com sucesso
+    // Não tratar code 1 como falha — a verificação é feita pelos arquivos de saída
+    child.on('close', (code) => resolve(done({ ok: !interrupted && (code === 0 || code === 1), code, stderr, stdout, interrupted })));
   });
 
   return { promise, stop, child };
+}
+
+function handleWhisperOutput(chunk, { lastProgress, onProgress, onLog, captureImportantLogs }) {
+  let nextProgress = lastProgress;
+
+  // Formato do --print-progress em builds recentes:
+  // "whisper_print_progress_callback: progress =  42%"
+  const percentMatches = chunk.matchAll(/(?:progress\s*=\s*)?(\d{1,3})\s*%/gi);
+  for (const match of percentMatches) {
+    const percent = Math.max(0, Math.min(100, Number.parseInt(match[1], 10)));
+    if (percent > nextProgress || (percent === 100 && nextProgress < 100)) {
+      nextProgress = percent;
+      onProgress?.({ percent });
+    }
+  }
+
+  if (captureImportantLogs && chunk.includes('whisper_init_from_file')) {
+    onLog?.(`[whisper-cpp] ${chunk.trim()}`);
+  }
+
+  return nextProgress;
 }
 
 /**
