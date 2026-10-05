@@ -27,6 +27,10 @@ export const DEFAULT_SETTINGS = Object.freeze({
   theme: 'system',
   onComplete: '',
   historyRetentionDays: 0,
+  // SPEC-09: Transcrição de vídeo
+  transcribe: false,
+  transcribeLang: 'pt',
+  transcribeTimestamps: true,
 });
 
 const SCHEMA = {
@@ -43,6 +47,10 @@ const SCHEMA = {
   theme: { type: 'string', clamp: null },
   onComplete: { type: 'string', clamp: null },
   historyRetentionDays: { type: 'number', clamp: [0, 3650] },
+  // SPEC-09: Transcrição de vídeo
+  transcribe: { type: 'boolean', clamp: null },
+  transcribeLang: { type: 'string', clamp: null },
+  transcribeTimestamps: { type: 'boolean', clamp: null },
 };
 
 function coerce(key, value, current) {

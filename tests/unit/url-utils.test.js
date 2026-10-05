@@ -42,6 +42,11 @@ test('url-utils: maskUrl masks sensitive params', () => {
   assert.ok(!masked.includes('t1'));
 });
 
+test('url-utils: maskUrl masks basic auth credentials in authority', () => {
+  assert.equal(maskUrl('https://admin:secret123@example.com/v.m3u8'), 'https://***:***@example.com/v.m3u8');
+  assert.equal(maskUrl('https://:token456@example.com/v.m3u8'), 'https://:***@example.com/v.m3u8');
+});
+
 test('url-utils: maskUrl handles invalid URLs gracefully', () => {
   assert.equal(maskUrl('not-a-url'), 'not-a-url');
   assert.equal(maskUrl(''), '');

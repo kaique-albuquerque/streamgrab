@@ -2,10 +2,33 @@
  * P8 — Validação de payloads: app (reveal / export logs / register root).
  */
 
+import path from 'node:path';
 import { isSafeAbsolutePath, isPathWithin } from './security-primitives.js';
+import { getPreviewDir } from '../src/preview.js';
+
+/** Valida o payload de `preview:read-file` / `preview:clear`. */
+export function validatePreviewFilePathPayload(payload = {}, tempDir = '') {
+  const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
+  if (!filePath || !tempDir || typeof tempDir !== 'string') return null;
+  if (!isSafeAbsolutePath(filePath)) return null;
+  const previewDir = path.join(tempDir, 'streamgrab-preview');
+  if (!isSafeAbsolutePath(previewDir) || !isPathWithin(filePath, previewDir)) return null;
+  return { filePath };
+}
 
 /** Valida o payload de `app:open-file` / `app:show-in-folder`. */
 export function validateRevealPayload(payload = {}, allowedRoots = []) {
+  const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
+  if (!filePath) return null;
+  if (!isSafeAbsolutePath(filePath)) return null;
+  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(filePath, root))) {
+    return null;
+  }
+  return { filePath };
+}
+
+/** Valida o payload de `preview:read-file` e `preview:clear`. */
+export function validatePreviewPathPayload(payload = {}, allowedRoots = []) {
   const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
   if (!filePath) return null;
   if (!isSafeAbsolutePath(filePath)) return null;
@@ -24,6 +47,17 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
     return null;
   }
   return { path: customPath };
+}
+
+/** Valida o payload de `preview:read-file` / `preview:clear`. */
+export function validatePreviewFilePathPayload(payload = {}, previewDir = '') {
+  const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
+  if (!filePath || typeof previewDir !== 'string' || !previewDir.trim()) return null;
+  if (!isSafeAbsolutePath(filePath)) return null;
+  if (typeof previewDir !== 'string' || !previewDir.trim() || !isPathWithin(filePath, previewDir)) {
+    return null;
+  }
+  return { filePath };
 }
 
 /**
