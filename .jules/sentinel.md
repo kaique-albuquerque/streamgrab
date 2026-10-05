@@ -20,7 +20,7 @@
 **Learning:** Header normalization across core pipelines must strip control characters and prototype pollution keys before headers reach external CLI tools or network transports.
 **Prevention:** Filter prototype keys and strip `[\r\n\0]` from header values centrally in `normalizeHeaders`.
 
-## 2026-10-15 - Unsanitized Preview File Paths in IPC Handlers Vulnerable to Arbitrary File Read and Delete
-**Vulnerability:** The `preview:read-file` and `preview:clear` Electron IPC channels accepted arbitrary user-supplied `filePath` strings without path validation or restriction to temporary directory roots.
-**Learning:** Preview file IPC handlers in Electron that read or delete files on disk must validate that `filePath` is a safe absolute path constrained within the application's temporary directory (`app.getPath('temp')`).
-**Prevention:** Enforce `validatePreviewFilePayload` (using `isSafeAbsolutePath` and `isPathWithin`) against `app.getPath('temp')` before executing file reads or deletions in IPC handlers.
+## 2026-10-14 - Unsanitized `filePath` in IPC Preview Handlers Allowed Arbitrary File Read and Deletion
+**Vulnerability:** The `preview:read-file` and `preview:clear` Electron IPC handlers accepted an arbitrary user-supplied `filePath` without checking path safety or restricting access to the preview temp directory.
+**Learning:** File-reading and file-deleting IPC channels in Electron must validate that user-provided file paths are safe absolute paths constrained to specific application temp/resource directories.
+**Prevention:** Use `validatePreviewPathPayload` to enforce `isSafeAbsolutePath` and `isPathWithin(filePath, previewDir)` for all IPC preview handlers.

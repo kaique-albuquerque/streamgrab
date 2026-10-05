@@ -31,6 +31,7 @@ export {
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateRevealPayload,
+  validatePreviewPathPayload,
   validateExportLogsPayload,
   validatePreviewFilePayload,
   registerRevealRoot,
