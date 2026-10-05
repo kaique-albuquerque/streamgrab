@@ -20,7 +20,7 @@
 **Learning:** Header normalization across core pipelines must strip control characters and prototype pollution keys before headers reach external CLI tools or network transports.
 **Prevention:** Filter prototype keys and strip `[\r\n\0]` from header values centrally in `normalizeHeaders`.
 
-## 2026-10-14 - Unsanitized File Path in IPC History Export Vulnerable to Arbitrary File Write
-**Vulnerability:** The `history:export` Electron IPC handler accepted a user-supplied `filePath` directly without checking for `..` path traversal or enforcing directory restriction against allowed reveal roots.
-**Learning:** File export handlers in IPC must strictly validate custom destination paths with `isSafeAbsolutePath` and `isPathWithin` against allowed directory roots before writing file contents to disk.
-**Prevention:** Always filter IPC export payloads through dedicated validation functions that restrict target paths to permitted application directory roots.
+## 2026-10-15 - Unsanitized Preview File Paths in IPC Vulnerable to Arbitrary File Read and Deletion
+**Vulnerability:** The `preview:read-file` and `preview:clear` IPC handlers accepted arbitrary user-supplied `filePath` strings without path traversal checking or preview directory restriction, allowing arbitrary file reading and deletion.
+**Learning:** IPC handlers that read or delete preview files must validate that `filePath` is a safe absolute path constrained to the application's temporary preview directory.
+**Prevention:** Validate preview file paths using `isSafeAbsolutePath` and `isPathWithin` against `path.join(tempDir, 'streamgrab-preview')` before calling `fs.readFileSync` or `clearPreview`.
