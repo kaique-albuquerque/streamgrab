@@ -34,6 +34,7 @@ import { registerPlaylistHandlers } from './ipc/playlist-handlers.js';
 import { registerQueueHandlers } from './ipc/queue-handlers.js';
 import { registerPreviewHandlers } from './ipc/preview-handlers.js';
 import { registerHistoryHandlers, registerSettingsHandlers } from './ipc/history-handlers.js';
+import { registerTranscribeHandlers } from './ipc/transcribe-handlers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -83,6 +84,13 @@ app.whenReady().then(() => {
   // P11: monta os serviços com persistência real em userData
   // (settings.json, history.json, queue.json) — itens 3-5 do pedido.
   const userDataDir = app.getPath('userData');
+
+  // Modelo do whisper baixado em runtime para diretório gravável
+  // (instalador é read-only). WHISPER_MODEL_DIR já definido tem prioridade.
+  if (!process.env.WHISPER_MODEL_DIR) {
+    process.env.WHISPER_MODEL_DIR = path.join(userDataDir, 'whisper', 'models');
+  }
+
   const broadcast = (event, payload) => {
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) win.webContents.send('queue:event', { event, payload });
@@ -113,6 +121,7 @@ app.whenReady().then(() => {
   registerPreviewHandlers();
   registerHistoryHandlers();
   registerSettingsHandlers();
+  registerTranscribeHandlers();
 
   const mainWin = createWindow();
 
