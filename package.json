@@ -1,6 +1,6 @@
 {
   "name": "streamgrab",
-  "version": "1.2.1",
+  "version": "1.3.1",
   "description": "Universal video downloader for HLS, DASH, YouTube and other supported sources.",
   "author": {
     "name": "Kaique Albuquerque",
@@ -31,6 +31,7 @@
   ],
   "scripts": {
     "analyze": "node bin/streamgrab.mjs analyze",
+    "analisar:linhas": "node scripts/analyze-large-files.mjs",
     "audit": "npm audit --omit=dev 2>&1 || echo '[audit] Vulnerabilities found  review above'",
     "curl:install": "node scripts/install-curl-impersonate.mjs",
     "dist": "npm run pack:resources && electron-builder --win",

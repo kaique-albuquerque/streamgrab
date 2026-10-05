@@ -97,7 +97,9 @@ function isLocalWhisperReady() {
 
   return (
     marker.platform === process.platform &&
-    marker.arch === os.arch() &&
+    // Cross-compile: marker deve bater com a arquitetura ALVO (WHISPER_CMAKE_ARCH),
+    // senão um binário nativo (ex.: arm64 em runner mac) seria aceito para build x64.
+    marker.arch === (TARGET_ARCH || os.arch()) &&
     marker.bin === BIN_NAME &&
     MODELS.every((model) => isModelReady(model))
   );
@@ -298,32 +300,43 @@ function hasCommand(command, args = []) {
 }
 
 function getCmakeConfigureArgs() {
-  // macOS cross-compile (ex.: x86_64 em runner arm64) — clang suporta
-  // nativamente via CMAKE_OSX_ARCHITECTURES.
+  const args = [];
+
   if (process.platform === 'darwin' && TARGET_ARCH) {
-    return [`-DCMAKE_OSX_ARCHITECTURES=${TARGET_ARCH}`];
+    // macOS cross-compile (ex.: x86_64 em runner arm64) — clang suporta
+    // nativamente via CMAKE_OSX_ARCHITECTURES.
+    args.push(`-DCMAKE_OSX_ARCHITECTURES=${TARGET_ARCH}`);
+  }
+
+  // CI (GitHub Actions define CI=true): sem otimizações nativas — o
+  // -mcpu=native do host (apple-m1 em runners arm64) quebraria o alvo
+  // x86_64 ("unknown target CPU 'apple-m1'"), e o binário genérico é
+  // mais portátil para CPUs dos usuários finais.
+  if (process.env.CI) {
+    args.push('-DGGML_NATIVE=OFF');
   }
 
   if (process.platform !== 'win32') {
-    return [];
+    return args;
   }
 
   if (hasCommand('ninja', ['--version'])) {
-    return ['-G', 'Ninja'];
+    return ['-G', 'Ninja', ...args];
   }
 
   const arch = getWindowsCmakeArch();
+
   const generators = getCmakeGenerators();
 
   if (generators.includes('Visual Studio 17 2022')) {
-    return ['-G', 'Visual Studio 17 2022', '-A', arch];
+    return ['-G', 'Visual Studio 17 2022', '-A', arch, ...args];
   }
 
   if (generators.includes('Visual Studio 16 2019')) {
-    return ['-G', 'Visual Studio 16 2019', '-A', arch];
+    return ['-G', 'Visual Studio 16 2019', '-A', arch, ...args];
   }
 
-  return [];
+  return args;
 }
 
 function getWindowsCmakeArch() {
