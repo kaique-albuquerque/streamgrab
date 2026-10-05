@@ -12,7 +12,7 @@ import { createPreviewPlayer } from './renderer/preview-player.js';
 // index.html leve e os templates organizados por responsabilidade.
 // ---------------------------------------------------------------------------
 async function loadTemplates() {
-  const templates = ['tab', 'queue', 'history', 'settings'];
+  const templates = ['tab', 'queue', 'history', 'transcribe', 'settings'];
   const target = document.getElementById('dynamicViews');
   for (const name of templates) {
     try {
@@ -63,6 +63,15 @@ window.api.onQueueEvent(({ event, payload }) => {
   tabsController.handleQueueEvent(event, payload);
   panelsController?.handleQueueEvent(event, payload);
 });
+
+// Transcrição — eventos do job manager/model manager (main process).
+window.api.onTranscribeProgress((data) => panelsController?.handleTranscribeEvent('progress', data));
+window.api.onTranscribeLog(() => {}); // logs ficam no terminal/main
+window.api.onTranscribeDone((data) => panelsController?.handleTranscribeEvent('done', data));
+window.api.onTranscribeError((data) => panelsController?.handleTranscribeEvent('error', data));
+window.api.onTranscribeJobUpdated((data) => panelsController?.handleTranscribeEvent('job-updated', data));
+window.api.onTranscribeRemoved((data) => panelsController?.handleTranscribeEvent('removed', data));
+window.api.onTranscribeModelProgress((data) => panelsController?.handleTranscribeEvent('model-progress', data));
 
 // Clipboard watcher — detecta URLs de mídia na clipboard
 const clipboardToast = createClipboardToast();
