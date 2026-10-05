@@ -11,7 +11,7 @@ import { ipcMain } from 'electron';
 import { pathToFileURL } from 'node:url';
 import { binName, packagedBinaryPath } from '../../src/core/binaries.js';
 import { loadConfig, applyProviderHeaders } from '../../src/cli/config.js';
-import { isSafeHttpUrl, isSafeMediaSelection, validatePreviewPathPayload } from '../security.js';
+import { isSafeHttpUrl, isSafeMediaSelection, validatePreviewFilePayload } from '../security.js';
 import { PROJECT_ROOT } from './state.js';
 
 const previewCache = new Map(); // `${url}|${quality}` -> { path, time }
@@ -100,7 +100,7 @@ export function registerPreviewHandlers() {
 
   ipcMain.handle('preview:read-file', async (_event, rawPayload) => {
     const { app } = await import('electron');
-    const validated = validatePreviewPathPayload(rawPayload, app.getPath('temp'));
+    const validated = validatePreviewFilePayload(rawPayload, app.getPath('temp'));
     if (!validated) return { ok: false, error: 'Caminho de preview inválido ou fora do diretório permitido.' };
     try {
       const data = fs.readFileSync(validated.filePath);
@@ -112,8 +112,8 @@ export function registerPreviewHandlers() {
 
   ipcMain.handle('preview:clear', async (_event, rawPayload) => {
     const { app } = await import('electron');
-    const validated = validatePreviewPathPayload(rawPayload, app.getPath('temp'));
-    if (!validated) return { ok: false, error: 'Caminho de preview inválido ou fora do diretório permitido.' };
+    const validated = validatePreviewFilePayload(rawPayload, app.getPath('temp'));
+    if (!validated) return { ok: false, error: 'Caminho de preview inválido.' };
     const { clearPreview } = await import('../../src/preview.js');
     clearPreview(validated.filePath);
     for (const [key, value] of previewCache) {

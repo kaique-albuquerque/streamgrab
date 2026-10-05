@@ -32,7 +32,7 @@ export {
   validateSettingsPayload,
   validateRevealPayload,
   validateExportLogsPayload,
-  validateExportHistoryPayload,
+  validatePreviewFilePayload,
   registerRevealRoot,
   validateTranscribePayload,
   validateTranscribeJobPayload,

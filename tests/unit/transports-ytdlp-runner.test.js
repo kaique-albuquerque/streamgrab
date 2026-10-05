@@ -39,6 +39,7 @@ test('runYtDlpDownload: sucesso retorna ok:true e passa as opcoes', async () => 
     formatId: '137',
     output: '/tmp/out.mp4',
     headers: { 'user-agent': 'Mozilla/5.0' },
+    ffmpegPath: '/usr/bin/ffmpeg',
   });
 
   assert.equal(result.ok, true);

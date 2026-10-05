@@ -22,7 +22,7 @@ import {
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
-  validateExportHistoryPayload,
+  validatePreviewFilePayload,
   registerRevealRoot,
 } from '../../electron/security.js';
 
@@ -475,43 +475,33 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
 });
 
-test('validateExportHistoryPayload valida formato, caminho e sanitiza entradas', () => {
-  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
-  const validPath = 'C:\\Users\\teste\\Downloads\\history.json';
+test('validatePreviewFilePayload restringe preview a caminhos seguros dentro do tempDir', () => {
+  const tempDir = '/tmp';
+  const winTempDir = 'C:\\Users\\teste\\AppData\\Local\\Temp';
 
-  // Payload padrão sem filePath
-  const defaultPayload = validateExportHistoryPayload({ format: 'csv' }, roots);
-  assert.ok(defaultPayload);
-  assert.equal(defaultPayload.format, 'csv');
-  assert.equal(defaultPayload.filePath, '');
-  assert.equal(defaultPayload.entries, null);
+  assert.deepEqual(
+    validatePreviewFilePayload({ filePath: '/tmp/streamgrab-preview/preview-1.mp4' }, tempDir),
+    { filePath: '/tmp/streamgrab-preview/preview-1.mp4' }
+  );
 
-  // Payload válido com filePath em raiz permitida
-  const validPayload = validateExportHistoryPayload({ format: 'json', filePath: validPath }, roots);
-  assert.ok(validPayload);
-  assert.equal(validPayload.format, 'json');
-  assert.equal(validPayload.filePath, validPath);
+  assert.deepEqual(
+    validatePreviewFilePayload(
+      { filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-1.mp4' },
+      winTempDir
+    ),
+    { filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-1.mp4' }
+  );
 
-  // Caminho fora das raízes permitidas ou com path traversal
-  assert.equal(validateExportHistoryPayload({ filePath: 'C:\\Windows\\System32\\export.json' }, roots), null);
-  assert.equal(validateExportHistoryPayload({ filePath: 'C:\\Users\\teste\\..\\evil.json' }, roots), null);
-  assert.equal(validateExportHistoryPayload({ filePath: 'relative-export.json' }, roots), null);
+  // Path traversal / outside tempDir
+  assert.equal(validatePreviewFilePayload({ filePath: '/etc/passwd' }, tempDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: '/tmp/../etc/passwd' }, tempDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: 'relative/preview.mp4' }, tempDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: 'C:\\Windows\\System32\\win.ini' }, winTempDir), null);
 
-  // Sanitização de entradas
-  const entryPayload = validateExportHistoryPayload({
-    format: 'json',
-    entries: [
-      { id: '123', title: '  Vídeo Teste  ', size: '1024', extraField: 'ignored' },
-      null,
-      'invalid entry',
-    ],
-  }, roots);
-  assert.ok(entryPayload);
-  assert.equal(entryPayload.entries.length, 1);
-  assert.equal(entryPayload.entries[0].id, '123');
-  assert.equal(entryPayload.entries[0].title, '  Vídeo Teste  ');
-  assert.equal(entryPayload.entries[0].size, 1024);
-  assert.equal(entryPayload.entries[0].extraField, undefined);
+  // Missing or empty inputs
+  assert.equal(validatePreviewFilePayload({}, tempDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: '/tmp/p.mp4' }, ''), null);
+  assert.equal(validatePreviewFilePayload(null, tempDir), null);
 });
 
 test('registerRevealRoot só aceita caminhos absolutos seguros e sem traversal', () => {
