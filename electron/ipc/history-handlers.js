@@ -41,8 +41,13 @@ export function registerHistoryHandlers() {
     const services = getServices();
     if (!services) return { ok: false, error: 'Serviços não inicializados.' };
 
-    const payload = validateHistoryExportPayload(rawPayload);
-    if (!payload) return { ok: false, error: 'Payload de exportação de histórico inválido.' };
+    const validated = validateExportHistoryPayload(rawPayload, [...getAllowedRevealRoots()]);
+    if (!validated) {
+      return { ok: false, error: 'Caminho de exportação inválido ou fora das pastas permitidas.' };
+    }
+
+    const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
+    const format = payload.format === 'csv' ? 'csv' : 'json';
 
     const format = payload.format;
     const entries = payload.entries ? payload.entries : services.history.list();
@@ -52,7 +57,7 @@ export function registerHistoryHandlers() {
       return { ok: false, error: 'Caminho de destino inválido ou fora das pastas permitidas.' };
     }
 
-    let destPath = validatedExport.filePath;
+    let destPath = validated.filePath;
     if (!destPath) {
       const { suggestExportFilename } = await import('../../src/core/history-export.js');
       const result = await dialog.showSaveDialog({

@@ -493,12 +493,19 @@ test('validateExportHistoryPayload valida caminho e restringe a raizes permitida
   const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
   assert.deepEqual(validateExportHistoryPayload({}, roots), { filePath: null });
   assert.deepEqual(
-    validateExportHistoryPayload({ filePath: 'C:\\Users\\teste\\Downloads\\historico.json' }, roots),
-    { filePath: 'C:\\Users\\teste\\Downloads\\historico.json' }
+    validateExportHistoryPayload({ filePath: 'C:\\Users\\teste\\Downloads\\history.json' }, roots),
+    { filePath: 'C:\\Users\\teste\\Downloads\\history.json' }
   );
-  assert.equal(validateExportHistoryPayload({ filePath: 'C:\\Windows\\System32\\malicious.json' }, roots), null);
-  assert.equal(validateExportHistoryPayload({ filePath: 'C:\\Users\\teste\\..\\evil.json' }, roots), null);
+  assert.deepEqual(
+    validateExportHistoryPayload({ filePath: '/home/user/Downloads/history.csv' }, roots),
+    { filePath: '/home/user/Downloads/history.csv' }
+  );
+  assert.equal(validateExportHistoryPayload({ filePath: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
+  assert.equal(validateExportHistoryPayload({ filePath: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
+  assert.equal(validateExportHistoryPayload({ filePath: '/etc/cron.d/malicious' }, roots), null);
   assert.equal(validateExportHistoryPayload({ filePath: 'relative-history.json' }, roots), null);
+  assert.equal(validateExportHistoryPayload(null, roots), null);
+  assert.equal(validateExportHistoryPayload('invalid', roots), null);
 });
 
 test('registerRevealRoot só aceita caminhos absolutos seguros e sem traversal', () => {

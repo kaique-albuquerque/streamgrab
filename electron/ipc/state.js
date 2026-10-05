@@ -32,6 +32,7 @@ const allowedRevealRoots = new Set();
 export function getAllowedRevealRoots() {
   return allowedRevealRoots;
 }
+export const getAlllowedRevealRoots = getAllowedRevealRoots;
 
 export const getAlllowedRevealRoots = getAllowedRevealRoots;
 

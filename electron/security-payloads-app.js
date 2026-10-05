@@ -51,13 +51,14 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
 
 /** Valida o payload de `history:export`. */
 export function validateExportHistoryPayload(payload = {}, allowedRoots = []) {
-  const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
-  if (!filePath) return { filePath: null };
-  if (!isSafeAbsolutePath(filePath)) return null;
-  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(filePath, root))) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const rawPath = typeof payload.filePath === 'string' ? payload.filePath.trim() : '';
+  if (!rawPath) return { filePath: null };
+  if (!isSafeAbsolutePath(rawPath)) return null;
+  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(rawPath, root))) {
     return null;
   }
-  return { filePath };
+  return { filePath: rawPath };
 }
 
 /**
