@@ -203,7 +203,8 @@ jobs:
       - name: Verificar arquitetura do ffmpeg (x86_64)
         run: |
           file vendor/ffmpeg/ffmpeg
-          file vendor/ffmpeg/ffmpeg | grep -q "x86-64" && ! file vendor/ffmpeg/ffmpeg | grep -q "arm64" \
+          # macOS: "x86_64" (underline); Linux: "x86-64" (hífen) — aceita os dois.
+          file vendor/ffmpeg/ffmpeg | grep -qE "x86[-_]64" && ! file vendor/ffmpeg/ffmpeg | grep -q "arm64" \
             && echo "OK: ffmpeg x86_64" \
             || { echo "ERRO: ffmpeg com arquitetura errada para macOS Intel"; exit 1; }
         shell: bash
@@ -238,7 +239,8 @@ jobs:
       - name: Verificar arquitetura do whisper-cli (x86_64)
         run: |
           file vendor/whisper/whisper-cli
-          file vendor/whisper/whisper-cli | grep -q "x86-64" && ! file vendor/whisper/whisper-cli | grep -q "arm64" \
+          # macOS: "x86_64" (underline); Linux: "x86-64" (hífen) — aceita os dois.
+          file vendor/whisper/whisper-cli | grep -qE "x86[-_]64" && ! file vendor/whisper/whisper-cli | grep -q "arm64" \
             && echo "OK: binário x86_64" \
             || { echo "ERRO: binário com arquitetura errada para o instalador x64"; exit 1; }
         shell: bash
@@ -442,7 +444,8 @@ jobs:
       - name: Verificar arquitetura do whisper-cli (x86_64)
         run: |
           file vendor/whisper/whisper-cli
-          file vendor/whisper/whisper-cli | grep -q "x86-64" \
+          # macOS: "x86_64" (underline); Linux: "x86-64" (hífen) — aceita os dois.
+          file vendor/whisper/whisper-cli | grep -qE "x86[-_]64" \
             && echo "OK: binário x86_64" \
             || { echo "ERRO: binário com arquitetura errada para Linux x64"; exit 1; }
         shell: bash
