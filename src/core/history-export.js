@@ -40,16 +40,13 @@ export function exportHistoryAsCsv(entries) {
   return [bom + header, ...rows].join('\n');
 }
 
-/** Escapa um valor de célula CSV (RFC 4180 + Mitigação de CSV Formula Injection CWE-1236). */
+/** Escapa um valor de célula CSV (RFC 4180 e sanitização contra CSV Formula Injection). */
 export function escapeCsvValue(value) {
-  let str = value === null || value === undefined ? '' : String(value);
-
-  // Sentinel Security (CWE-1236): Prepend single quote if string starts with formula trigger characters
-  // (=, +, -, @, \t, \r) to prevent CSV Injection/Formula Execution in Excel/Sheets.
-  if (/^[=+\-@\t\r]/.test(str)) {
+  if (value === null || value === undefined) return '';
+  let str = String(value);
+  if (typeof value !== 'number' && /^[=+\-@\t\r]/.test(str)) {
     str = `'${str}`;
   }
-
   if (/[",\n\r]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;
   }

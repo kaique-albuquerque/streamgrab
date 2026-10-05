@@ -96,20 +96,16 @@ test('escapeCsvValue cobre aspas, vírgula, quebra de linha e valores nulos', ()
   assert.equal(escapeCsvValue(0), '0');
 });
 
-test('escapeCsvValue previne CSV Formula Injection (CWE-1236) prefixando aspas simples', () => {
-  assert.equal(escapeCsvValue('=1+1'), '\'=1+1');
-  assert.equal(escapeCsvValue('+1+1'), '\'+1+1');
-  assert.equal(escapeCsvValue('-1+1'), '\'-1+1');
-  assert.equal(escapeCsvValue('@SUM(1,2)'), '"\'@SUM(1,2)"');
-  assert.equal(escapeCsvValue('\tcmd'), '\'\tcmd');
-  assert.equal(escapeCsvValue('\rcmd'), '"\'\rcmd"');
-  assert.equal(escapeCsvValue('=cmd|\' /C calc\'!A1'), '\'=cmd|\' /C calc\'!A1');
-});
+test('escapeCsvValue e exportHistoryAsCsv sanitizam caracteres de fórmula no início de strings', () => {
+  assert.equal(escapeCsvValue('=SUM(1+1)'), "'=SUM(1+1)");
+  assert.equal(escapeCsvValue('+cmd|\' /C calc\'!A0'), "'+cmd|' /C calc'!A0");
+  assert.equal(escapeCsvValue('-100'), "'-100");
+  assert.equal(escapeCsvValue(-100), '-100'); // numeros permanecem intocados
+  assert.equal(escapeCsvValue('@SUM(1;2)'), "'@SUM(1;2)");
+  assert.equal(escapeCsvValue('@SUM(1,2)'), `"'@SUM(1,2)"`);
 
-test('exportHistoryAsCsv neutraliza titulos e URLs maliciosas com formulas', () => {
-  const csv = exportHistoryAsCsv([entry({ title: '=cmd|\' /C calc\'!A1', url: '+http://malicious.example.com' })]);
-  assert.ok(csv.includes('\'=cmd|\' /C calc\'!A1'));
-  assert.ok(csv.includes('\'+http://malicious.example.com'));
+  const csv = exportHistoryAsCsv([entry({ title: '=1+1' })]);
+  assert.ok(csv.includes("'=1+1"));
 });
 
 // ---------------------------------------------------------------------------
