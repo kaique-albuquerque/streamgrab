@@ -13,6 +13,7 @@ export {
   isValidJobId,
   validateJobIdPayload,
   validateHistoryIdPayload,
+  validateHistoryExportPayload,
   validateQueueEnqueuePayload,
   validateSettingsPayload,
 } from './security-payloads-queue.js';

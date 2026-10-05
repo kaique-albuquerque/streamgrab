@@ -18,6 +18,27 @@ export function registerAppHandlers(clipboardWatcher) {
     return result.filePaths[0];
   });
 
+  // Seletor de mídia para transcrição (vídeo/áudio).
+  ipcMain.handle('app:pick-media-file', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [
+        {
+          name: 'Mídia',
+          extensions: [
+            'mp4', 'mkv', 'webm', 'mov', 'avi', 'm4v', 'flv', 'ts', 'mts', 'wmv', 'mpg', 'mpeg', '3gp',
+            'mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'opus', 'wma',
+          ],
+        },
+        { name: 'Todos os arquivos', extensions: ['*'] },
+      ],
+    });
+    if (result.canceled || !result.filePaths[0]) return null;
+    const filePath = result.filePaths[0];
+    addRevealRoot(path.dirname(filePath));
+    return filePath;
+  });
+
   ipcMain.handle('app:resolve-paths', async () => {
     const defaultDownloads = (await import('electron')).app.getPath('downloads');
     addRevealRoot(defaultDownloads);
