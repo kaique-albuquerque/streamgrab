@@ -29,9 +29,12 @@ export const taskToJob = new Map();
 /** Raízes permitidas para abrir/localizar arquivos (seção 24: path traversal). */
 const allowedRevealRoots = new Set();
 
-export function getAlllowedRevealRoots() {
+export function getAllowedRevealRoots() {
   return allowedRevealRoots;
 }
+export const getAlllowedRevealRoots = getAllowedRevealRoots;
+
+export const getAlllowedRevealRoots = getAllowedRevealRoots;
 
 export function addRevealRoot(dir) {
   registerRevealRoot(dir, allowedRevealRoots);
