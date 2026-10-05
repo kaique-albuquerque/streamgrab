@@ -20,7 +20,7 @@
 **Learning:** Header normalization across core pipelines must strip control characters and prototype pollution keys before headers reach external CLI tools or network transports.
 **Prevention:** Filter prototype keys and strip `[\r\n\0]` from header values centrally in `normalizeHeaders`.
 
-## 2026-10-14 - Unsanitized `filePath` in IPC Preview Handlers Allowed Arbitrary File Read and Deletion
-**Vulnerability:** The `preview:read-file` and `preview:clear` Electron IPC handlers accepted an arbitrary user-supplied `filePath` without checking path safety or restricting access to the preview temp directory.
-**Learning:** File-reading and file-deleting IPC channels in Electron must validate that user-provided file paths are safe absolute paths constrained to specific application temp/resource directories.
-**Prevention:** Use `validatePreviewPathPayload` to enforce `isSafeAbsolutePath` and `isPathWithin(filePath, previewDir)` for all IPC preview handlers.
+## 2026-10-15 - Unsanitized History Fields in CSV Export Vulnerable to CSV Formula Injection
+**Vulnerability:** History entries exported to CSV via `exportHistoryAsCsv` did not sanitize formula trigger characters (`=`, `+`, `-`, `@`, `\t`, `\r`) in titles or URLs, allowing formula injection when opened in Excel/Sheets.
+**Learning:** Standard CSV field escaping (RFC 4180 quotes/commas) is insufficient to prevent formula execution in spreadsheet software when cell values start with formula operators or control characters.
+**Prevention:** Neutralize cell values starting with `=`, `+`, `-`, `@`, `\t`, or `\r` by prepending a single quote `'` in `escapeCsvValue` before applying RFC 4180 escaping.
