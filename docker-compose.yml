@@ -1,10 +1,17 @@
+# Multi-platform: docker compose build
+# ARM (Apple Silicon, Raspberry Pi) e Intel/AMD suportados
 services:
   streamgrab:
     build: .
     image: streamgrab-cli:local
     environment:
       STREAMGRAB_DOWNLOAD_DIR: /downloads
+      WHISPER_CPP_PATH: /opt/whisper.cpp/whisper-cli
+      WHISPER_MODEL_DIR: /opt/whisper.cpp/models
     volumes:
       - ./downloads:/downloads
+      - ./vendor/whisper/models:/opt/whisper.cpp/models  # Cache dos modelos entre builds
+    mem_limit: 4g          # Modelo small precisa de ~2 GB RAM
+    memswap_limit: 6g      # Permite swap para picos
     stdin_open: true
     tty: true
