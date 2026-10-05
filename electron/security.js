@@ -35,6 +35,5 @@ export {
   validateExportLogsPayload,
   validatePreviewFilePathPayload,
   registerRevealRoot,
-  validateTranscribePayload,
-  validateTranscribeJobPayload,
+  validatePreviewFilePathPayload,
 } from './security-payloads.js';
