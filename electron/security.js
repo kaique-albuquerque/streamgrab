@@ -33,7 +33,7 @@ export {
   validateRevealPayload,
   validatePreviewPathPayload,
   validateExportLogsPayload,
-  validateExportHistoryPayload,
+  validatePreviewFilePayload,
   registerRevealRoot,
   validatePreviewFilePathPayload,
 } from './security-payloads.js';

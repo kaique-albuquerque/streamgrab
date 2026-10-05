@@ -23,7 +23,7 @@ import {
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
-  validateExportHistoryPayload,
+  validatePreviewFilePayload,
   registerRevealRoot,
   validatePreviewFilePathPayload,
 } from '../../electron/security.js';
@@ -489,23 +489,25 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
 });
 
-test('validateExportHistoryPayload valida caminho e restringe a raizes permitidas', () => {
-  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
-  assert.deepEqual(validateExportHistoryPayload({}, roots), { filePath: null });
+test('validatePreviewFilePayload restringe acesso e deleção apenas a arquivos na pasta de preview', () => {
+  const previewDir = 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview';
+  const posixPreviewDir = '/tmp/streamgrab-preview';
+
   assert.deepEqual(
-    validateExportHistoryPayload({ filePath: 'C:\\Users\\teste\\Downloads\\history.json' }, roots),
-    { filePath: 'C:\\Users\\teste\\Downloads\\history.json' }
+    validatePreviewFilePayload({ filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-123.mp4' }, previewDir),
+    { filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-123.mp4' }
   );
   assert.deepEqual(
-    validateExportHistoryPayload({ filePath: '/home/user/Downloads/history.csv' }, roots),
-    { filePath: '/home/user/Downloads/history.csv' }
+    validatePreviewFilePayload({ filePath: '/tmp/streamgrab-preview/preview-123.mp4' }, posixPreviewDir),
+    { filePath: '/tmp/streamgrab-preview/preview-123.mp4' }
   );
-  assert.equal(validateExportHistoryPayload({ filePath: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
-  assert.equal(validateExportHistoryPayload({ filePath: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
-  assert.equal(validateExportHistoryPayload({ filePath: '/etc/cron.d/malicious' }, roots), null);
-  assert.equal(validateExportHistoryPayload({ filePath: 'relative-history.json' }, roots), null);
-  assert.equal(validateExportHistoryPayload(null, roots), null);
-  assert.equal(validateExportHistoryPayload('invalid', roots), null);
+
+  assert.equal(validatePreviewFilePayload({ filePath: 'C:\\Windows\\System32\\cmd.exe' }, previewDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: '/etc/passwd' }, posixPreviewDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\..\\secret.txt' }, previewDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: 'preview-123.mp4' }, previewDir), null);
+  assert.equal(validatePreviewFilePayload({}, previewDir), null);
+  assert.equal(validatePreviewFilePayload({ filePath: 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview\\preview-123.mp4' }, ''), null);
 });
 
 test('registerRevealRoot só aceita caminhos absolutos seguros e sem traversal', () => {

@@ -11,7 +11,7 @@ import { ipcMain } from 'electron';
 import { pathToFileURL } from 'node:url';
 import { binName, packagedBinaryPath } from '../../src/core/binaries.js';
 import { loadConfig, applyProviderHeaders } from '../../src/cli/config.js';
-import { isSafeHttpUrl, isSafeMediaSelection, validatePreviewFilePathPayload } from '../security.js';
+import { isSafeHttpUrl, isSafeMediaSelection, validatePreviewFilePayload } from '../security.js';
 import { PROJECT_ROOT } from './state.js';
 
 const previewCache = new Map(); // `${url}|${quality}` -> { path, time }
@@ -100,8 +100,10 @@ export function registerPreviewHandlers() {
 
   ipcMain.handle('preview:read-file', async (_event, rawPayload) => {
     const { app } = await import('electron');
-    const validated = validatePreviewFilePathPayload(rawPayload, app.getPath('temp'));
-    if (!validated) return { ok: false, error: 'Caminho de preview inválido.' };
+    const { getPreviewDir } = await import('../../src/preview.js');
+    const previewDir = getPreviewDir(app.getPath('temp'));
+    const validated = validatePreviewFilePayload(rawPayload, previewDir);
+    if (!validated) return { ok: false, error: 'Caminho inválido ou fora da pasta de preview.' };
     try {
       const data = fs.readFileSync(validated.filePath);
       return { ok: true, data: data.toString('base64'), mimeType: 'video/mp4' };
@@ -112,9 +114,10 @@ export function registerPreviewHandlers() {
 
   ipcMain.handle('preview:clear', async (_event, rawPayload) => {
     const { app } = await import('electron');
-    const validated = validatePreviewFilePathPayload(rawPayload, app.getPath('temp'));
-    if (!validated) return { ok: false };
-    const { clearPreview } = await import('../../src/preview.js');
+    const { getPreviewDir, clearPreview } = await import('../../src/preview.js');
+    const previewDir = getPreviewDir(app.getPath('temp'));
+    const validated = validatePreviewFilePayload(rawPayload, previewDir);
+    if (!validated) return { ok: false, error: 'Caminho inválido ou fora da pasta de preview.' };
     clearPreview(validated.filePath);
     for (const [key, value] of previewCache) {
       if (value.path === validated.filePath) previewCache.delete(key);

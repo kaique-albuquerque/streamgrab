@@ -49,16 +49,13 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
   return { path: customPath };
 }
 
-/** Valida o payload de `history:export`. */
-export function validateExportHistoryPayload(payload = {}, allowedRoots = []) {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
-  const rawPath = typeof payload.filePath === 'string' ? payload.filePath.trim() : '';
-  if (!rawPath) return { filePath: null };
-  if (!isSafeAbsolutePath(rawPath)) return null;
-  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(rawPath, root))) {
-    return null;
-  }
-  return { filePath: rawPath };
+/** Valida o payload de `preview:read-file` e `preview:clear`. */
+export function validatePreviewFilePayload(payload = {}, previewDir = '') {
+  const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
+  if (!filePath || typeof previewDir !== 'string' || !previewDir.trim()) return null;
+  if (!isSafeAbsolutePath(filePath)) return null;
+  if (!isPathWithin(filePath, previewDir)) return null;
+  return { filePath };
 }
 
 /**
