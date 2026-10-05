@@ -20,7 +20,7 @@
 **Learning:** Header normalization across core pipelines must strip control characters and prototype pollution keys before headers reach external CLI tools or network transports.
 **Prevention:** Filter prototype keys and strip `[\r\n\0]` from header values centrally in `normalizeHeaders`.
 
-## 2026-10-15 - Unsanitized File Paths in Preview IPC Channels Vulnerable to Arbitrary File Read and Deletion
-**Vulnerability:** The `preview:read-file` and `preview:clear` Electron IPC handlers accepted untrusted `filePath` strings without path traversal checks or restriction to the preview directory, allowing renderer callers to read or delete arbitrary files on the system.
-**Learning:** File system operation IPC channels accepting file paths must constrain path targets strictly to authorized application directories using validation helpers like `isPathWithin`.
-**Prevention:** Validate IPC `filePath` payloads with `isSafeAbsolutePath` and `isPathWithin` against the designated preview temporary directory before reading or unlinking files.
+## 2026-10-15 - Unredacted HTTP Credentials in URL Authority Exposed in Logs
+**Vulnerability:** `maskUrl` only sanitized sensitive search query parameters (`u.searchParams`), leaving embedded HTTP basic authentication credentials (`username` and `password` in URL authority) unredacted in log outputs and error messages.
+**Learning:** URL-based redaction must inspect both URL search parameters and authority userinfo (`u.username` / `u.password`) when masking sensitive stream or endpoint URLs.
+**Prevention:** Mask `u.username` and `u.password` whenever present on parsed `URL` objects in `maskUrl`.
