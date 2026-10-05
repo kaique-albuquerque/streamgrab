@@ -14,6 +14,15 @@ import { VIEWS } from './panel-constants.js';
 import { createQueuePanel } from './panel-queue.js';
 import { createHistoryPanel } from './panel-history.js';
 import { createSettingsPanel } from './panel-settings.js';
+import { createTranscribePanel } from './panel-transcribe.js';
+
+const VIEW_BUTTONS = {
+  videos: 'viewVideosBtn',
+  queue: 'viewQueueBtn',
+  history: 'viewHistoryBtn',
+  transcribe: 'viewTranscribeBtn',
+  settings: 'viewSettingsBtn',
+};
 
 export function createPanelsController({ dom, tabsController }) {
   const queuePanel = createQueuePanel({ tabsController });
@@ -27,19 +36,19 @@ export function createPanelsController({ dom, tabsController }) {
     dom,
     onRefreshQueue: () => queuePanel.refreshQueuePanel(),
   });
+  const transcribePanel = createTranscribePanel();
 
   function switchView(name) {
     if (!VIEWS.includes(name)) return;
     for (const viewName of VIEWS) {
       const view = document.getElementById(`view-${viewName}`);
-      const btn = document.getElementById(
-        { videos: 'viewVideosBtn', queue: 'viewQueueBtn', history: 'viewHistoryBtn', settings: 'viewSettingsBtn' }[viewName]
-      );
+      const btn = document.getElementById(VIEW_BUTTONS[viewName]);
       if (view) view.hidden = viewName !== name;
       if (btn) btn.classList.toggle('active', viewName === name);
     }
     if (name === 'queue') queuePanel.refreshQueuePanel();
     if (name === 'history') historyPanel.refreshHistoryPanel();
+    if (name === 'transcribe') transcribePanel.refreshTranscribePanel();
     if (name === 'settings') settingsPanel.renderSettingsPanel();
   }
 
@@ -52,6 +61,7 @@ export function createPanelsController({ dom, tabsController }) {
     wire('viewVideosBtn', () => switchView('videos'));
     wire('viewQueueBtn', () => switchView('queue'));
     wire('viewHistoryBtn', () => switchView('history'));
+    wire('viewTranscribeBtn', () => switchView('transcribe'));
     wire('viewSettingsBtn', () => switchView('settings'));
 
     wire('queueRefreshBtn', () => queuePanel.refreshQueuePanel());
@@ -84,6 +94,8 @@ export function createPanelsController({ dom, tabsController }) {
     initializePanels,
     refreshQueuePanel: () => queuePanel.refreshQueuePanel(),
     refreshHistoryPanel: () => historyPanel.refreshHistoryPanel(),
+    refreshTranscribePanel: () => transcribePanel.refreshTranscribePanel(),
     handleQueueEvent: (event, payload) => queuePanel.handleQueueEvent(event, payload),
+    handleTranscribeEvent: (channel, data) => transcribePanel.handleTranscribeEvent(channel, data),
   };
 }
