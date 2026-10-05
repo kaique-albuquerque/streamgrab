@@ -12,7 +12,7 @@ import {
   validateSettingsPayload,
   validateExportHistoryPayload,
 } from '../security.js';
-import { PROJECT_ROOT, getServices, addRevealRoot, getAlllowedRevealRoots } from './state.js';
+import { PROJECT_ROOT, getServices, addRevealRoot, getAllowedRevealRoots } from './state.js';
 import { enqueueDownload } from './queue-handlers.js';
 
 export function registerHistoryHandlers() {
@@ -47,7 +47,12 @@ export function registerHistoryHandlers() {
     const format = payload.format;
     const entries = payload.entries ? payload.entries : services.history.list();
 
-    let destPath = payload.filePath;
+    const validatedExport = validateExportHistoryPayload(payload, [...getAllowedRevealRoots()]);
+    if (!validatedExport) {
+      return { ok: false, error: 'Caminho de destino inválido ou fora das pastas permitidas.' };
+    }
+
+    let destPath = validatedExport.filePath;
     if (!destPath) {
       const { suggestExportFilename } = await import('../../src/core/history-export.js');
       const result = await dialog.showSaveDialog({

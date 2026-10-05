@@ -20,7 +20,7 @@
 **Learning:** Header normalization across core pipelines must strip control characters and prototype pollution keys before headers reach external CLI tools or network transports.
 **Prevention:** Filter prototype keys and strip `[\r\n\0]` from header values centrally in `normalizeHeaders`.
 
-## 2026-10-15 - Unsanitized History Fields in CSV Export Vulnerable to CSV Formula Injection
-**Vulnerability:** History entries exported to CSV via `exportHistoryAsCsv` did not sanitize formula trigger characters (`=`, `+`, `-`, `@`, `\t`, `\r`) in titles or URLs, allowing formula injection when opened in Excel/Sheets.
-**Learning:** Standard CSV field escaping (RFC 4180 quotes/commas) is insufficient to prevent formula execution in spreadsheet software when cell values start with formula operators or control characters.
-**Prevention:** Neutralize cell values starting with `=`, `+`, `-`, `@`, `\t`, or `\r` by prepending a single quote `'` in `escapeCsvValue` before applying RFC 4180 escaping.
+## 2026-10-14 - Unsanitized File Path in IPC History Export Vulnerable to Arbitrary File Write
+**Vulnerability:** The `history:export` Electron IPC handler accepted a user-supplied `filePath` directly without checking for `..` path traversal or enforcing directory restriction against allowed reveal roots.
+**Learning:** File export handlers in IPC must strictly validate custom destination paths with `isSafeAbsolutePath` and `isPathWithin` against allowed directory roots before writing file contents to disk.
+**Prevention:** Always filter IPC export payloads through dedicated validation functions that restrict target paths to permitted application directory roots.

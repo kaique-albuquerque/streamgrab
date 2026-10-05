@@ -38,12 +38,14 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
   return { path: customPath };
 }
 
-/** Valida o payload de `preview:read-file` e `preview:clear`. */
-export function validatePreviewFilePathPayload(payload = {}, previewDir = '') {
+/** Valida o payload de `history:export`. */
+export function validateExportHistoryPayload(payload = {}, allowedRoots = []) {
   const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
-  if (!filePath || !previewDir) return null;
-  if (!isSafeAbsolutePath(filePath) || !isSafeAbsolutePath(previewDir)) return null;
-  if (!isPathWithin(filePath, previewDir)) return null;
+  if (!filePath) return { filePath: null };
+  if (!isSafeAbsolutePath(filePath)) return null;
+  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(filePath, root))) {
+    return null;
+  }
   return { filePath };
 }
 
