@@ -556,6 +556,32 @@ Besides the CLI, the app can be opened as a graphical interface (`npm run electr
 - **Settings** — default folder, concurrent downloads, turbo, default quality, audio, theme, notifications, command on complete and history retention;
 - Queue, history and settings are **persisted to disk** (`settings.json`, `history.json`, `queue.json`) and restored on restart — including **interrupted-download recovery** (jobs come back to the queue as *waiting*).
 
+### 🎙️ Video transcription (Whisper)
+
+StreamGrab can **transcribe videos to text** using [whisper.cpp](https://github.com/ggerganov/whisper.cpp) — the same files you download can be converted into `.txt`, `.md` (with timestamps) or `.srt` subtitles.
+
+**How it works, step by step (Electron UI):**
+
+1. Open the app (`npm run electron:dev`) and click the **Transcrever** tab.
+2. **First time only:** click **"Baixar modelo"** — the Whisper model (~244 MB) is downloaded once to the app data folder, with a progress bar and pause/resume support. After that it works **fully offline**.
+3. Click **"Selecionar vídeo e transcrever"** and pick a video (or audio) file.
+4. Choose the **language** (Portuguese by default, English, Spanish, etc., or auto-detect) and the **output formats** (`.txt`, `.md`, `.srt`).
+5. Watch the **progress bar** — the job shows each stage (*extracting audio → transcribing*) with the live percentage.
+6. When it finishes, the transcription files appear **next to the original video** — click the format chips to open them, or "Mostrar na pasta".
+
+Each job card also supports **cancel** (while running), **retry** (after an error) and **remove** (to clean finished items from the list). Videos are processed **one at a time** by design — each Whisper run uses ~2 GB of RAM, so extra jobs wait in the queue instead of slowing down your machine.
+
+**From the terminal (CLI):**
+
+```powershell
+npm run transcribe            # interactive: pick video, language and formats
+npm run whisper:install       # dev setup: builds whisper-cli + downloads the model
+```
+
+> 💡 **No engine found?** Run `npm run whisper:install` (builds the binary from source — requires CMake and a C++ compiler) or `npm install @xenova/transformers` as a pure-Node fallback. Installers ship with the binary already bundled; the model is downloaded on first use.
+
+---
+
 ### Building (installers)
 
 Installers are produced with **electron-builder**. Windows uses MSI, macOS uses PKG, and Linux uses AppImage and DEB. External binaries (FFmpeg from `vendor/ffmpeg/`, yt-dlp from `youtube-dl-exec` and, if present, curl-impersonate) are bundled into `extraResources` (`resources/bin/`) — in production the app resolves binaries via `process.resourcesPath`, so the **target machine does not need** Node.js, FFmpeg or yt-dlp installed manually.
