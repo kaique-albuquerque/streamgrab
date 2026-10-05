@@ -32,5 +32,8 @@ export {
   validateSettingsPayload,
   validateRevealPayload,
   validateExportLogsPayload,
+  validateExportHistoryPayload,
   registerRevealRoot,
+  validateTranscribePayload,
+  validateTranscribeJobPayload,
 } from './security-payloads.js';

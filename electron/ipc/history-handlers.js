@@ -3,15 +3,16 @@
  */
 
 import path from 'node:path';
-import { ipcMain, dialog } from 'electron';
+import { app, ipcMain, dialog } from 'electron';
 import { loadConfig } from '../../src/cli/config.js';
 import { friendlyReport } from '../../src/core/errors.js';
 import {
   validateHistoryIdPayload,
   validateHistoryExportPayload,
   validateSettingsPayload,
+  validateExportHistoryPayload,
 } from '../security.js';
-import { PROJECT_ROOT, getServices, addRevealRoot } from './state.js';
+import { PROJECT_ROOT, getServices, addRevealRoot, getAlllowedRevealRoots } from './state.js';
 import { enqueueDownload } from './queue-handlers.js';
 
 export function registerHistoryHandlers() {

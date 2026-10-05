@@ -1,0 +1,173 @@
+/**
+ * styles-transcribe.css — Painel de transcrição (view "Transcrever").
+ * Reutiliza queue-item/mini-progress/job-state de styles-queue.css e
+ * adiciona os estados específicos de transcrição + card de modelo.
+ */
+
+.transcribe-status-card,
+.transcribe-new-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.transcribe-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.transcribe-status-row .hint-line {
+  margin: 2px 0 0;
+}
+
+.transcribe-model-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.transcribe-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.transcribe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.transcribe-formats {
+  display: flex;
+  gap: 12px;
+}
+
+.transcribe-formats label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+/* Barra de progresso destacada nos cards de transcrição */
+.transcribe-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.transcribe-progress-bar {
+  flex: 1;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.15);
+  overflow: hidden;
+}
+
+.transcribe-progress-bar span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  background-size: 200% 100%;
+  transition: width 200ms ease;
+  animation: transcribe-progress-shine 1.6s linear infinite;
+  position: relative;
+}
+
+/* Brilho varrendo a barra enquanto processa */
+.transcribe-progress-bar span::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: translateX(-100%);
+  animation: transcribe-progress-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes transcribe-progress-shine {
+  from { background-position: 0% 0; }
+  to { background-position: 200% 0; }
+}
+
+@keyframes transcribe-progress-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.transcribe-progress-label {
+  min-width: 44px;
+  text-align: right;
+  font-weight: 600;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+/* Estados dos jobs de transcrição (job-state com data-state específico) */
+.job-state[data-state="running"] {
+  color: var(--accent, #4a9eff);
+  border-color: var(--accent, #4a9eff);
+}
+
+.job-state[data-state="done"] {
+  color: var(--success, #3fb950);
+  border-color: var(--success, #3fb950);
+}
+
+.job-state[data-state="error"] {
+  color: var(--danger, #f85149);
+  border-color: var(--danger, #f85149);
+}
+
+.job-state[data-state="cancelled"] {
+  color: var(--muted, #8b949e);
+  border-color: var(--muted, #8b949e);
+}
+
+.transcribe-stage {
+  font-size: 0.8rem;
+  opacity: 0.8;
+  margin-left: 8px;
+}
+
+.transcribe-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.transcribe-file-chip {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border: 1px solid var(--border, #30363d);
+  border-radius: 10px;
+  cursor: pointer;
+  background: none;
+  color: inherit;
+}
+
+.transcribe-file-chip:hover {
+  border-color: var(--accent, #4a9eff);
+}
+
+.transcribe-error-detail {
+  color: var(--danger, #f85149);
+  font-size: 0.8rem;
+  margin-top: 4px;
+  word-break: break-word;
+}
+
+@media (max-width: 720px) {
+  .transcribe-status-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
