@@ -97,7 +97,9 @@ function isLocalWhisperReady() {
 
   return (
     marker.platform === process.platform &&
-    marker.arch === os.arch() &&
+    // Cross-compile: marker deve bater com a arquitetura ALVO (WHISPER_CMAKE_ARCH),
+    // senão um binário nativo (ex.: arm64 em runner mac) seria aceito para build x64.
+    marker.arch === (TARGET_ARCH || os.arch()) &&
     marker.bin === BIN_NAME &&
     MODELS.every((model) => isModelReady(model))
   );
