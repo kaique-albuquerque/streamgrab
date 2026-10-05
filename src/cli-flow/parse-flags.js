@@ -75,9 +75,18 @@ export function parseCliFlags(argv, projectRoot, safeIo) {
   const resumeEnabled = !argv.includes('--no-resume') && config.resume !== false;
   if (turboEnabled && !resumeEnabled) safeIo.log('[resume] Desativado (--no-resume): interrupcoes descartam o parcial.');
 
+  // SPEC-09: Transcription flags
+  const transcribe = argv.includes('--transcribe');
+  const transcribeLangIdx = argv.indexOf('--transcribe-lang');
+  const transcribeLang = transcribeLangIdx !== -1 ? (argv[transcribeLangIdx + 1] || 'pt') : 'pt';
+  const transcribeTimestamps = !argv.includes('--no-timestamps');
+
+  if (transcribe) safeIo.log(`[transcribe] Transcrição ativada (idioma: ${transcribeLang})`);
+
   return {
     useCurlFlag, forceYouTube, config, headers, legacyFlow, auth,
     audioLanguage, allAudio, subLanguages, embedSubs,
     turboEnabled, turboChunks, smartTurboEnabled, smartTurboFlag, resumeEnabled,
+    transcribe, transcribeLang, transcribeTimestamps,
   };
 }
