@@ -6,7 +6,7 @@
 import path from 'node:path';
 import { BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import { isSafeHttpUrl, validateRevealPayload, validateExportLogsPayload } from '../security.js';
-import { PROJECT_ROOT, getServices, addRevealRoot, getAlllowedRevealRoots } from './state.js';
+import { PROJECT_ROOT, getServices, addRevealRoot, getAllowedRevealRoots } from './state.js';
 
 export function registerAppHandlers(clipboardWatcher) {
   ipcMain.handle('app:pick-output-dir', async () => {
@@ -16,6 +16,27 @@ export function registerAppHandlers(clipboardWatcher) {
     if (result.canceled || !result.filePaths[0]) return null;
     addRevealRoot(result.filePaths[0]);
     return result.filePaths[0];
+  });
+
+  // Seletor de mídia para transcrição (vídeo/áudio).
+  ipcMain.handle('app:pick-media-file', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [
+        {
+          name: 'Mídia',
+          extensions: [
+            'mp4', 'mkv', 'webm', 'mov', 'avi', 'm4v', 'flv', 'ts', 'mts', 'wmv', 'mpg', 'mpeg', '3gp',
+            'mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'opus', 'wma',
+          ],
+        },
+        { name: 'Todos os arquivos', extensions: ['*'] },
+      ],
+    });
+    if (result.canceled || !result.filePaths[0]) return null;
+    const filePath = result.filePaths[0];
+    addRevealRoot(path.dirname(filePath));
+    return filePath;
   });
 
   ipcMain.handle('app:resolve-paths', async () => {
@@ -46,14 +67,14 @@ export function registerAppHandlers(clipboardWatcher) {
   });
 
   ipcMain.handle('app:open-file', async (_event, payload) => {
-    const validated = validateRevealPayload(payload, [...getAlllowedRevealRoots()]);
+    const validated = validateRevealPayload(payload, [...getAllowedRevealRoots()]);
     if (!validated) return { ok: false, error: 'Caminho inválido ou fora das pastas permitidas.' };
     const result = await shell.openPath(validated.filePath);
     return result ? { ok: false, error: result } : { ok: true };
   });
 
   ipcMain.handle('app:show-in-folder', async (_event, payload) => {
-    const validated = validateRevealPayload(payload, [...getAlllowedRevealRoots()]);
+    const validated = validateRevealPayload(payload, [...getAllowedRevealRoots()]);
     if (!validated) return { ok: false, error: 'Caminho inválido ou fora das pastas permitidas.' };
     shell.showItemInFolder(validated.filePath);
     return { ok: true };
@@ -62,7 +83,7 @@ export function registerAppHandlers(clipboardWatcher) {
   ipcMain.handle('app:export-logs', async (_event, payload) => {
     const { app } = await import('electron');
     const userDataDir = app.getPath('userData');
-    const validated = validateExportLogsPayload(payload, [...getAlllowedRevealRoots(), userDataDir]);
+    const validated = validateExportLogsPayload(payload, [...getAllowedRevealRoots(), userDataDir]);
     if (!validated) return { ok: false, error: 'Caminho de log inválido ou fora das pastas permitidas.' };
     const { exportLogs, defaultLogPath } = await import('../../src/core/log-export.js');
     const services = getServices();

@@ -2,10 +2,10 @@
  * P10 — Empacota binários de runtime em build/extraResources/bin/
  * (seções 7 e 30 do architect.md).
  *
- * Copia FFmpeg, yt-dlp e (quando presente) curl-impersonate para
- * build/extraResources/bin/, de onde o electron-builder os coloca em
- * <app>/resources/bin/ no instalador. Em produção, src/core/binaries.js
- * resolve os binários a partir de <resourcesPath>/bin.
+ * Copia FFmpeg, yt-dlp, curl-impersonate (quando presente) e whisper-cli
+ * (quando presente) para build/extraResources/bin/, de onde o electron-builder
+ * os coloca em <app>/resources/bin/ no instalador. Em produção,
+ * src/core/binaries.js resolve os binários a partir de <resourcesPath>/bin.
  *
  * ATENÇÃO (FFmpeg do gyan.dev): o ffmpeg.exe do vendor/ffmpeg é um build
  * COMPARTILHADO — depende das DLLs (avcodec-*.dll, avformat-*.dll etc.) na
@@ -63,6 +63,17 @@ export function buildResourcePlan({ projectRoot = PROJECT_ROOT, listTools = fs.r
       label: 'curl-impersonate (tools/)',
       from: path.join(projectRoot, 'tools', `curl-impersonate${BIN_EXT}`),
       to: `curl-impersonate${BIN_EXT}`,
+      required: false,
+    },
+    {
+      // Binário de transcrição (src/transcribe/whisper-cpp.js). Opcional:
+      // presente apenas se `npm run whisper:install` rodou (dev ou CI com
+      // WHISPER_BINARY_ONLY=1). O modelo GGML NÃO é empacotado — o app o
+      // baixa em runtime para userData (src/transcribe/model-manager.js).
+      id: 'whisper-cli',
+      label: 'whisper-cli (vendor/whisper)',
+      from: path.join(projectRoot, 'vendor', 'whisper', `whisper-cli${BIN_EXT}`),
+      to: `whisper-cli${BIN_EXT}`,
       required: false,
     },
   ];

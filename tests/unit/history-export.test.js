@@ -96,6 +96,22 @@ test('escapeCsvValue cobre aspas, vírgula, quebra de linha e valores nulos', ()
   assert.equal(escapeCsvValue(0), '0');
 });
 
+test('escapeCsvValue previne CSV Formula Injection (CWE-1236) prefixando aspas simples', () => {
+  assert.equal(escapeCsvValue('=1+1'), '\'=1+1');
+  assert.equal(escapeCsvValue('+1+1'), '\'+1+1');
+  assert.equal(escapeCsvValue('-1+1'), '\'-1+1');
+  assert.equal(escapeCsvValue('@SUM(1,2)'), '"\'@SUM(1,2)"');
+  assert.equal(escapeCsvValue('\tcmd'), '\'\tcmd');
+  assert.equal(escapeCsvValue('\rcmd'), '"\'\rcmd"');
+  assert.equal(escapeCsvValue('=cmd|\' /C calc\'!A1'), '\'=cmd|\' /C calc\'!A1');
+});
+
+test('exportHistoryAsCsv neutraliza titulos e URLs maliciosas com formulas', () => {
+  const csv = exportHistoryAsCsv([entry({ title: '=cmd|\' /C calc\'!A1', url: '+http://malicious.example.com' })]);
+  assert.ok(csv.includes('\'=cmd|\' /C calc\'!A1'));
+  assert.ok(csv.includes('\'+http://malicious.example.com'));
+});
+
 // ---------------------------------------------------------------------------
 // serializeHistory
 // ---------------------------------------------------------------------------
