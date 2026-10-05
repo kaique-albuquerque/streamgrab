@@ -93,7 +93,8 @@ function formatSize(bytes) {
 }
 
 function buildReport({ files, largeFiles, minLines }) {
-  const sorted = [...largeFiles].sort((a, b) => b.lines - a.lines);
+  const rel = (file) => path.relative(PROJECT_ROOT, file.path).replace(/\\/g, '/');
+  const sorted = [...largeFiles].sort((a, b) => rel(a).localeCompare(rel(b), 'pt-BR', { sensitivity: 'base' }));
   const totalLines = largeFiles.reduce((sum, f) => sum + f.lines, 0);
   const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
 
@@ -121,8 +122,7 @@ function buildReport({ files, largeFiles, minLines }) {
   lines.push('| # | Arquivo | Linhas | Tipo | Tamanho |');
   lines.push('|---|---------|--------|------|---------|');
   sorted.forEach((file, index) => {
-    const rel = path.relative(PROJECT_ROOT, file.path).replace(/\\/g, '/');
-    lines.push(`| ${index + 1} | \`${rel}\` | ${file.lines} | ${file.type} | ${formatSize(file.size)} |`);
+    lines.push(`| ${index + 1} | \`${rel(file)}\` | ${file.lines} | ${file.type} | ${formatSize(file.size)} |`);
   });
   lines.push('');
   return lines.join('\n');
