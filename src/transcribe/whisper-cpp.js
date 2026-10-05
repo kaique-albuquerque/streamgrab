@@ -54,7 +54,8 @@ export function checkWhisperCpp() {
   }
 
   if (isVendorWhisperReady()) {
-    return { available: true, binPath: VENDOR_BIN, modelsDir: VENDOR_MODELS };
+    const vendorModels = process.env.WHISPER_MODEL_DIR || VENDOR_MODELS;
+    return { available: true, binPath: VENDOR_BIN, modelsDir: vendorModels };
   }
 
   for (const command of ['whisper-cli', 'whisper', 'main']) {
@@ -77,12 +78,15 @@ function isVendorWhisperReady() {
     return false;
   }
 
+  // WHISPER_MODEL_DIR (ex.: userData do Electron) tem prioridade sobre
+  // vendor/models — o binário pode vir do vendor e o modelo, do app.
+  const modelsDir = process.env.WHISPER_MODEL_DIR || VENDOR_MODELS;
   return (
     marker.platform === process.platform &&
     marker.arch === os.arch() &&
     marker.bin === BIN_NAME &&
-    fs.existsSync(path.join(VENDOR_MODELS, MODEL_MAP.small)) &&
-    fs.statSync(path.join(VENDOR_MODELS, MODEL_MAP.small)).size > MODEL_MIN_SIZE.small
+    fs.existsSync(path.join(modelsDir, MODEL_MAP.small)) &&
+    fs.statSync(path.join(modelsDir, MODEL_MAP.small)).size > MODEL_MIN_SIZE.small
   );
 }
 

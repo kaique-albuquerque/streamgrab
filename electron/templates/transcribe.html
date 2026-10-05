@@ -1,0 +1,72 @@
+      <section id="view-transcribe" class="view" hidden>
+        <div class="view-header card">
+          <div>
+            <h2>Transcrever</h2>
+            <p class="hint-line" id="transcribeSummary">Transcrição de vídeos via Whisper.</p>
+          </div>
+          <div class="view-actions">
+            <button id="transcribeRefreshBtn" class="button button-ghost" type="button">Atualizar</button>
+          </div>
+        </div>
+
+        <!-- Status do engine + modelo -->
+        <div class="card transcribe-status-card">
+          <div class="transcribe-status-row">
+            <div>
+              <strong>Engine de transcrição</strong>
+              <p class="hint-line" id="transcribeEngineInfo">Verificando...</p>
+            </div>
+            <span id="transcribeEngineBadge" class="job-state" data-state="queued">...</span>
+          </div>
+          <div class="transcribe-status-row" id="transcribeModelRow">
+            <div>
+              <strong>Modelo Whisper (small, ~244 MB)</strong>
+              <p class="hint-line" id="transcribeModelInfo">Verificando...</p>
+              <div id="transcribeModelProgressWrap" class="transcribe-progress" hidden>
+                <div class="transcribe-progress-bar"><span id="transcribeModelProgressBar" style="width: 0%"></span></div>
+                <span id="transcribeModelProgressLabel" class="transcribe-progress-label">0%</span>
+              </div>
+            </div>
+            <div class="transcribe-model-actions">
+              <button id="transcribeModelDownloadBtn" class="button button-ghost" type="button" hidden>Baixar modelo</button>
+              <button id="transcribeModelCancelBtn" class="button button-ghost" type="button" hidden>Cancelar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Nova transcrição -->
+        <div class="card transcribe-new-card">
+          <strong>Nova transcrição</strong>
+          <div class="transcribe-options">
+            <label class="transcribe-field">
+              <span>Idioma</span>
+              <select id="transcribeLanguage" class="sort-select">
+                <option value="pt" selected>Português</option>
+                <option value="en">Inglês</option>
+                <option value="es">Espanhol</option>
+                <option value="fr">Francês</option>
+                <option value="de">Alemão</option>
+                <option value="it">Italiano</option>
+                <option value="ja">Japonês</option>
+                <option value="auto">Detectar automaticamente</option>
+              </select>
+            </label>
+            <div class="transcribe-field">
+              <span>Saídas</span>
+              <div class="transcribe-formats">
+                <label><input type="checkbox" id="transcribeFmtTxt" checked /> .txt</label>
+                <label><input type="checkbox" id="transcribeFmtMd" checked /> .md</label>
+                <label><input type="checkbox" id="transcribeFmtSrt" /> .srt</label>
+              </div>
+            </div>
+          </div>
+          <button id="transcribeStartBtn" class="button button-primary" type="button">
+            🎬 Selecionar vídeo e transcrever
+          </button>
+          <p class="hint-line" id="transcribeNewHint" hidden></p>
+        </div>
+
+        <!-- Lista de jobs -->
+        <div id="transcribeList" class="queue-list"></div>
+        <div id="transcribeEmpty" class="empty-state">Nenhuma transcrição ainda. Selecione um vídeo para começar.</div>
+      </section>

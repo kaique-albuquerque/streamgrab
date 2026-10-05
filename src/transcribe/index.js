@@ -149,6 +149,10 @@ export async function transcribeVideo({
 
   try {
     onLog?.(`[transcribe] Etapa 2/3: Transcrevendo audio...`);
+    // Marca o inicio do estagio de transcricao: durante o carregamento do
+    // modelo do whisper (pode demorar segundos) nao chega progresso — sem
+    // este evento a UI ficaria travada em "Extraindo audio 100%".
+    onProgress?.({ stage: 'transcribing', percent: 0 });
     const result = await transcribeAudio({
       audioPath,
       language,
@@ -201,5 +205,7 @@ export { checkWhisperCpp } from './whisper-cpp.js';
 export { checkTransformers } from './whisper-transformers.js';
 export { extractAudio, hasAudio, getAudioDuration } from './audio-extract.js';
 export { formatTxt, formatMd, formatSrt, writeTranscription, titleFromVideoPath } from './format.js';
+export { getModelStatus, downloadModel, MODEL_CATALOG, DEFAULT_MODEL as DEFAULT_WHISPER_MODEL } from './model-manager.js';
+export { createTranscriptionJobManager, createJsonJobStorage, JOB_STATUS } from './job-manager.js';
 
 export default transcribeVideo;

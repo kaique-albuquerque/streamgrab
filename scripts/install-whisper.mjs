@@ -34,6 +34,10 @@ const MODELS = [
   { name: 'ggml-small.bin', size: 244_000_000, label: 'small' },
 ];
 
+// Cross-compile: ex. WHISPER_CMAKE_ARCH=x86_64 para builds macOS x64 em
+// runners arm64 (macos-14). Vazio = arquitetura nativa da máquina.
+const TARGET_ARCH = process.env.WHISPER_CMAKE_ARCH || '';
+
 console.log('\n[whisper] Verificando instalao local do whisper.cpp...');
 
 // Permite pular a instalao (ex: CI j instalou manualmente)
@@ -54,8 +58,14 @@ try {
   // Etapa 1: Compilar binrio
   await buildBinary();
 
-  // Etapa 2: Baixar modelos
-  await downloadModels();
+  // Etapa 2: Baixar modelos (pulado com WHISPER_BINARY_ONLY=1 — ex.: CI que
+  // empacota s o binrio; o modelo  baixado em runtime pelo app
+  // (src/transcribe/model-manager.js) para o userData do usurio).
+  if (process.env.WHISPER_BINARY_ONLY === '1') {
+    console.log('[whisper] WHISPER_BINARY_ONLY=1 — pulando download de modelos.');
+  } else {
+    await downloadModels();
+  }
 
   // Etapa 3: Criar marker de instalacao
   writeInstalledMarker();
@@ -115,7 +125,7 @@ function writeInstalledMarker() {
   const marker = {
     installedAt: new Date().toISOString(),
     platform: process.platform,
-    arch: os.arch(),
+    arch: TARGET_ARCH || os.arch(),
     bin: BIN_NAME,
     models: listInstalledModels(),
   };
@@ -288,6 +298,12 @@ function hasCommand(command, args = []) {
 }
 
 function getCmakeConfigureArgs() {
+  // macOS cross-compile (ex.: x86_64 em runner arm64) — clang suporta
+  // nativamente via CMAKE_OSX_ARCHITECTURES.
+  if (process.platform === 'darwin' && TARGET_ARCH) {
+    return [`-DCMAKE_OSX_ARCHITECTURES=${TARGET_ARCH}`];
+  }
+
   if (process.platform !== 'win32') {
     return [];
   }
