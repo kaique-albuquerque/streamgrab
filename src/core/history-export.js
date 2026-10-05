@@ -40,9 +40,13 @@ export function exportHistoryAsCsv(entries) {
   return [bom + header, ...rows].join('\n');
 }
 
-/** Escapa um valor de célula CSV (RFC 4180). */
+/** Escapa um valor de célula CSV (RFC 4180 e sanitização contra CSV Formula Injection). */
 export function escapeCsvValue(value) {
-  const str = value === null || value === undefined ? '' : String(value);
+  if (value === null || value === undefined) return '';
+  let str = String(value);
+  if (typeof value !== 'number' && /^[=+\-@\t\r]/.test(str)) {
+    str = `'${str}`;
+  }
   if (/[",\n\r]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;
   }

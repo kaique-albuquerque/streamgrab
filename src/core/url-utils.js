@@ -68,6 +68,8 @@ export function isValidM3u8Url(value) {
 export function maskUrl(value) {
   try {
     const u = new URL(value);
+    if (u.username) u.username = '***';
+    if (u.password) u.password = '***';
     for (const key of [...u.searchParams.keys()]) {
       if (SENSITIVE_PARAMS.test(key)) u.searchParams.set(key, '***');
     }
