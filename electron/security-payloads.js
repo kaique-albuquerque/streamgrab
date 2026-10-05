@@ -18,4 +18,4 @@ export {
   validateSettingsPayload,
 } from './security-payloads-queue.js';
 
-export { validateRevealPayload, validatePreviewPathPayload, validateExportLogsPayload, registerRevealRoot } from './security-payloads-app.js';
+export { validateRevealPayload, validateExportLogsPayload, validatePreviewFilePathPayload, registerRevealRoot } from './security-payloads-app.js';

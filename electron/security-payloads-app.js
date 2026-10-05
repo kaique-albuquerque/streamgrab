@@ -39,12 +39,11 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
 }
 
 /** Valida o payload de `preview:read-file` e `preview:clear`. */
-export function validatePreviewFilePayload(payload = {}, tempDir = '') {
+export function validatePreviewFilePathPayload(payload = {}, previewDir = '') {
   const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
-  if (!filePath) return null;
-  if (!isSafeAbsolutePath(filePath)) return null;
-  if (typeof tempDir !== 'string' || !tempDir.trim()) return null;
-  if (!isPathWithin(filePath, tempDir.trim())) return null;
+  if (!filePath || !previewDir) return null;
+  if (!isSafeAbsolutePath(filePath) || !isSafeAbsolutePath(previewDir)) return null;
+  if (!isPathWithin(filePath, previewDir)) return null;
   return { filePath };
 }
 
