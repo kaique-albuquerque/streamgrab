@@ -27,10 +27,13 @@ export {
   isValidJobId,
   validateJobIdPayload,
   validateHistoryIdPayload,
+  validateHistoryExportPayload,
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateRevealPayload,
   validateExportLogsPayload,
   validatePreviewFilePayload,
   registerRevealRoot,
+  validateTranscribePayload,
+  validateTranscribeJobPayload,
 } from './security-payloads.js';

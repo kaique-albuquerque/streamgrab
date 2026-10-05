@@ -13,6 +13,9 @@ on:
   push:
     tags:
       - "v*"
+  # Validação manual dos builds (ex.: conferir compilação do whisper-cli
+  # nas 4 plataformas sem cortar uma release).
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -110,6 +113,12 @@ jobs:
         shell: bash
         timeout-minutes: 1
 
+      - name: Instalar whisper.cpp (binário de transcrição)
+        run: node scripts/install-whisper.mjs 2>&1
+        env:
+          WHISPER_BINARY_ONLY: "1"
+        timeout-minutes: 30
+
       - name: Empacotar binários (pack:resources)
         run: npm run pack:resources 2>&1
         timeout-minutes: 5
@@ -181,15 +190,23 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Instalar FFmpeg (brew)
-        run: brew install ffmpeg 2>&1
-        timeout-minutes: 5
-
-      - name: Copiar FFmpeg para vendor/ffmpeg/
+      # ffmpeg-x64 estático: o runner macos-14 é arm64 — o brew instalaria um
+      # binário arm64 que NÃO roda em Macs Intel (bug pré-existente no build
+      # x64). Binário estático (eugeneware/ffmpeg-static b6.1.1) + verificação.
+      - name: Baixar FFmpeg x64 estático (macOS Intel)
         run: |
           mkdir -p vendor/ffmpeg
-          cp "$(which ffmpeg)" vendor/ffmpeg/ffmpeg
+          curl -fsSL -o vendor/ffmpeg/ffmpeg "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-x64"
           chmod +x vendor/ffmpeg/ffmpeg
+        timeout-minutes: 5
+
+      - name: Verificar arquitetura do ffmpeg (x86_64)
+        run: |
+          file vendor/ffmpeg/ffmpeg
+          file vendor/ffmpeg/ffmpeg | grep -q "x86-64" && ! file vendor/ffmpeg/ffmpeg | grep -q "arm64" \
+            && echo "OK: ffmpeg x86_64" \
+            || { echo "ERRO: ffmpeg com arquitetura errada para macOS Intel"; exit 1; }
+        shell: bash
         timeout-minutes: 1
 
       - name: Instalar dependências (npm ci)
@@ -209,6 +226,23 @@ jobs:
       - name: Instalar Electron
         run: node scripts/install-electron.mjs 2>&1
         timeout-minutes: 10
+
+      - name: Instalar whisper.cpp (binário de transcrição)
+        run: node scripts/install-whisper.mjs 2>&1
+        env:
+          WHISPER_BINARY_ONLY: "1"
+          # Runner macos-14 é arm64; o instalador x64 precisa de binário x86_64.
+          WHISPER_CMAKE_ARCH: "x86_64"
+        timeout-minutes: 30
+
+      - name: Verificar arquitetura do whisper-cli (x86_64)
+        run: |
+          file vendor/whisper/whisper-cli
+          file vendor/whisper/whisper-cli | grep -q "x86-64" && ! file vendor/whisper/whisper-cli | grep -q "arm64" \
+            && echo "OK: binário x86_64" \
+            || { echo "ERRO: binário com arquitetura errada para o instalador x64"; exit 1; }
+        shell: bash
+        timeout-minutes: 1
 
       - name: Empacotar binários (pack:resources)
         run: npm run pack:resources 2>&1
@@ -293,6 +327,21 @@ jobs:
       - name: Instalar Electron
         run: node scripts/install-electron.mjs 2>&1
         timeout-minutes: 10
+
+      - name: Instalar whisper.cpp (binário de transcrição)
+        run: node scripts/install-whisper.mjs 2>&1
+        env:
+          WHISPER_BINARY_ONLY: "1"
+        timeout-minutes: 30
+
+      - name: Verificar arquitetura do whisper-cli (arm64)
+        run: |
+          file vendor/whisper/whisper-cli
+          file vendor/whisper/whisper-cli | grep -q "arm64" \
+            && echo "OK: binário arm64" \
+            || { echo "ERRO: binário com arquitetura errada para o instalador arm64"; exit 1; }
+        shell: bash
+        timeout-minutes: 1
 
       - name: Empacotar binários (pack:resources)
         run: npm run pack:resources 2>&1
@@ -383,6 +432,21 @@ jobs:
       - name: Instalar Electron
         run: node scripts/install-electron.mjs 2>&1
         timeout-minutes: 10
+
+      - name: Instalar whisper.cpp (binário de transcrição)
+        run: node scripts/install-whisper.mjs 2>&1
+        env:
+          WHISPER_BINARY_ONLY: "1"
+        timeout-minutes: 30
+
+      - name: Verificar arquitetura do whisper-cli (x86_64)
+        run: |
+          file vendor/whisper/whisper-cli
+          file vendor/whisper/whisper-cli | grep -q "x86-64" \
+            && echo "OK: binário x86_64" \
+            || { echo "ERRO: binário com arquitetura errada para Linux x64"; exit 1; }
+        shell: bash
+        timeout-minutes: 1
 
       - name: Empacotar binários (pack:resources)
         run: npm run pack:resources 2>&1

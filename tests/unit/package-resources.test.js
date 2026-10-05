@@ -12,16 +12,21 @@ test('buildResourcePlan: entradas obrigatórias/opcionais + perfis v2', () => {
   const plan = buildResourcePlan({ projectRoot: 'P:/proj', listTools: () => FAKE_TOOLS });
 
   const BIN_EXT = process.platform === 'win32' ? '.exe' : '';
-  assert.equal(plan.entries.length, 3);
+  assert.equal(plan.entries.length, 4);
   const ffmpeg = plan.entries.find((e) => e.id === 'ffmpeg');
   const ytdlp = plan.entries.find((e) => e.id === 'yt-dlp');
   const curl = plan.entries.find((e) => e.id === 'curl-impersonate');
+  const whisper = plan.entries.find((e) => e.id === 'whisper-cli');
 
   assert.equal(ffmpeg.required, true);
   assert.ok(ffmpeg.from.endsWith(path.join('vendor', 'ffmpeg', `ffmpeg${BIN_EXT}`)));
   assert.equal(ytdlp.required, true);
   assert.ok(ytdlp.from.endsWith(path.join('node_modules', 'youtube-dl-exec', 'bin', `yt-dlp${BIN_EXT}`)));
   assert.equal(curl.required, false);
+  // whisper-cli é opcional (só empacotado se whisper:install rodou); o modelo
+  // GGML nunca é empacotado — o app o baixa em runtime (model-manager.js).
+  assert.equal(whisper.required, false);
+  assert.ok(whisper.from.endsWith(path.join('vendor', 'whisper', `whisper-cli${BIN_EXT}`)));
 
   // Perfis v2 copiados; arquivos sem padrão de perfil ignorados
   assert.deepEqual(
@@ -33,7 +38,7 @@ test('buildResourcePlan: entradas obrigatórias/opcionais + perfis v2', () => {
 test('buildResourcePlan: tools/ ausente não lança', () => {
   const plan = buildResourcePlan({ projectRoot: 'P:/proj', listTools: () => { throw new Error('ENOENT'); } });
   assert.deepEqual(plan.batProfiles, []);
-  assert.equal(plan.entries.length, 3);
+  assert.equal(plan.entries.length, 4);
 });
 
 test('runResourcePlan: obrigatório ausente lança com mensagem clara', () => {
