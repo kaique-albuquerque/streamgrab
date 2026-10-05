@@ -65,6 +65,9 @@ export function printSubcommandHelp(io) {
   io.log('  --hotmart                    Headers padrao do embed Hotmart (isolado)');
   io.log('  --referer <url>              Header Referer');
   io.log('  --user-agent <ua>            Header User-Agent');
+  io.log('  --transcribe                 Transcrever apos download (~15min para 1h de video)');
+  io.log('  --transcribe-lang <code>     Idioma da transcricao (padrao: pt)');
+  io.log('  --no-timestamps              Nao gerar .md com timestamps');
 }
 
 export function parseAnalyzeFlags(rest = []) {

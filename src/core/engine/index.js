@@ -26,6 +26,7 @@ import {
   resolveOutput as _resolveOutput,
   downloadLoop as _downloadLoop,
   processSubtitles,
+  processTranscription,
 } from './lifecycle.js';
 import {
   complete as _complete,
@@ -152,6 +153,7 @@ export class DownloadEngine {
     selectedUrl, destination, headers = {}, auth = {},
     forceYouTube = false, mode, audioLanguage, allAudio,
     subtitleLanguages = [], embedSubs = false, turbo, turboChunks,
+    transcribe = false, transcribeLang, transcribeTimestamps,
   } = {}) {
     try {
       const analyzed = await _analyze(this, job, { selectedUrl, headers, auth, forceYouTube });
@@ -164,6 +166,9 @@ export class DownloadEngine {
       job.meta.output = outputPath;
       await _downloadLoop(this, job, adapter, prepared, { headers, mode, turbo, turboChunks });
       await processSubtitles(this, job, prepared, { subtitleLanguages, embedSubs, headers });
+      await processTranscription(this, job, {
+        transcribe, transcribeLang, transcribeTimestamps,
+      });
       _complete(this, job);
     } catch (err) {
       _handleFailure(this, job, err);
