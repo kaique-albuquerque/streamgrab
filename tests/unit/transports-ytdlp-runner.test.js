@@ -38,7 +38,9 @@ test('runYtDlpDownload: sucesso retorna ok:true e passa as opcoes', async () => 
     url: 'https://youtube.com/watch?v=abc',
     formatId: '137',
     output: '/tmp/out.mp4',
+    ffmpegPath: '/caminho/ffmpeg',
     headers: { 'user-agent': 'Mozilla/5.0' },
+    ffmpegPath: '/usr/bin/ffmpeg',
   });
 
   assert.equal(result.ok, true);

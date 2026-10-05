@@ -3,9 +3,21 @@
  */
 
 import { isSafeAbsolutePath, isPathWithin } from './security-primitives.js';
+import { getPreviewDir } from '../src/preview.js';
 
 /** Valida o payload de `app:open-file` / `app:show-in-folder`. */
 export function validateRevealPayload(payload = {}, allowedRoots = []) {
+  const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
+  if (!filePath) return null;
+  if (!isSafeAbsolutePath(filePath)) return null;
+  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(filePath, root))) {
+    return null;
+  }
+  return { filePath };
+}
+
+/** Valida o payload de `preview:read-file` e `preview:clear`. */
+export function validatePreviewPathPayload(payload = {}, allowedRoots = []) {
   const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
   if (!filePath) return null;
   if (!isSafeAbsolutePath(filePath)) return null;
