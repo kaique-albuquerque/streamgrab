@@ -27,6 +27,7 @@ export {
   isValidJobId,
   validateJobIdPayload,
   validateHistoryIdPayload,
+  validateHistoryExportPayload,
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateRevealPayload,

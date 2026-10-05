@@ -8,6 +8,7 @@ import { loadConfig } from '../../src/cli/config.js';
 import { friendlyReport } from '../../src/core/errors.js';
 import {
   validateHistoryIdPayload,
+  validateHistoryExportPayload,
   validateSettingsPayload,
   validateExportHistoryPayload,
 } from '../security.js';
@@ -40,14 +41,13 @@ export function registerHistoryHandlers() {
     const services = getServices();
     if (!services) return { ok: false, error: 'Serviços não inicializados.' };
 
-    const userDataDir = app.getPath('userData');
-    const validated = validateExportHistoryPayload(rawPayload, [...getAlllowedRevealRoots(), userDataDir]);
-    if (!validated) return { ok: false, error: 'Caminho de exportação inválido ou fora das pastas permitidas.' };
+    const payload = validateHistoryExportPayload(rawPayload);
+    if (!payload) return { ok: false, error: 'Payload de exportação de histórico inválido.' };
 
-    const { format, entries: payloadEntries, filePath: validatedPath } = validated;
-    const entries = payloadEntries || services.history.list();
+    const format = payload.format;
+    const entries = payload.entries ? payload.entries : services.history.list();
 
-    let destPath = validatedPath;
+    let destPath = payload.filePath;
     if (!destPath) {
       const { suggestExportFilename } = await import('../../src/core/history-export.js');
       const result = await dialog.showSaveDialog({
