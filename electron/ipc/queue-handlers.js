@@ -13,6 +13,7 @@ import {
   isValidJobId,
   isValidTaskId,
   isSafeHttpUrl,
+  isSafeAbsolutePath,
 } from '../security.js';
 import { PROJECT_ROOT, getServices, addRevealRoot, taskToJob } from './state.js';
 import { analyzePlaylist } from './playlist-handlers.js';
@@ -212,7 +213,10 @@ export function registerQueueHandlers() {
       return { results: [], ok: 0, failed: 0, error: 'Nenhuma URL válida informada.' };
     }
 
-    const outputDir = typeof payload.outputDir === 'string' ? payload.outputDir : '';
+    const outputDir = typeof payload.outputDir === 'string' ? payload.outputDir.trim() : '';
+    if (outputDir && !isSafeAbsolutePath(outputDir)) {
+      return { results: [], ok: 0, failed: 0, error: 'Diretório de saída inválido.' };
+    }
     if (outputDir) addRevealRoot(outputDir);
 
     const { processBatch } = await import('../../src/batch.js');
