@@ -5,7 +5,7 @@
 
 import path from 'node:path';
 import { BrowserWindow, ipcMain, dialog, shell } from 'electron';
-import { isSafeHttpUrl, validateRevealPayload, validateExportLogsPayload } from '../security.js';
+import { isSafeHttpUrl, isSafeAbsolutePath, validateRevealPayload, validateExportLogsPayload } from '../security.js';
 import { PROJECT_ROOT, getServices, addRevealRoot, getAllowedRevealRoots } from './state.js';
 
 export function registerAppHandlers(clipboardWatcher) {
@@ -50,7 +50,7 @@ export function registerAppHandlers(clipboardWatcher) {
 
   // SPEC-07: espaço em disco para o dashboard da fila
   ipcMain.handle('app:disk-space', async (_event, { dir } = {}) => {
-    const targetDir = typeof dir === 'string' && dir ? dir : (await import('electron')).app.getPath('downloads');
+    const targetDir = typeof dir === 'string' && dir && isSafeAbsolutePath(dir) ? dir : (await import('electron')).app.getPath('downloads');
     const { getDiskSpace } = await import('../../src/core/disk.js');
     const space = await getDiskSpace(targetDir);
     return space || { free: null, total: null, used: null };

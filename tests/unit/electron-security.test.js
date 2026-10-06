@@ -25,7 +25,6 @@ import {
   validateExportLogsPayload,
   validatePreviewFilePathPayload,
   registerRevealRoot,
-  validatePreviewFilePathPayload,
 } from '../../electron/security.js';
 
 // ---------------------------------------------------------------------------
