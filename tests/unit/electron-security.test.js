@@ -14,7 +14,6 @@ import {
   validateDownloadPayload,
   validateCancelPayload,
   validateRevealPayload,
-  validatePreviewPathPayload,
   isPathWithin,
   isValidJobId,
   validateJobIdPayload,
@@ -23,7 +22,7 @@ import {
   validateQueueEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
-  validatePreviewFilePathPayload,
+  validateDiskSpacePayload,
   registerRevealRoot,
   validatePreviewFilePathPayload,
 } from '../../electron/security.js';
@@ -487,6 +486,22 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
+});
+
+test('validateDiskSpacePayload valida diretório e restringe a raízes permitidas', () => {
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
+  assert.deepEqual(validateDiskSpacePayload({}, roots), { dir: null });
+  assert.deepEqual(
+    validateDiskSpacePayload({ dir: 'C:\\Users\\teste\\Downloads' }, roots),
+    { dir: 'C:\\Users\\teste\\Downloads' }
+  );
+  assert.deepEqual(
+    validateDiskSpacePayload({ dir: '/home/user/Downloads' }, roots),
+    { dir: '/home/user/Downloads' }
+  );
+  assert.equal(validateDiskSpacePayload({ dir: 'C:\\Windows\\System32' }, roots), null);
+  assert.equal(validateDiskSpacePayload({ dir: 'C:\\Users\\teste\\..\\Windows' }, roots), null);
+  assert.equal(validateDiskSpacePayload({ dir: 'relative/dir' }, roots), null);
 });
 
 test('validatePreviewFilePathPayload valida e restringe caminho ao diretório de preview', () => {
