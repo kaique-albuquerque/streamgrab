@@ -10,7 +10,7 @@ import {
   validateHistoryIdPayload,
   validateHistoryExportPayload,
   validateSettingsPayload,
-  validateExportHistoryPayload,
+  isPathWithin,
 } from '../security.js';
 import { PROJECT_ROOT, getServices, addRevealRoot, getAllowedRevealRoots } from './state.js';
 import { enqueueDownload } from './queue-handlers.js';
@@ -41,21 +41,18 @@ export function registerHistoryHandlers() {
     const services = getServices();
     if (!services) return { ok: false, error: 'Serviços não inicializados.' };
 
-    const validated = validateExportHistoryPayload(rawPayload, [...getAllowedRevealRoots()]);
+    const validated = validateHistoryExportPayload(rawPayload);
     if (!validated) {
-      return { ok: false, error: 'Caminho de exportação inválido ou fora das pastas permitidas.' };
+      return { ok: false, error: 'Payload de exportação inválido.' };
     }
 
-    const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
-    const format = payload.format === 'csv' ? 'csv' : 'json';
-
-    const format = payload.format;
-    const entries = payload.entries ? payload.entries : services.history.list();
-
-    const validatedExport = validateExportHistoryPayload(payload, [...getAllowedRevealRoots()]);
-    if (!validatedExport) {
-      return { ok: false, error: 'Caminho de destino inválido ou fora das pastas permitidas.' };
+    const allowedRoots = [...getAllowedRevealRoots()];
+    if (validated.filePath && !allowedRoots.some((root) => isPathWithin(validated.filePath, root))) {
+      return { ok: false, error: 'Caminho de destino fora das pastas permitidas.' };
     }
+
+    const { format } = validated;
+    const entries = validated.entries || services.history.list();
 
     let destPath = validated.filePath;
     if (!destPath) {
