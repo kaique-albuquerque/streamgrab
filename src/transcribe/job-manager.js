@@ -20,6 +20,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { DEFAULT_MODEL, isKnownModel } from './model-manager.js';
 
 export const JOB_STATUS = {
   QUEUED: 'queued',
@@ -72,6 +73,7 @@ function snapshot(job) {
     language: job.language,
     formats: job.formats,
     title: job.title,
+    model: job.model,
     status: job.status,
     attempts: job.attempts,
     stage: job.stage,
@@ -163,6 +165,7 @@ async function startJob(ctx, job) {
       language: job.language,
       formats: job.formats,
       title: job.title || undefined,
+      model: job.model || DEFAULT_MODEL,
       signal: controller.signal,
       onProgress: (progress) => {
         job.stage = progress.stage || job.stage;
@@ -228,7 +231,7 @@ function pump(ctx) {
 function createManagerApi(ctx) {
   return {
     /** Enfileira um job. Validação de entrada é responsabilidade do chamador. */
-    enqueue({ videoPath, language = 'pt', formats = ['txt', 'md'], title = '' } = {}) {
+    enqueue({ videoPath, language = 'pt', formats = ['txt', 'md'], title = '', model = DEFAULT_MODEL } = {}) {
       ctx.idCounter++;
       const job = {
         jobId: `tr_${ctx.now().toString(36)}_${ctx.idCounter}`,
@@ -236,6 +239,9 @@ function createManagerApi(ctx) {
         language,
         formats,
         title,
+        // Ids desconhecidos caem no padrão: jobs antigos (sem `model`)
+        // continuam retomáveis após crash recovery.
+        model: isKnownModel(model) ? model : DEFAULT_MODEL,
         status: JOB_STATUS.QUEUED,
         attempts: 0,
         stage: 'queued',

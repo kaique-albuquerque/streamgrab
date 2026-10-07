@@ -63,21 +63,24 @@ streamgrab download <url> --transcribe --transcribe-quality max --transcribe-lan
 
 | Engine | Instalação | Velocidade | Tamanho | Dependência |
 |--------|-----------|------------|---------|-------------|
-| **whisper.cpp** (recomendado) | Script `install-whisper.mjs` (como FFmpeg) | ~2-3x tempo real | Binário ~15 MB + modelo ~769 MB | Nenhuma (standalone) |
+| **whisper.cpp** (recomendado) | Script `install-whisper.mjs` (como FFmpeg) | ~2-3x tempo real | Binário ~15 MB + modelo ~1,4 GB | Nenhuma (standalone) |
 | **@xenova/transformers** (fallback) | `npm install` | ~3-5x tempo real | ~800 MB (modelos em cache) | Nenhuma (Node.js puro) |
 
 O Whisper.cpp é a opção principal por ser mais rápido e não depender de Python. O `@xenova/transformers` serve como fallback para ambientes onde o binário não pode ser compilado/instalado.
 
-> **Nota sobre performance:** A opção máxima usa o modelo `medium` (~769 MB, ~5 GB RAM) que entrega **qualidade máxima sem GPU**. Para aulas longas (1-2h), a transcrição pode levar até 25 min. A opção rápida usa `small` (~244 MB, ~2 GB RAM) com tempo de ~15 min para 1h de vídeo.
+> **Nota sobre performance:** A opção máxima usa o modelo `medium` (~1,4 GB, ~5 GB RAM) que entrega **qualidade máxima sem GPU**. Para aulas longas (1-2h), a transcrição pode levar até 25 min. A opção rápida usa `small` (~465 MB, ~2 GB RAM) com tempo de ~15 min para 1h de vídeo.
 
 ### 3.3. Modelos Whisper
 
+> **Atualização (intervalo multi-modelo):** o catálogo abaixo é hoje gerenciado pela própria interface — a aba **Transcrever > Modelos Whisper** lista os modelos, baixa (com progresso, retomada e verificação SHA-256) e exclui, e o modelo escolhido é lembrado como padrão. Os tamanhos foram corrigidos para os valores oficiais dos arquivos GGML.
+
 | Modelo | Tamanho | RAM | Tempo (1h vídeo) | Qualidade | Opção |
 |--------|---------|-----|------------------|-----------|-------|
-| `tiny` | 39 MB | ~1 GB | ~5 min | ⭐⭐ | — |
-| `base` | 74 MB | ~1 GB | ~10 min | ⭐⭐⭐ | — |
-| `small` | 244 MB | ~2 GB | ~15 min | ⭐⭐⭐⭐ | ⚡ **Rápida** (padrão) |
-| `medium` | 769 MB | ~5 GB | ~25 min | ⭐⭐⭐⭐⭐ | 🎯 **Máxima** |
+| `tiny` | 74 MB | ~1 GB | ~5 min | ⭐⭐ | — |
+| `base` | 141 MB | ~1 GB | ~10 min | ⭐⭐⭐ | — |
+| `small` | 465 MB | ~2 GB | ~15 min | ⭐⭐⭐⭐ | ⚡ **Rápida** (padrão) |
+| `medium` | 1,4 GB | ~5 GB | ~25 min | ⭐⭐⭐⭐⭐ | 🎯 **Máxima** |
+| `large-v3` | 2,9 GB | ~10 GB | ~45 min | ⭐⭐⭐⭐⭐ | — |
 
 **Opções de transcrição:**
 
@@ -297,8 +300,8 @@ O Docker precisa de ajustes para suportar os dois modelos de transcrição:
 
 | Modelo | Tamanho | RAM | Tempo (1h) | Uso |
 |--------|---------|-----|------------|-----|
-| `small` | 244 MB | ~2 GB | ~15 min | ⚡ Rápida (padrão) |
-| `medium` | 769 MB | ~5 GB | ~25 min | 🎯 Máxima |
+| `small` | 465 MB | ~2 GB | ~15 min | ⚡ Rápida (padrão) |
+| `medium` | 1,4 GB | ~5 GB | ~25 min | 🎯 Máxima |
 
 ### Dockerfile (modificações)
 
@@ -320,11 +323,11 @@ RUN mkdir -p /opt/whisper.cpp/models \
   && chmod +x /opt/whisper.cpp/main \
   && rm /tmp/whisper-cpp.zip
 
-# Baixar modelo small (~244 MB) — opção rápida
+# Baixar modelo small (~465 MB) — opção rápida
 RUN curl -L -o /opt/whisper.cpp/models/ggml-small.bin \
   "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"
 
-# Baixar modelo medium (~769 MB) — opção máxima
+# Baixar modelo medium (~1,4 GB) — opção máxima
 RUN curl -L -o /opt/whisper.cpp/models/ggml-medium.bin \
   "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin"
 

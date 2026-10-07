@@ -37,4 +37,5 @@ export {
   registerRevealRoot,
   validateTranscribePayload,
   validateTranscribeJobPayload,
+  validateModelPayload,
 } from './security-payloads.js';

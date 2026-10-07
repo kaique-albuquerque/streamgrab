@@ -14,6 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import { binName, packagedBinaryPath } from '../core/binaries.js';
+import { DEFAULT_MODEL, getModelEntry, listModelIds, modelSearchDirs } from './model-manager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -24,15 +25,6 @@ const VENDOR_DIR = path.join(PROJECT_ROOT, 'vendor', 'whisper');
 const VENDOR_BIN = path.join(VENDOR_DIR, BIN_NAME);
 const VENDOR_MODELS = path.join(VENDOR_DIR, 'models');
 const VENDOR_MARKER = path.join(VENDOR_DIR, '.installed');
-
-// Apenas modelo small - unico suportado
-const MODEL_MAP = {
-  small: 'ggml-small.bin',
-};
-
-const MODEL_MIN_SIZE = {
-  small: 244_000_000 * 0.9,
-};
 
 /**
  * Verifica se o whisper.cpp esta disponivel.
@@ -53,7 +45,7 @@ export function checkWhisperCpp() {
     return { available: true, binPath: packagedBin, modelsDir };
   }
 
-  if (isVendorWhisperReady()) {
+  if (isVendorWhisperInstalled()) {
     const vendorModels = process.env.WHISPER_MODEL_DIR || VENDOR_MODELS;
     return { available: true, binPath: VENDOR_BIN, modelsDir: vendorModels };
   }
@@ -68,7 +60,15 @@ export function checkWhisperCpp() {
   return { available: false, binPath: '', modelsDir: '' };
 }
 
-function isVendorWhisperReady() {
+/**
+ * Instalação vendorizada (vendor/whisper) está pronta para uso?
+ *
+ * Depende apenas do BINÁRIO: o modelo é escolhido (e baixado) depois, pelo
+ * usuário. Acoplar a disponibilidade do motor à presença de um modelo
+ * específico fazia o app reportar "engine indisponível" mesmo com o
+ * whisper.cpp instalado — e a transcrição ficava presa sem explicação.
+ */
+function isVendorWhisperInstalled() {
   if (!fs.existsSync(VENDOR_BIN) || !fs.existsSync(VENDOR_MARKER)) {
     return false;
   }
@@ -78,16 +78,7 @@ function isVendorWhisperReady() {
     return false;
   }
 
-  // WHISPER_MODEL_DIR (ex.: userData do Electron) tem prioridade sobre
-  // vendor/models — o binário pode vir do vendor e o modelo, do app.
-  const modelsDir = process.env.WHISPER_MODEL_DIR || VENDOR_MODELS;
-  return (
-    marker.platform === process.platform &&
-    marker.arch === os.arch() &&
-    marker.bin === BIN_NAME &&
-    fs.existsSync(path.join(modelsDir, MODEL_MAP.small)) &&
-    fs.statSync(path.join(modelsDir, MODEL_MAP.small)).size > MODEL_MIN_SIZE.small
-  );
+  return marker.platform === process.platform && marker.arch === os.arch() && marker.bin === BIN_NAME;
 }
 
 function readVendorMarker() {
@@ -165,59 +156,78 @@ function pickFlag(help, flags, { required = true } = {}) {
 /**
  * Obtem o caminho completo do modelo GGML.
  *
- * @param {string} model - Nome do modelo ('tiny', 'base', 'small', 'medium')
- * @param {string} modelsDir - Diretorio dos modelos
+ * @param {string} model - Id do modelo no catálogo ('tiny', 'base', 'small', ...)
+ * @param {string[]} dirs - Diretórios candidatos, em ordem de preferência
  * @returns {string} Caminho do modelo
- * @throws {Error} Se o modelo nao for encontrado
+ * @throws {Error} Se o modelo nao for conhecido ou nao estiver instalado
  */
-function resolveModelPath(model, modelsDir) {
-  const fileName = MODEL_MAP[model];
-  if (!fileName) {
-    throw new Error(`Modelo desconhecido: ${model}. Opcoes: ${Object.keys(MODEL_MAP).join(', ')}`);
+function resolveModelPath(model, dirs) {
+  const info = getModelEntry(model);
+  if (!info) {
+    throw new Error(`Modelo desconhecido: ${model}. Opcoes: ${listModelIds().join(', ')}`);
   }
 
+  // WHISPER_MODEL_PATH é um override explícito do usuário (um arquivo único):
+  // vale para qualquer modelo e tem prioridade sobre o catálogo.
   const envModel = process.env.WHISPER_MODEL_PATH;
   if (envModel) {
-    if (isModelFileReady(envModel, model)) {
+    if (isNonEmptyFile(envModel)) {
       return envModel;
     }
 
     throw new Error(
-      `Modelo definido em WHISPER_MODEL_PATH parece incompleto: ${envModel}\n` +
-      `Execute: npm run whisper:install`
+      `Modelo definido em WHISPER_MODEL_PATH nao encontrado ou vazio: ${envModel}\n` +
+      'Remova a variavel ou aponte para um arquivo .bin valido.'
     );
   }
 
-  const vendorPath = path.join(modelsDir, fileName);
-  if (isModelFileReady(vendorPath, model)) {
-    return vendorPath;
+  const candidates = [...new Set(dirs.filter(Boolean))].map((dir) => path.join(dir, info.fileName));
+
+  for (const candidate of candidates) {
+    if (isModelFileReady(candidate, info)) {
+      return candidate;
+    }
   }
 
-  if (fs.existsSync(vendorPath)) {
+  const partial = candidates.find((candidate) => fs.existsSync(candidate));
+  if (partial) {
     throw new Error(
-      `Modelo ${model} encontrado, mas parece incompleto: ${vendorPath}\n` +
-      `Execute: npm run whisper:install`
+      `Modelo ${model} encontrado, mas parece incompleto: ${partial}\n` +
+      'Baixe novamente em Transcrever > Modelos Whisper.'
     );
   }
 
   throw new Error(
-    `Modelo ${model} nao encontrado em: ${vendorPath}\n` +
-    `Execute: npm run whisper:install`
+    `Modelo ${model} nao instalado (${info.fileName}).\n` +
+    `Abra Transcrever > Modelos Whisper e baixe o modelo "${info.label}".`
   );
 }
 
-function isModelFileReady(modelPath, model) {
+function isNonEmptyFile(filePath) {
+  try {
+    const stat = fs.statSync(filePath);
+    return stat.isFile() && stat.size > 0;
+  } catch {
+    return false;
+  }
+}
+
+function isModelFileReady(modelPath, info) {
   if (!modelPath || !fs.existsSync(modelPath)) {
     return false;
   }
 
-  const minSize = MODEL_MIN_SIZE[model] || 0;
+  const minSize = info?.minSize || 0;
   if (minSize <= 0) {
     return true;
   }
 
-  const stat = fs.statSync(modelPath);
-  return stat.isFile() && stat.size > minSize;
+  try {
+    const stat = fs.statSync(modelPath);
+    return stat.isFile() && stat.size > minSize;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -226,7 +236,7 @@ function isModelFileReady(modelPath, model) {
  * @param {object} params
  * @param {string} params.audioPath - Caminho do arquivo de audio (WAV 16kHz mono)
  * @param {string} [params.language='pt'] - Codigo do idioma (pt, en, es, etc.)
- * @param {string} [params.model='small'] - Modelo (tiny, base, small, medium)
+ * @param {string} [params.model='small'] - Id do modelo no catalogo (model-manager.js)
  * @param {number} [params.threads=4] - Numero de threads CPU
  * @param {AbortSignal} [params.signal] - Sinal de cancelamento
  * @param {Function} [params.onProgress] - Callback de progresso
@@ -236,7 +246,7 @@ function isModelFileReady(modelPath, model) {
 export async function transcribeWithCpp({
   audioPath,
   language = 'pt',
-  model = 'small',
+  model = DEFAULT_MODEL,
   threads = 4,
   signal,
   onProgress,
@@ -253,7 +263,7 @@ export async function transcribeWithCpp({
     );
   }
 
-  const modelPath = resolveModelPath(model, modelsDir);
+  const modelPath = resolveModelPath(model, modelSearchDirs(modelsDir));
   onLog?.(`[whisper-cpp] Modelo: ${model} (${path.basename(modelPath)})`);
   onLog?.(`[whisper-cpp] Binario: ${binPath}`);
 

@@ -30,6 +30,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   // SPEC-09: Transcrição de vídeo
   transcribe: false,
   transcribeLang: 'pt',
+  transcribeModel: 'small',
   transcribeTimestamps: true,
 });
 
@@ -50,6 +51,7 @@ const SCHEMA = {
   // SPEC-09: Transcrição de vídeo
   transcribe: { type: 'boolean', clamp: null },
   transcribeLang: { type: 'string', clamp: null },
+  transcribeModel: { type: 'string', clamp: null },
   transcribeTimestamps: { type: 'boolean', clamp: null },
 };
 

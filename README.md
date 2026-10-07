@@ -563,9 +563,9 @@ StreamGrab can **transcribe videos to text** using [whisper.cpp](https://github.
 **How it works, step by step (Electron UI):**
 
 1. Open the app (`npm run electron:dev`) and click the **Transcrever** tab.
-2. **First time only:** click **"Baixar modelo"** — the Whisper model (~244 MB) is downloaded once to the app data folder, with a progress bar and pause/resume support. After that it works **fully offline**.
+2. **First time only:** in **"Modelos Whisper"** pick a model and click **"Baixar"** — the files come from the official whisper.cpp repository into the app data folder, with a progress bar, pause/resume and integrity (SHA-256) verification. **small** (~465 MB) is the default and a good speed/quality balance; the list also offers **tiny** (~74 MB), **base** (~141 MB), **medium** (~1.4 GB) and **large-v3** (~2.9 GB). After that it works **fully offline**. Models can be deleted from the same list and a model already installed next to the whisper.cpp binary is reused (never downloaded twice).
 3. Click **"Selecionar vídeo e transcrever"** and pick a video (or audio) file.
-4. Choose the **language** (Portuguese by default, English, Spanish, etc., or auto-detect) and the **output formats** (`.txt`, `.md`, `.srt`).
+4. Choose the **language** (Portuguese by default, English, Spanish, etc., or auto-detect), the **Whisper model** and the **output formats** (`.txt`, `.md`, `.srt`). The chosen model is remembered as the default for the next jobs.
 5. Watch the **progress bar** — the job shows each stage (*extracting audio → transcribing*) with the live percentage.
 6. When it finishes, the transcription files appear **next to the original video** — click the format chips to open them, or "Mostrar na pasta".
 

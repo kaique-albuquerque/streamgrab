@@ -14,7 +14,7 @@ function makeTempDir() {
 // DEFAULT_SETTINGS / normalizeSettings
 // ---------------------------------------------------------------------------
 
-test('DEFAULT_SETTINGS tem as chaves do plano (seção 22 + P6.2 + SPEC-01/02)', () => {
+test('DEFAULT_SETTINGS tem as chaves do plano (seção 22 + P6.2 + SPEC-01/02 + SPEC-09)', () => {
   assert.deepEqual(Object.keys(DEFAULT_SETTINGS).sort(), [
     'audio',
     'clipboardWatch',
@@ -26,10 +26,15 @@ test('DEFAULT_SETTINGS tem as chaves do plano (seção 22 + P6.2 + SPEC-01/02)',
     'onComplete',
     'smartTurbo',
     'theme',
+    'transcribe',
+    'transcribeLang',
+    'transcribeModel',
+    'transcribeTimestamps',
     'turbo',
     'turboChunks',
     'tutorialCompleted',
   ]);
+  assert.equal(DEFAULT_SETTINGS.transcribeModel, 'small');
 });
 
 test('normalizeSettings ignora chaves desconhecidas (typos nao corrompem)', () => {
