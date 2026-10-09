@@ -14,7 +14,6 @@ import {
   validateDownloadPayload,
   validateCancelPayload,
   validateRevealPayload,
-  validatePreviewPathPayload,
   isPathWithin,
   isValidJobId,
   validateJobIdPayload,
@@ -25,7 +24,6 @@ import {
   validateExportLogsPayload,
   validatePreviewFilePathPayload,
   registerRevealRoot,
-  validatePreviewFilePathPayload,
 } from '../../electron/security.js';
 
 // ---------------------------------------------------------------------------
