@@ -4,15 +4,14 @@
 
 import path from 'node:path';
 import { isSafeAbsolutePath, isPathWithin } from './security-primitives.js';
-import { getPreviewDir } from '../src/preview.js';
 
 /** Valida o payload de `preview:read-file` / `preview:clear`. */
-export function validatePreviewFilePathPayload(payload = {}, tempDir = '') {
+export function validatePreviewFilePathPayload(payload = {}, dir = '') {
   const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
-  if (!filePath || !tempDir || typeof tempDir !== 'string') return null;
+  if (!filePath || !dir || typeof dir !== 'string' || !dir.trim()) return null;
   if (!isSafeAbsolutePath(filePath)) return null;
-  const previewDir = path.join(tempDir, 'streamgrab-preview');
-  if (!isSafeAbsolutePath(previewDir) || !isPathWithin(filePath, previewDir)) return null;
+  const targetDir = dir.trim().endsWith('streamgrab-preview') ? dir.trim() : path.join(dir.trim(), 'streamgrab-preview');
+  if (!isSafeAbsolutePath(targetDir) || !isPathWithin(filePath, targetDir)) return null;
   return { filePath };
 }
 
@@ -47,17 +46,6 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
     return null;
   }
   return { path: customPath };
-}
-
-/** Valida o payload de `preview:read-file` / `preview:clear`. */
-export function validatePreviewFilePathPayload(payload = {}, previewDir = '') {
-  const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
-  if (!filePath || typeof previewDir !== 'string' || !previewDir.trim()) return null;
-  if (!isSafeAbsolutePath(filePath)) return null;
-  if (typeof previewDir !== 'string' || !previewDir.trim() || !isPathWithin(filePath, previewDir)) {
-    return null;
-  }
-  return { filePath };
 }
 
 /**
