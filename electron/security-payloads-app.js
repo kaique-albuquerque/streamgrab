@@ -6,15 +6,6 @@ import path from 'node:path';
 import { isSafeAbsolutePath, isPathWithin } from './security-primitives.js';
 import { getPreviewDir } from '../src/preview.js';
 
-/** Valida o payload de `preview:read-file` / `preview:clear`. */
-export function validatePreviewFilePathPayload(payload = {}, tempDir = '') {
-  const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
-  if (!filePath || !tempDir || typeof tempDir !== 'string') return null;
-  if (!isSafeAbsolutePath(filePath)) return null;
-  const previewDir = path.join(tempDir, 'streamgrab-preview');
-  if (!isSafeAbsolutePath(previewDir) || !isPathWithin(filePath, previewDir)) return null;
-  return { filePath };
-}
 
 /** Valida o payload de `app:open-file` / `app:show-in-folder`. */
 export function validateRevealPayload(payload = {}, allowedRoots = []) {

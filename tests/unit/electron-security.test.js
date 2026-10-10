@@ -25,7 +25,6 @@ import {
   validateExportLogsPayload,
   validatePreviewFilePathPayload,
   registerRevealRoot,
-  validatePreviewFilePathPayload,
 } from '../../electron/security.js';
 
 // ---------------------------------------------------------------------------
@@ -561,12 +560,16 @@ test('validateHistoryIdPayload valida { id }', () => {
   assert.equal(validateHistoryIdPayload({}), null);
 });
 
-test('validateHistoryExportPayload aceita payload valido com caminho absoluto seguro', () => {
-  const out = validateHistoryExportPayload({
-    format: 'csv',
-    filePath: 'C:\\Users\\teste\\Downloads\\export.csv',
-    entries: [{ id: '1', title: 'Video', size: 100 }],
-  });
+test('validateHistoryExportPayload aceita payload valido com caminho absoluto seguro nas raizes permitidas', () => {
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
+  const out = validateHistoryExportPayload(
+    {
+      format: 'csv',
+      filePath: 'C:\\Users\\teste\\Downloads\\export.csv',
+      entries: [{ id: '1', title: 'Video', size: 100 }],
+    },
+    roots
+  );
   assert.ok(out);
   assert.equal(out.format, 'csv');
   assert.equal(out.filePath, 'C:\\Users\\teste\\Downloads\\export.csv');
@@ -576,11 +579,14 @@ test('validateHistoryExportPayload aceita payload valido com caminho absoluto se
   assert.equal(out.entries[0].size, 100);
 });
 
-test('validateHistoryExportPayload rejeita caminhos relativos e path traversal', () => {
-  assert.equal(validateHistoryExportPayload({ filePath: 'relative/export.json' }), null);
-  assert.equal(validateHistoryExportPayload({ filePath: '../evil.json' }), null);
-  assert.equal(validateHistoryExportPayload({ filePath: 'C:\\Users\\..\\evil.json' }), null);
-  assert.equal(validateHistoryExportPayload({ filePath: '/etc/../evil.json' }), null);
+test('validateHistoryExportPayload rejeita caminhos relativos, path traversal e fora das raizes permitidas', () => {
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
+  assert.equal(validateHistoryExportPayload({ filePath: 'relative/export.json' }, roots), null);
+  assert.equal(validateHistoryExportPayload({ filePath: '../evil.json' }, roots), null);
+  assert.equal(validateHistoryExportPayload({ filePath: 'C:\\Users\\..\\evil.json' }, roots), null);
+  assert.equal(validateHistoryExportPayload({ filePath: '/etc/../evil.json' }, roots), null);
+  assert.equal(validateHistoryExportPayload({ filePath: 'C:\\Windows\\System32\\export.csv' }, roots), null);
+  assert.equal(validateHistoryExportPayload({ filePath: '/etc/passwd' }, roots), null);
 });
 
 test('validateHistoryExportPayload sanitiza arrays de entries e trata payload nulo/invalido', () => {
