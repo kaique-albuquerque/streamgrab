@@ -14,7 +14,6 @@ import {
   validateDownloadPayload,
   validateCancelPayload,
   validateRevealPayload,
-  validatePreviewPathPayload,
   isPathWithin,
   isValidJobId,
   validateJobIdPayload,
@@ -25,7 +24,6 @@ import {
   validateExportLogsPayload,
   validatePreviewFilePathPayload,
   registerRevealRoot,
-  validatePreviewFilePathPayload,
 } from '../../electron/security.js';
 
 // ---------------------------------------------------------------------------
@@ -581,6 +579,33 @@ test('validateHistoryExportPayload rejeita caminhos relativos e path traversal',
   assert.equal(validateHistoryExportPayload({ filePath: '../evil.json' }), null);
   assert.equal(validateHistoryExportPayload({ filePath: 'C:\\Users\\..\\evil.json' }), null);
   assert.equal(validateHistoryExportPayload({ filePath: '/etc/../evil.json' }), null);
+});
+
+test('validateHistoryExportPayload restringe filePath a allowedRoots quando especificados', () => {
+  const allowedRoots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
+
+  const validPosix = validateHistoryExportPayload(
+    { filePath: '/home/user/Downloads/export.json', format: 'json' },
+    allowedRoots
+  );
+  assert.ok(validPosix);
+  assert.equal(validPosix.filePath, '/home/user/Downloads/export.json');
+
+  const validWin = validateHistoryExportPayload(
+    { filePath: 'C:\\Users\\teste\\Downloads\\export.csv', format: 'csv' },
+    allowedRoots
+  );
+  assert.ok(validWin);
+  assert.equal(validWin.filePath, 'C:\\Users\\teste\\Downloads\\export.csv');
+
+  assert.equal(
+    validateHistoryExportPayload({ filePath: 'C:\\Windows\\System32\\cmd.exe' }, allowedRoots),
+    null
+  );
+  assert.equal(
+    validateHistoryExportPayload({ filePath: '/etc/passwd' }, allowedRoots),
+    null
+  );
 });
 
 test('validateHistoryExportPayload sanitiza arrays de entries e trata payload nulo/invalido', () => {
