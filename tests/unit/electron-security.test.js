@@ -25,7 +25,6 @@ import {
   validateExportLogsPayload,
   validatePreviewFilePathPayload,
   registerRevealRoot,
-  validatePreviewFilePathPayload,
 } from '../../electron/security.js';
 
 // ---------------------------------------------------------------------------
@@ -581,6 +580,24 @@ test('validateHistoryExportPayload rejeita caminhos relativos e path traversal',
   assert.equal(validateHistoryExportPayload({ filePath: '../evil.json' }), null);
   assert.equal(validateHistoryExportPayload({ filePath: 'C:\\Users\\..\\evil.json' }), null);
   assert.equal(validateHistoryExportPayload({ filePath: '/etc/../evil.json' }), null);
+});
+
+test('validateHistoryExportPayload restringe exportacao a raizes permitidas quando informadas', () => {
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
+  assert.ok(
+    validateHistoryExportPayload({ filePath: 'C:\\Users\\teste\\Downloads\\export.csv' }, roots)
+  );
+  assert.ok(
+    validateHistoryExportPayload({ filePath: '/home/user/Downloads/export.json' }, roots)
+  );
+  assert.equal(
+    validateHistoryExportPayload({ filePath: 'C:\\Windows\\System32\\malicious.json' }, roots),
+    null
+  );
+  assert.equal(
+    validateHistoryExportPayload({ filePath: '/etc/passwd.json' }, roots),
+    null
+  );
 });
 
 test('validateHistoryExportPayload sanitiza arrays de entries e trata payload nulo/invalido', () => {
