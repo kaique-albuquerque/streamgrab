@@ -48,8 +48,6 @@ export function registerHistoryHandlers() {
 
     const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
     const format = payload.format === 'csv' ? 'csv' : 'json';
-
-    const format = payload.format;
     const entries = payload.entries ? payload.entries : services.history.list();
 
     const validatedExport = validateExportHistoryPayload(payload, [...getAllowedRevealRoots()]);
