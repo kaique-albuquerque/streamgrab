@@ -24,3 +24,8 @@
 **Vulnerability:** The `preview:read-file` and `preview:clear` Electron IPC handlers accepted user-supplied `filePath` strings without path traversal validation or preview directory containment checks.
 **Learning:** Preview IPC handlers that read or delete preview files must validate that paths are safe absolute paths constrained to the designated preview directory (`getPreviewDir(app.getPath('temp'))`).
 **Prevention:** Validate IPC payloads with `validatePreviewFilePathPayload` to enforce `isSafeAbsolutePath` and `isPathWithin` against the preview directory before file system access.
+
+## 2026-11-04 - Unsanitized Export File Path in History Export IPC Handler Vulnerable to Arbitrary File Overwrite
+**Vulnerability:** The `history:export` Electron IPC channel accepted custom `filePath` payloads in `validateHistoryExportPayload` without enforcing directory containment against allowed reveal roots (`allowedRoots`).
+**Learning:** File export IPC handlers that accept user-provided custom file paths must enforce root containment (`isPathWithin`) against allowed application directory roots to prevent malicious IPC invocations from writing files to arbitrary system directories.
+**Prevention:** Pass `allowedRoots` to payload validators like `validateHistoryExportPayload` and check `isPathWithin(filePath, root)` for all custom output paths prior to disk operations.
