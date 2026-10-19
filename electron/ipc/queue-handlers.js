@@ -9,10 +9,10 @@ import { friendlyReport } from '../../src/core/errors.js';
 import {
   validateDownloadPayload,
   validateQueueEnqueuePayload,
+  validateBatchEnqueuePayload,
   validateJobIdPayload,
   isValidJobId,
   isValidTaskId,
-  isSafeHttpUrl,
 } from '../security.js';
 import { PROJECT_ROOT, getServices, addRevealRoot, taskToJob } from './state.js';
 import { analyzePlaylist } from './playlist-handlers.js';
@@ -199,21 +199,12 @@ export function registerQueueHandlers() {
     if (!services) {
       return { results: [], ok: 0, failed: 0, error: 'Serviços não inicializados.' };
     }
-    const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
-    const rawUrls = Array.isArray(payload.urls) ? payload.urls : [];
-
-    const urls = [];
-    for (const u of rawUrls) {
-      const value = typeof u === 'string' ? u.trim() : '';
-      if (value && isSafeHttpUrl(value)) urls.push(value);
+    const payload = validateBatchEnqueuePayload(rawPayload);
+    if (!payload) {
+      return { results: [], ok: 0, failed: 0, error: 'Payload de lote inválido ou diretório inseguro.' };
     }
 
-    if (urls.length === 0) {
-      return { results: [], ok: 0, failed: 0, error: 'Nenhuma URL válida informada.' };
-    }
-
-    const outputDir = typeof payload.outputDir === 'string' ? payload.outputDir : '';
-    if (outputDir) addRevealRoot(outputDir);
+    if (payload.outputDir) addRevealRoot(payload.outputDir);
 
     const { processBatch } = await import('../../src/batch.js');
 
@@ -224,13 +215,13 @@ export function registerQueueHandlers() {
     };
 
     const results = await processBatch({
-      urls,
-      outputDir,
+      urls: payload.urls,
+      outputDir: payload.outputDir,
       options: {
-        turbo: payload.turbo === true,
-        allAudio: payload.allAudio === true,
-        subtitleLanguages: Array.isArray(payload.subtitleLanguages) ? payload.subtitleLanguages : [],
-        embedSubs: payload.embedSubs === true,
+        turbo: payload.turbo,
+        allAudio: payload.allAudio,
+        subtitleLanguages: payload.subtitleLanguages,
+        embedSubs: payload.embedSubs,
       },
       analyze: (url) => analyzePlaylist({ url, headers: {}, auth: {} }),
       enqueue: (item) => {
