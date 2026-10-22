@@ -10,7 +10,7 @@ import {
   validateHistoryIdPayload,
   validateHistoryExportPayload,
   validateSettingsPayload,
-  validateExportHistoryPayload,
+  validateRevealPayload,
 } from '../security.js';
 import { PROJECT_ROOT, getServices, addRevealRoot, getAllowedRevealRoots } from './state.js';
 import { enqueueDownload } from './queue-handlers.js';
@@ -41,9 +41,9 @@ export function registerHistoryHandlers() {
     const services = getServices();
     if (!services) return { ok: false, error: 'Serviços não inicializados.' };
 
-    const validated = validateExportHistoryPayload(rawPayload, [...getAllowedRevealRoots()]);
+    const validated = validateHistoryExportPayload(rawPayload);
     if (!validated) {
-      return { ok: false, error: 'Caminho de exportação inválido ou fora das pastas permitidas.' };
+      return { ok: false, error: 'Payload ou caminho de exportação inválido.' };
     }
 
     const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
@@ -56,14 +56,20 @@ export function registerHistoryHandlers() {
     }
 
     let destPath = validated.filePath;
-    if (!destPath) {
+    if (destPath) {
+      const revealValidated = validateRevealPayload({ filePath: destPath }, [...getAllowedRevealRoots()]);
+      if (!revealValidated) {
+        return { ok: false, error: 'Caminho de destino fora das pastas permitidas.' };
+      }
+    } else {
       const { suggestExportFilename } = await import('../../src/core/history-export.js');
       const result = await dialog.showSaveDialog({
         title: 'Exportar histórico',
         defaultPath: suggestExportFilename(format),
-        filters: format === 'csv'
-          ? [{ name: 'CSV (Planilha)', extensions: ['csv'] }]
-          : [{ name: 'JSON', extensions: ['json'] }],
+        filters:
+          format === 'csv'
+            ? [{ name: 'CSV (Planilha)', extensions: ['csv'] }]
+            : [{ name: 'JSON', extensions: ['json'] }],
       });
       if (result.canceled || !result.filePath) return { ok: false, canceled: true };
       destPath = result.filePath;
