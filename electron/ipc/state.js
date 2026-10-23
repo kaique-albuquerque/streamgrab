@@ -34,8 +34,6 @@ export function getAllowedRevealRoots() {
 }
 export const getAlllowedRevealRoots = getAllowedRevealRoots;
 
-export const getAlllowedRevealRoots = getAllowedRevealRoots;
-
 export function addRevealRoot(dir) {
   registerRevealRoot(dir, allowedRevealRoots);
 }
