@@ -14,15 +14,16 @@ import {
   validateDownloadPayload,
   validateCancelPayload,
   validateRevealPayload,
-  validatePreviewPathPayload,
   isPathWithin,
   isValidJobId,
   validateJobIdPayload,
   validateHistoryIdPayload,
   validateHistoryExportPayload,
   validateQueueEnqueuePayload,
+  validateBatchEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
+  validateDiskSpacePayload,
   validatePreviewFilePathPayload,
   registerRevealRoot,
 } from '../../electron/security.js';
@@ -260,6 +261,31 @@ test('validateDownloadPayload rejeita payload inválido', () => {
   );
 });
 
+test('validação IPC de fila e download rejeita protocolo inseguro, path traversal em outputDir e cookiesFile', () => {
+  // Rejeita protocolo inseguro (file://)
+  assert.equal(validateQueueEnqueuePayload({ url: 'file:///etc/passwd' }), null);
+  assert.equal(validateDownloadPayload({ taskId: 'tab-1', url: 'file:///etc/passwd', filename: 'v' }), null);
+
+  // Rejeita path traversal em outputDir
+  assert.equal(validateQueueEnqueuePayload({ url: 'https://example.com/v.mp4', outputDir: '/etc/../tmp' }), null);
+  assert.equal(validateDownloadPayload({ taskId: 'tab-1', url: 'https://example.com/v.mp4', filename: 'v', outputDir: 'C:\\Users\\..\\Windows' }), null);
+
+  // Rejeita path traversal em cookiesFile
+  assert.equal(validateQueueEnqueuePayload({ url: 'https://example.com/v.mp4', cookiesFile: '../../cookies.txt' }), null);
+  assert.equal(validateDownloadPayload({ taskId: 'tab-1', url: 'https://example.com/v.mp4', filename: 'v', cookiesFile: '../cookies.txt' }), null);
+
+  // Aceita valores seguros
+  const qOut = validateQueueEnqueuePayload({
+    url: 'https://example.com/v.mp4',
+    outputDir: '/tmp',
+    cookiesFile: '/tmp/cookies.txt',
+  });
+  assert.ok(qOut);
+  assert.equal(qOut.url, 'https://example.com/v.mp4');
+  assert.equal(qOut.outputDir, '/tmp');
+  assert.equal(qOut.cookiesFile, '/tmp/cookies.txt');
+});
+
 // ---------------------------------------------------------------------------
 // validatePreviewFilePathPayload
 // ---------------------------------------------------------------------------
@@ -476,6 +502,22 @@ test('validatePreviewFilePathPayload valida caminho de preview e restringe ao pr
   assert.equal(validatePreviewFilePathPayload({ filePath: '/tmp/app/streamgrab-preview/p.mp4' }, ''), null);
 });
 
+test('validateDiskSpacePayload valida caminho e restringe a raizes permitidas', () => {
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
+  assert.deepEqual(validateDiskSpacePayload({}, roots), { dir: null });
+  assert.deepEqual(
+    validateDiskSpacePayload({ dir: 'C:\\Users\\teste\\Downloads' }, roots),
+    { dir: 'C:\\Users\\teste\\Downloads' }
+  );
+  assert.deepEqual(
+    validateDiskSpacePayload({ dir: '/home/user/Downloads/subfolder' }, roots),
+    { dir: '/home/user/Downloads/subfolder' }
+  );
+  assert.equal(validateDiskSpacePayload({ dir: 'C:\\Windows\\System32' }, roots), null);
+  assert.equal(validateDiskSpacePayload({ dir: 'C:\\Users\\teste\\..\\evil' }, roots), null);
+  assert.equal(validateDiskSpacePayload({ dir: 'relative-dir' }, roots), null);
+});
+
 test('validateExportLogsPayload valida caminho e restringe a raizes permitidas', () => {
   const roots = ['C:\\Users\\teste\\AppData\\Roaming\\StreamGrab', '/home/user/.config/StreamGrab'];
   assert.deepEqual(validateExportLogsPayload({}, roots), { path: null });
@@ -486,6 +528,22 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
+});
+
+test('validateDiskSpacePayload valida diretório e restringe a raízes permitidas', () => {
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
+  assert.deepEqual(validateDiskSpacePayload({}, roots), { dir: null });
+  assert.deepEqual(
+    validateDiskSpacePayload({ dir: 'C:\\Users\\teste\\Downloads' }, roots),
+    { dir: 'C:\\Users\\teste\\Downloads' }
+  );
+  assert.deepEqual(
+    validateDiskSpacePayload({ dir: '/home/user/Downloads' }, roots),
+    { dir: '/home/user/Downloads' }
+  );
+  assert.equal(validateDiskSpacePayload({ dir: 'C:\\Windows\\System32' }, roots), null);
+  assert.equal(validateDiskSpacePayload({ dir: 'C:\\Users\\teste\\..\\Windows' }, roots), null);
+  assert.equal(validateDiskSpacePayload({ dir: 'relative/dir' }, roots), null);
 });
 
 test('validatePreviewFilePathPayload valida e restringe caminho ao diretório de preview', () => {
@@ -560,12 +618,16 @@ test('validateHistoryIdPayload valida { id }', () => {
   assert.equal(validateHistoryIdPayload({}), null);
 });
 
-test('validateHistoryExportPayload aceita payload valido com caminho absoluto seguro', () => {
-  const out = validateHistoryExportPayload({
-    format: 'csv',
-    filePath: 'C:\\Users\\teste\\Downloads\\export.csv',
-    entries: [{ id: '1', title: 'Video', size: 100 }],
-  });
+test('validateHistoryExportPayload aceita payload valido com caminho absoluto seguro nas raizes permitidas', () => {
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
+  const out = validateHistoryExportPayload(
+    {
+      format: 'csv',
+      filePath: 'C:\\Users\\teste\\Downloads\\export.csv',
+      entries: [{ id: '1', title: 'Video', size: 100 }],
+    },
+    roots
+  );
   assert.ok(out);
   assert.equal(out.format, 'csv');
   assert.equal(out.filePath, 'C:\\Users\\teste\\Downloads\\export.csv');
@@ -575,11 +637,41 @@ test('validateHistoryExportPayload aceita payload valido com caminho absoluto se
   assert.equal(out.entries[0].size, 100);
 });
 
-test('validateHistoryExportPayload rejeita caminhos relativos e path traversal', () => {
-  assert.equal(validateHistoryExportPayload({ filePath: 'relative/export.json' }), null);
-  assert.equal(validateHistoryExportPayload({ filePath: '../evil.json' }), null);
-  assert.equal(validateHistoryExportPayload({ filePath: 'C:\\Users\\..\\evil.json' }), null);
-  assert.equal(validateHistoryExportPayload({ filePath: '/etc/../evil.json' }), null);
+test('validateHistoryExportPayload rejeita caminhos relativos, path traversal e fora das raizes permitidas', () => {
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
+  assert.equal(validateHistoryExportPayload({ filePath: 'relative/export.json' }, roots), null);
+  assert.equal(validateHistoryExportPayload({ filePath: '../evil.json' }, roots), null);
+  assert.equal(validateHistoryExportPayload({ filePath: 'C:\\Users\\..\\evil.json' }, roots), null);
+  assert.equal(validateHistoryExportPayload({ filePath: '/etc/../evil.json' }, roots), null);
+  assert.equal(validateHistoryExportPayload({ filePath: 'C:\\Windows\\System32\\export.csv' }, roots), null);
+  assert.equal(validateHistoryExportPayload({ filePath: '/etc/passwd' }, roots), null);
+});
+
+test('validateHistoryExportPayload restringe filePath a allowedRoots quando especificados', () => {
+  const allowedRoots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
+
+  const validPosix = validateHistoryExportPayload(
+    { filePath: '/home/user/Downloads/export.json', format: 'json' },
+    allowedRoots
+  );
+  assert.ok(validPosix);
+  assert.equal(validPosix.filePath, '/home/user/Downloads/export.json');
+
+  const validWin = validateHistoryExportPayload(
+    { filePath: 'C:\\Users\\teste\\Downloads\\export.csv', format: 'csv' },
+    allowedRoots
+  );
+  assert.ok(validWin);
+  assert.equal(validWin.filePath, 'C:\\Users\\teste\\Downloads\\export.csv');
+
+  assert.equal(
+    validateHistoryExportPayload({ filePath: 'C:\\Windows\\System32\\cmd.exe' }, allowedRoots),
+    null
+  );
+  assert.equal(
+    validateHistoryExportPayload({ filePath: '/etc/passwd' }, allowedRoots),
+    null
+  );
 });
 
 test('validateHistoryExportPayload sanitiza arrays de entries e trata payload nulo/invalido', () => {
@@ -631,6 +723,44 @@ test('validateQueueEnqueuePayload aceita selectedUrl interna do yt-dlp', () => {
   });
   assert.ok(out);
   assert.equal(out.selectedUrl, 'ytdlp-format:137');
+});
+
+test('validateBatchEnqueuePayload aceita payload de lote valido e sanitiza opcoes', () => {
+  const out = validateBatchEnqueuePayload({
+    urls: ['https://example.com/v1.mp4', 'invalid-url', 'https://example.com/v2.mp4'],
+    outputDir: 'C:\\Users\\teste\\Downloads',
+    turbo: true,
+    allAudio: true,
+    subtitleLanguages: ['  en  ', 'es', 123],
+    embedSubs: true,
+  });
+  assert.ok(out);
+  assert.deepEqual(out.urls, ['https://example.com/v1.mp4', 'https://example.com/v2.mp4']);
+  assert.equal(out.outputDir, 'C:\\Users\\teste\\Downloads');
+  assert.equal(out.turbo, true);
+  assert.equal(out.allAudio, true);
+  assert.deepEqual(out.subtitleLanguages, ['en', 'es']);
+  assert.equal(out.embedSubs, true);
+});
+
+test('validateBatchEnqueuePayload rejeita payloads sem URLs validas ou com outputDir perigoso', () => {
+  assert.equal(validateBatchEnqueuePayload(null), null);
+  assert.equal(validateBatchEnqueuePayload({}), null);
+  assert.equal(validateBatchEnqueuePayload({ urls: ['javascript:alert(1)', 'file:///etc/passwd'] }), null);
+  assert.equal(
+    validateBatchEnqueuePayload({
+      urls: ['https://example.com/v1.mp4'],
+      outputDir: 'C:\\Users\\..\\Windows',
+    }),
+    null
+  );
+  assert.equal(
+    validateBatchEnqueuePayload({
+      urls: ['https://example.com/v1.mp4'],
+      outputDir: 'relative/dir',
+    }),
+    null
+  );
 });
 
 test('validateQueueEnqueuePayload normaliza campos opcionais e valida segurança', () => {

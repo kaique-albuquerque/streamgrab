@@ -15,13 +15,14 @@ export {
   validateHistoryIdPayload,
   validateHistoryExportPayload,
   validateQueueEnqueuePayload,
+  validateBatchEnqueuePayload,
   validateSettingsPayload,
 } from './security-payloads-queue.js';
 
 export {
   validateRevealPayload,
-  validatePreviewPathPayload,
   validateExportLogsPayload,
+  validateDiskSpacePayload,
   validatePreviewFilePathPayload,
   registerRevealRoot,
 } from './security-payloads-app.js';

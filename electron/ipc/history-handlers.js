@@ -9,8 +9,8 @@ import { friendlyReport } from '../../src/core/errors.js';
 import {
   validateHistoryIdPayload,
   validateHistoryExportPayload,
+  validateRevealPayload,
   validateSettingsPayload,
-  isPathWithin,
 } from '../security.js';
 import { PROJECT_ROOT, getServices, addRevealRoot, getAllowedRevealRoots } from './state.js';
 import { enqueueDownload } from './queue-handlers.js';
@@ -41,28 +41,29 @@ export function registerHistoryHandlers() {
     const services = getServices();
     if (!services) return { ok: false, error: 'Serviços não inicializados.' };
 
-    const validated = validateHistoryExportPayload(rawPayload);
+    const validated = validateHistoryExportPayload(rawPayload, [...getAllowedRevealRoots()]);
     if (!validated) {
       return { ok: false, error: 'Payload de exportação inválido.' };
-    }
-
-    const allowedRoots = [...getAllowedRevealRoots()];
-    if (validated.filePath && !allowedRoots.some((root) => isPathWithin(validated.filePath, root))) {
-      return { ok: false, error: 'Caminho de destino fora das pastas permitidas.' };
     }
 
     const { format } = validated;
     const entries = validated.entries || services.history.list();
 
     let destPath = validated.filePath;
-    if (!destPath) {
+    if (destPath) {
+      const revealValidated = validateRevealPayload({ filePath: destPath }, [...getAllowedRevealRoots()]);
+      if (!revealValidated) {
+        return { ok: false, error: 'Caminho de destino fora das pastas permitidas.' };
+      }
+    } else {
       const { suggestExportFilename } = await import('../../src/core/history-export.js');
       const result = await dialog.showSaveDialog({
         title: 'Exportar histórico',
         defaultPath: suggestExportFilename(format),
-        filters: format === 'csv'
-          ? [{ name: 'CSV (Planilha)', extensions: ['csv'] }]
-          : [{ name: 'JSON', extensions: ['json'] }],
+        filters:
+          format === 'csv'
+            ? [{ name: 'CSV (Planilha)', extensions: ['csv'] }]
+            : [{ name: 'JSON', extensions: ['json'] }],
       });
       if (result.canceled || !result.filePath) return { ok: false, canceled: true };
       destPath = result.filePath;
