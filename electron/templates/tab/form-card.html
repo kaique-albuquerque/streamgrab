@@ -1,0 +1,37 @@
+          <section class="card form-card">
+            <div class="section-heading">Entradas</div>
+            <div class="prompt-list">
+              <label class="prompt">
+                <span class="prompt-title">URL do vídeo/playlist:</span>
+                <input data-field="url" placeholder="Cole a URL aqui" />
+              </label>
+
+              <div class="grid2">
+                <label class="prompt">
+                  <span class="prompt-title">Nome do arquivo (sem extensão):</span>
+                  <input data-field="filename" placeholder="video" />
+                </label>
+
+                <label class="prompt">
+                  <span class="prompt-title">Pasta de saída (Enter = Downloads):</span>
+                  <div class="inline-row">
+                    <input data-field="outputDir" placeholder="Downloads" />
+                    <button data-action="pickDir" class="button button-ghost" type="button">Escolher</button>
+                  </div>
+                </label>
+              </div>
+
+              <label class="toggle">
+                <input data-field="turbo" type="checkbox" />
+                <span>⚡ Turbo — download paralelo por partes (mais rápido em YouTube/sociais/arquivos diretos)</span>
+              </label>
+
+              <div class="action-row">
+                <button data-action="analyze" class="button button-primary" type="button">Analisar playlist</button>
+                <button data-action="preview" class="button button-ghost" type="button" disabled>▶ Pré-visualizar</button>
+                <button data-action="download" class="button button-accent" type="button">Baixar agora</button>
+                <button data-action="enqueue" class="button button-ghost" type="button">Adicionar à fila</button>
+                <button data-action="cancel" class="button button-ghost" type="button">Cancelar</button>
+              </div>
+            </div>
+          </section>
