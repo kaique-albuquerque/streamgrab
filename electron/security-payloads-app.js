@@ -3,6 +3,8 @@
  */
 
 import { isSafeAbsolutePath, isPathWithin } from './security-primitives.js';
+import { getPreviewDir } from '../src/preview.js';
+
 
 /** Valida o payload de `app:open-file` / `app:show-in-folder`. */
 export function validateRevealPayload(payload = {}, allowedRoots = []) {
