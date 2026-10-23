@@ -3,8 +3,16 @@
  */
 
 import { isSafeAbsolutePath, isPathWithin } from './security-primitives.js';
-import { getPreviewDir } from '../src/preview.js';
 
+/** Valida o payload de `preview:read-file` / `preview:clear`. */
+export function validatePreviewFilePathPayload(payload = {}, dir = '') {
+  const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
+  if (!filePath || !dir || typeof dir !== 'string' || !dir.trim()) return null;
+  if (!isSafeAbsolutePath(filePath)) return null;
+  const targetDir = dir.trim().endsWith('streamgrab-preview') ? dir.trim() : path.join(dir.trim(), 'streamgrab-preview');
+  if (!isSafeAbsolutePath(targetDir) || !isPathWithin(filePath, targetDir)) return null;
+  return { filePath };
+}
 
 /** Valida o payload de `app:open-file` / `app:show-in-folder`. */
 export function validateRevealPayload(payload = {}, allowedRoots = []) {
@@ -27,18 +35,6 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
   }
   return { path: customPath };
 }
-
-/** Valida o payload de `app:disk-space`. */
-export function validateDiskSpacePayload(payload = {}, allowedRoots = []) {
-  const dir = typeof payload?.dir === 'string' ? payload.dir.trim() : '';
-  if (!dir) return { dir: null };
-  if (!isSafeAbsolutePath(dir)) return null;
-  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(dir, root))) {
-    return null;
-  }
-  return { dir };
-}
-
 
 /**
  * Registra uma raiz permitida para abertura/exportação de arquivos se for um caminho absoluto seguro.
