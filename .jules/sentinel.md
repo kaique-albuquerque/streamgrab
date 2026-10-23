@@ -25,7 +25,7 @@
 **Learning:** Preview IPC handlers that read or delete preview files must validate that paths are safe absolute paths constrained to the designated preview directory (`getPreviewDir(app.getPath('temp'))`).
 **Prevention:** Validate IPC payloads with `validatePreviewFilePathPayload` to enforce `isSafeAbsolutePath` and `isPathWithin` against the preview directory before file system access.
 
-## 2026-11-02 - Missing Root Containment Check in History Export IPC Payload Validation
-**Vulnerability:** `validateHistoryExportPayload` checked `isSafeAbsolutePath(filePath)` but ignored the `allowedRoots` parameter, permitting renderer processes to export history files to arbitrary system locations.
-**Learning:** Validator functions that accept `allowedRoots` must actively verify `isPathWithin(filePath, root)` against each root when `allowedRoots` is provided.
-**Prevention:** Always enforce `isPathWithin` checks against `allowedRoots` in IPC export payload validators before writing files.
+## 2026-11-02 - Unsanitized Output Path in History Export IPC Handler Vulnerable to Arbitrary File Write
+**Vulnerability:** The `history:export` IPC handler accepted custom `filePath` payloads without constraining destination paths to permitted application directory roots (`allowedRoots`).
+**Learning:** Payload validation helpers for export features must enforce root directory containment checks (`isPathWithin`) against allowed directory roots when a custom destination path is provided.
+**Prevention:** Pass `allowedRoots` into `validateHistoryExportPayload` and enforce `isPathWithin(filePath, root)` before allowing export files to be written to disk.

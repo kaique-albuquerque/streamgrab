@@ -40,12 +40,10 @@ export function validateHistoryExportPayload(payload = {}, allowedRoots = []) {
   const filePath = typeof payload.filePath === 'string' ? payload.filePath.trim() : '';
   if (filePath) {
     if (!isSafeAbsolutePath(filePath)) return null;
-    if (
-      Array.isArray(allowedRoots) &&
-      allowedRoots.length > 0 &&
-      !allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(filePath, root))
-    ) {
-      return null;
+    if (Array.isArray(allowedRoots) && allowedRoots.length > 0) {
+      if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(filePath, root))) {
+        return null;
+      }
     }
   }
 

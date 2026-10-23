@@ -46,7 +46,7 @@ export function registerHistoryHandlers() {
     }
 
     const format = validated.format;
-    const entries = validated.entries ? validated.entries : services.history.list();
+    const entries = validated.entries || services.history.list();
 
     let destPath = validated.filePath;
     if (destPath) {
