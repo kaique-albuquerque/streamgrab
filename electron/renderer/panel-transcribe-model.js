@@ -15,6 +15,10 @@ import { createRenderer } from './transcribe-model/render.js';
 import { createActions } from './transcribe-model/actions.js';
 import { createEvents } from './transcribe-model/events.js';
 
+const LIST_ID = 'transcribeModelList';
+const SELECT_ID = 'transcribeModelSelect';
+const HINT_ID = 'transcribeModelsHint';
+
 export function createModelSection() {
   const state = createModelState();
   const ctx = { state, api: () => window.api };
