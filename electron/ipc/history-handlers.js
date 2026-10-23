@@ -10,7 +10,6 @@ import {
   validateHistoryIdPayload,
   validateHistoryExportPayload,
   validateSettingsPayload,
-  validateExportHistoryPayload,
 } from '../security.js';
 import { PROJECT_ROOT, getServices, addRevealRoot, getAllowedRevealRoots } from './state.js';
 import { enqueueDownload } from './queue-handlers.js';
@@ -41,31 +40,29 @@ export function registerHistoryHandlers() {
     const services = getServices();
     if (!services) return { ok: false, error: 'Serviços não inicializados.' };
 
-    const validated = validateExportHistoryPayload(rawPayload, [...getAllowedRevealRoots()]);
+    const validated = validateHistoryExportPayload(rawPayload, [...getAllowedRevealRoots()]);
     if (!validated) {
       return { ok: false, error: 'Caminho de exportação inválido ou fora das pastas permitidas.' };
     }
 
-    const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
-    const format = payload.format === 'csv' ? 'csv' : 'json';
-
-    const format = payload.format;
-    const entries = payload.entries ? payload.entries : services.history.list();
-
-    const validatedExport = validateExportHistoryPayload(payload, [...getAllowedRevealRoots()]);
-    if (!validatedExport) {
-      return { ok: false, error: 'Caminho de destino inválido ou fora das pastas permitidas.' };
-    }
+    const format = validated.format;
+    const entries = validated.entries || services.history.list();
 
     let destPath = validated.filePath;
-    if (!destPath) {
+    if (destPath) {
+      const revealValidated = validateRevealPayload({ filePath: destPath }, [...getAllowedRevealRoots()]);
+      if (!revealValidated) {
+        return { ok: false, error: 'Caminho de destino fora das pastas permitidas.' };
+      }
+    } else {
       const { suggestExportFilename } = await import('../../src/core/history-export.js');
       const result = await dialog.showSaveDialog({
         title: 'Exportar histórico',
         defaultPath: suggestExportFilename(format),
-        filters: format === 'csv'
-          ? [{ name: 'CSV (Planilha)', extensions: ['csv'] }]
-          : [{ name: 'JSON', extensions: ['json'] }],
+        filters:
+          format === 'csv'
+            ? [{ name: 'CSV (Planilha)', extensions: ['csv'] }]
+            : [{ name: 'JSON', extensions: ['json'] }],
       });
       if (result.canceled || !result.filePath) return { ok: false, canceled: true };
       destPath = result.filePath;
