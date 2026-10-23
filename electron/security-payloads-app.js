@@ -2,7 +2,6 @@
  * P8 — Validação de payloads: app (reveal / export logs / register root).
  */
 
-import path from 'node:path';
 import { isSafeAbsolutePath, isPathWithin } from './security-primitives.js';
 import { getPreviewDir } from '../src/preview.js';
 

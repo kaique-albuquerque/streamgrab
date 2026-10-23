@@ -33,6 +33,7 @@ export {
   validateSettingsPayload,
   validateRevealPayload,
   validateExportLogsPayload,
+  validateDiskSpacePayload,
   validatePreviewFilePathPayload,
   registerRevealRoot,
   validateTranscribePayload,

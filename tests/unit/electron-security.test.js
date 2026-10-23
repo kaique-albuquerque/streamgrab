@@ -24,7 +24,6 @@ import {
   validateSettingsPayload,
   validateExportLogsPayload,
   registerRevealRoot,
-  validatePreviewFilePathPayload,
 } from '../../electron/security.js';
 
 // ---------------------------------------------------------------------------
@@ -260,6 +259,31 @@ test('validateDownloadPayload rejeita payload inválido', () => {
   );
 });
 
+test('validação IPC de fila e download rejeita protocolo inseguro, path traversal em outputDir e cookiesFile', () => {
+  // Rejeita protocolo inseguro (file://)
+  assert.equal(validateQueueEnqueuePayload({ url: 'file:///etc/passwd' }), null);
+  assert.equal(validateDownloadPayload({ taskId: 'tab-1', url: 'file:///etc/passwd', filename: 'v' }), null);
+
+  // Rejeita path traversal em outputDir
+  assert.equal(validateQueueEnqueuePayload({ url: 'https://example.com/v.mp4', outputDir: '/etc/../tmp' }), null);
+  assert.equal(validateDownloadPayload({ taskId: 'tab-1', url: 'https://example.com/v.mp4', filename: 'v', outputDir: 'C:\\Users\\..\\Windows' }), null);
+
+  // Rejeita path traversal em cookiesFile
+  assert.equal(validateQueueEnqueuePayload({ url: 'https://example.com/v.mp4', cookiesFile: '../../cookies.txt' }), null);
+  assert.equal(validateDownloadPayload({ taskId: 'tab-1', url: 'https://example.com/v.mp4', filename: 'v', cookiesFile: '../cookies.txt' }), null);
+
+  // Aceita valores seguros
+  const qOut = validateQueueEnqueuePayload({
+    url: 'https://example.com/v.mp4',
+    outputDir: '/tmp',
+    cookiesFile: '/tmp/cookies.txt',
+  });
+  assert.ok(qOut);
+  assert.equal(qOut.url, 'https://example.com/v.mp4');
+  assert.equal(qOut.outputDir, '/tmp');
+  assert.equal(qOut.cookiesFile, '/tmp/cookies.txt');
+});
+
 // ---------------------------------------------------------------------------
 // validatePreviewFilePathPayload
 // ---------------------------------------------------------------------------
@@ -463,6 +487,18 @@ test('validateRevealPayload restringe abertura a raízes permitidas', () => {
   assert.equal(validateRevealPayload({ filePath: 'relative.mp4' }, roots), null);
 });
 
+test('validatePreviewPathPayload restringe caminhos de preview a raízes permitidas', () => {
+  const roots = ['/tmp/streamgrab-preview', 'C:\\Users\\teste\\AppData\\Local\\Temp\\streamgrab-preview'];
+  assert.deepEqual(
+    validatePreviewPathPayload({ filePath: '/tmp/streamgrab-preview/p.mp4' }, roots),
+    { filePath: '/tmp/streamgrab-preview/p.mp4' }
+  );
+  assert.equal(validatePreviewPathPayload({ filePath: '/etc/passwd' }, roots), null);
+  assert.equal(validatePreviewPathPayload({ filePath: '/tmp/streamgrab-preview/../secret.txt' }, roots), null);
+  assert.equal(validatePreviewPathPayload({ filePath: 'relative.mp4' }, roots), null);
+  assert.equal(validatePreviewPathPayload({}, roots), null);
+});
+
 test('validatePreviewFilePathPayload valida caminho de preview e restringe ao previewDir', () => {
   const previewDir = '/tmp/app/streamgrab-preview';
   assert.deepEqual(
@@ -486,6 +522,22 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
+});
+
+test('validateDiskSpacePayload valida diretório e restringe a raízes permitidas', () => {
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
+  assert.deepEqual(validateDiskSpacePayload({}, roots), { dir: null });
+  assert.deepEqual(
+    validateDiskSpacePayload({ dir: 'C:\\Users\\teste\\Downloads' }, roots),
+    { dir: 'C:\\Users\\teste\\Downloads' }
+  );
+  assert.deepEqual(
+    validateDiskSpacePayload({ dir: '/home/user/Downloads' }, roots),
+    { dir: '/home/user/Downloads' }
+  );
+  assert.equal(validateDiskSpacePayload({ dir: 'C:\\Windows\\System32' }, roots), null);
+  assert.equal(validateDiskSpacePayload({ dir: 'C:\\Users\\teste\\..\\Windows' }, roots), null);
+  assert.equal(validateDiskSpacePayload({ dir: 'relative/dir' }, roots), null);
 });
 
 test('validatePreviewFilePathPayload valida e restringe caminho ao diretório de preview', () => {
