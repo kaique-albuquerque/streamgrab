@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 import { parseVersion, pickAsset, targetPaths } from '../../scripts/update-ytdlp.mjs';
 
@@ -23,9 +26,13 @@ test('pickAsset escolhe yt-dlp.exe no Windows e yt-dlp no Unix', () => {
   assert.equal(pickAsset(null, { platform: 'win32' }), null);
 });
 
-test('targetPaths: retorna o primary sempre, e extras apenas se existirem', () => {
-  const paths = targetPaths('Z:/nao-existe');
+test('targetPaths: retorna o primary sempre, e extras apenas se existirem', (t) => {
+  // targetPaths cria o diretorio do primary: usa raiz temporaria real
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sg-ytdlp-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  const paths = targetPaths(root);
   // Primary é sempre retornado (é obrigatório); diretórios extras não existem → só [primary]
-  assert.ok(paths.length >= 1, 'deve retornar pelo menos o primary');
+  assert.equal(paths.length, 1, 'extras inexistentes nao devem entrar');
   assert.ok(paths[0].includes('youtube-dl-exec'), 'primeiro elemento deve ser o primary');
 });
