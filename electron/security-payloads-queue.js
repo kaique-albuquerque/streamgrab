@@ -34,18 +34,14 @@ export function validateHistoryIdPayload(payload = {}) {
  * Valida o payload de `history:export`.
  * Retorna { format, filePath, entries } limpos ou null se payload/filePath forem invalidos.
  */
-/**
- * Valida o payload de `history:export`.
- * Retorna { format, filePath, entries } limpos ou null se payload/filePath forem invalidos ou fora das raizes permitidas.
- */
 export function validateHistoryExportPayload(payload = {}, allowedRoots = []) {
   if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) return null;
   const format = payload.format === 'csv' ? 'csv' : 'json';
   const filePath = typeof payload.filePath === 'string' ? payload.filePath.trim() : '';
   if (filePath) {
     if (!isSafeAbsolutePath(filePath)) return null;
-    // Security check: restringe o caminho de exportação às raízes de diretório permitidas.
     if (
+      Array.isArray(allowedRoots) &&
       allowedRoots.length > 0 &&
       !allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(filePath, root))
     ) {

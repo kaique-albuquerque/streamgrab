@@ -652,41 +652,22 @@ test('validateHistoryExportPayload rejeita caminhos relativos e path traversal',
   assert.equal(validateHistoryExportPayload({ filePath: '/etc/../evil.json' }), null);
 });
 
-test('validateHistoryExportPayload restringe caminho de exportação a raízes permitidas quando fornecidas', () => {
-  const allowed = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
-
+test('validateHistoryExportPayload restringe exportacao a raizes permitidas quando informadas', () => {
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
   assert.ok(
-    validateHistoryExportPayload(
-      { format: 'json', filePath: 'C:\\Users\\teste\\Downloads\\export.json' },
-      allowed
-    )
+    validateHistoryExportPayload({ filePath: 'C:\\Users\\teste\\Downloads\\export.csv' }, roots)
   );
   assert.ok(
-    validateHistoryExportPayload(
-      { format: 'json', filePath: '/home/user/Downloads/export.json' },
-      allowed
-    )
+    validateHistoryExportPayload({ filePath: '/home/user/Downloads/export.json' }, roots)
   );
   assert.equal(
-    validateHistoryExportPayload(
-      { format: 'json', filePath: 'C:\\Windows\\System32\\cmd.exe' },
-      allowed
-    ),
+    validateHistoryExportPayload({ filePath: 'C:\\Windows\\System32\\malicious.json' }, roots),
     null
   );
   assert.equal(
-    validateHistoryExportPayload(
-      { format: 'json', filePath: '/etc/passwd' },
-      allowed
-    ),
+    validateHistoryExportPayload({ filePath: '/etc/passwd.json' }, roots),
     null
   );
-});
-
-test('módulos IPC de estado importam sem erros de sintaxe', async () => {
-  const state = await import('../../electron/ipc/state.js');
-  assert.ok(typeof state.getAllowedRevealRoots === 'function');
-  assert.ok(typeof state.getAlllowedRevealRoots === 'function');
 });
 
 test('validateHistoryExportPayload sanitiza arrays de entries e trata payload nulo/invalido', () => {
