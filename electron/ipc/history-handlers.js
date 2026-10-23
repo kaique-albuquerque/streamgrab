@@ -49,14 +49,20 @@ export function registerHistoryHandlers() {
     const entries = validated.entries || services.history.list();
 
     let destPath = validated.filePath;
-    if (!destPath) {
+    if (destPath) {
+      const revealValidated = validateRevealPayload({ filePath: destPath }, [...getAllowedRevealRoots()]);
+      if (!revealValidated) {
+        return { ok: false, error: 'Caminho de destino fora das pastas permitidas.' };
+      }
+    } else {
       const { suggestExportFilename } = await import('../../src/core/history-export.js');
       const result = await dialog.showSaveDialog({
         title: 'Exportar histórico',
         defaultPath: suggestExportFilename(format),
-        filters: format === 'csv'
-          ? [{ name: 'CSV (Planilha)', extensions: ['csv'] }]
-          : [{ name: 'JSON', extensions: ['json'] }],
+        filters:
+          format === 'csv'
+            ? [{ name: 'CSV (Planilha)', extensions: ['csv'] }]
+            : [{ name: 'JSON', extensions: ['json'] }],
       });
       if (result.canceled || !result.filePath) return { ok: false, canceled: true };
       destPath = result.filePath;
