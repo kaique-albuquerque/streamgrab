@@ -1,6 +1,6 @@
 # Relatório: arquivos grandes
 
-> Gerado em 2026-10-23 22:09 por `scripts/analyze-large-files.mjs`
+> Gerado em 2026-10-23 22:12 por `scripts/analyze-large-files.mjs`
 > Limite: **mais de 150 linhas** · Arquivos analisados: **465** · Acima do limite: **10**
 
 **Resumo por tipo:** 10 js
