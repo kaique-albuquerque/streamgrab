@@ -10,7 +10,6 @@ import {
   validateHistoryIdPayload,
   validateHistoryExportPayload,
   validateSettingsPayload,
-  validateRevealPayload,
 } from '../security.js';
 import { PROJECT_ROOT, getServices, addRevealRoot, getAllowedRevealRoots } from './state.js';
 import { enqueueDownload } from './queue-handlers.js';
@@ -41,9 +40,9 @@ export function registerHistoryHandlers() {
     const services = getServices();
     if (!services) return { ok: false, error: 'Serviços não inicializados.' };
 
-    const validated = validateHistoryExportPayload(rawPayload);
+    const validated = validateHistoryExportPayload(rawPayload, [...getAllowedRevealRoots()]);
     if (!validated) {
-      return { ok: false, error: 'Payload ou caminho de exportação inválido.' };
+      return { ok: false, error: 'Caminho de exportação inválido ou fora das pastas permitidas.' };
     }
 
     const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};

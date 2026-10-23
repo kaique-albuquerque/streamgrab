@@ -8,6 +8,7 @@ import {
   isValidBrowserSpec,
   sanitizeDownloadFilename,
   isSafeAbsolutePath,
+  isPathWithin,
 } from './security-primitives.js';
 
 const JOB_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
@@ -33,11 +34,24 @@ export function validateHistoryIdPayload(payload = {}) {
  * Valida o payload de `history:export`.
  * Retorna { format, filePath, entries } limpos ou null se payload/filePath forem invalidos.
  */
-export function validateHistoryExportPayload(payload = {}) {
+/**
+ * Valida o payload de `history:export`.
+ * Retorna { format, filePath, entries } limpos ou null se payload/filePath forem invalidos ou fora das raizes permitidas.
+ */
+export function validateHistoryExportPayload(payload = {}, allowedRoots = []) {
   if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) return null;
   const format = payload.format === 'csv' ? 'csv' : 'json';
   const filePath = typeof payload.filePath === 'string' ? payload.filePath.trim() : '';
-  if (filePath && !isSafeAbsolutePath(filePath)) return null;
+  if (filePath) {
+    if (!isSafeAbsolutePath(filePath)) return null;
+    // Security check: restringe o caminho de exportação às raízes de diretório permitidas.
+    if (
+      allowedRoots.length > 0 &&
+      !allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(filePath, root))
+    ) {
+      return null;
+    }
+  }
 
   let entries = null;
   if (Array.isArray(payload.entries)) {
@@ -65,6 +79,47 @@ export function validateHistoryExportPayload(payload = {}) {
  * Valida o payload de `queue:enqueue` (botao "Adicionar a fila" / "Baixar").
  * Retorna o payload limpo ou null.
  */
+/**
+ * Valida o payload de `batch:enqueue` (download em lote).
+ * Retorna o payload limpo ou null se as URLs forem inválidas ou o diretório inseguro.
+ */
+export function validateBatchEnqueuePayload(payload = {}) {
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) return null;
+
+  const rawUrls = Array.isArray(payload.urls) ? payload.urls : [];
+  const urls = [];
+  for (const u of rawUrls) {
+    const value = typeof u === 'string' ? u.trim() : '';
+    if (value && isSafeHttpUrl(value) && urls.length < 1000) {
+      urls.push(value);
+    }
+  }
+  if (urls.length === 0) return null;
+
+  const outputDir = typeof payload.outputDir === 'string' ? payload.outputDir.trim() : '';
+  if (outputDir && !isSafeAbsolutePath(outputDir)) return null;
+
+  const turbo = payload.turbo === true;
+  const allAudio = payload.allAudio === true;
+  const subtitleLanguages = Array.isArray(payload.subtitleLanguages)
+    ? payload.subtitleLanguages
+        .filter((s) => typeof s === 'string')
+        .map((s) => s.trim().slice(0, 32))
+        .filter(Boolean)
+        .slice(0, 20)
+    : [];
+  const embedSubs = payload.embedSubs === true;
+
+  return {
+    urls,
+    outputDir,
+    turbo,
+    allAudio,
+    subtitleLanguages,
+    embedSubs,
+  };
+}
+
 export function validateQueueEnqueuePayload(payload = {}) {
   const url = typeof payload?.url === 'string' ? payload.url.trim() : '';
   if (!isSafeHttpUrl(url)) return null;
