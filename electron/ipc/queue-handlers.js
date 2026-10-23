@@ -25,6 +25,22 @@ function enqueueDownload({ url, filename, outputDir, selectedUrl, title, turbo, 
     err.code = 'NOT_READY';
     throw err;
   }
+  // Sentinel Security: Defense-in-depth validation of URL, output directory, and cookies file.
+  if (!isSafeHttpUrl(url)) {
+    const err = new Error('URL de download inválida.');
+    err.code = 'INVALID_URL';
+    throw err;
+  }
+  if (outputDir && !isSafeAbsolutePath(outputDir)) {
+    const err = new Error('Diretório de saída inválido.');
+    err.code = 'INVALID_OUTPUT_DIR';
+    throw err;
+  }
+  if (cookiesFile && !isSafeAbsolutePath(cookiesFile)) {
+    const err = new Error('Caminho do arquivo de cookies inválido.');
+    err.code = 'INVALID_COOKIES_FILE';
+    throw err;
+  }
   if (outputDir) addRevealRoot(outputDir);
 
   const config = loadConfig(PROJECT_ROOT, { log: () => {} });

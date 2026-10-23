@@ -29,3 +29,8 @@
 **Vulnerability:** IPC handlers (`history:export`, `batch:enqueue`, `app:disk-space`) either failed due to non-existent security helper imports / syntax errors or lacked `isSafeAbsolutePath` validation on user-supplied output or disk check paths.
 **Learning:** Electron IPC channels taking file system paths must strictly validate inputs using `isSafeAbsolutePath` and match exported security payload validation functions.
 **Prevention:** Always validate user-supplied file/directory paths with `isSafeAbsolutePath` in IPC handlers before invoking file system or process operations.
+
+## 2026-11-05 - Defense-in-Depth Validation in Download Queue Handler
+**Vulnerability:** `enqueueDownload` accepted download parameters without direct validation, relying solely on caller IPC payload sanitizers.
+**Learning:** Internal job-enqueuing routines must independently enforce URL protocol restrictions and path traversal checks on output directories and cookie files.
+**Prevention:** Perform `isSafeHttpUrl`, `isSafeAbsolutePath(outputDir)`, and `isSafeAbsolutePath(cookiesFile)` checks directly inside `enqueueDownload`.

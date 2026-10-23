@@ -259,6 +259,31 @@ test('validateDownloadPayload rejeita payload inválido', () => {
   );
 });
 
+test('validação IPC de fila e download rejeita protocolo inseguro, path traversal em outputDir e cookiesFile', () => {
+  // Rejeita protocolo inseguro (file://)
+  assert.equal(validateQueueEnqueuePayload({ url: 'file:///etc/passwd' }), null);
+  assert.equal(validateDownloadPayload({ taskId: 'tab-1', url: 'file:///etc/passwd', filename: 'v' }), null);
+
+  // Rejeita path traversal em outputDir
+  assert.equal(validateQueueEnqueuePayload({ url: 'https://example.com/v.mp4', outputDir: '/etc/../tmp' }), null);
+  assert.equal(validateDownloadPayload({ taskId: 'tab-1', url: 'https://example.com/v.mp4', filename: 'v', outputDir: 'C:\\Users\\..\\Windows' }), null);
+
+  // Rejeita path traversal em cookiesFile
+  assert.equal(validateQueueEnqueuePayload({ url: 'https://example.com/v.mp4', cookiesFile: '../../cookies.txt' }), null);
+  assert.equal(validateDownloadPayload({ taskId: 'tab-1', url: 'https://example.com/v.mp4', filename: 'v', cookiesFile: '../cookies.txt' }), null);
+
+  // Aceita valores seguros
+  const qOut = validateQueueEnqueuePayload({
+    url: 'https://example.com/v.mp4',
+    outputDir: '/tmp',
+    cookiesFile: '/tmp/cookies.txt',
+  });
+  assert.ok(qOut);
+  assert.equal(qOut.url, 'https://example.com/v.mp4');
+  assert.equal(qOut.outputDir, '/tmp');
+  assert.equal(qOut.cookiesFile, '/tmp/cookies.txt');
+});
+
 // ---------------------------------------------------------------------------
 // validatePreviewFilePathPayload
 // ---------------------------------------------------------------------------
