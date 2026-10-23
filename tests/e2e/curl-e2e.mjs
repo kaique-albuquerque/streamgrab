@@ -438,13 +438,35 @@ async function runDashCase() {
 
   const server = http.createServer((req, res) => {
     const file = path.join(E2E_DIR, decodeURIComponent(req.url.split('?')[0].replace(/^\//, '')));
-    if (fs.existsSync(file) && fs.statSync(file).isFile()) {
-      res.writeHead(200, { 'Content-Type': file.endsWith('.mpd') ? 'application/dash+xml' : 'application/octet-stream' });
-      fs.createReadStream(file).pipe(res);
-    } else {
+    if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
       res.writeHead(404);
       res.end('not found');
+      return;
     }
+    // O demuxer DASH do FFmpeg exige Content-Length e suporte a Range/206
+    // para ler init-*.mp4 e seg-*.m4s; sem isso aborta com "I/O error".
+    const { size } = fs.statSync(file);
+    const type = file.endsWith('.mpd') ? 'application/dash+xml' : 'application/octet-stream';
+    const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+    if (range) {
+      const start = range[1] ? Number(range[1]) : 0;
+      const end = range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+      if (start >= size || start > end) {
+        res.writeHead(416, { 'Content-Range': `bytes */${size}` });
+        res.end();
+        return;
+      }
+      res.writeHead(206, {
+        'Content-Type': type,
+        'Content-Length': end - start + 1,
+        'Content-Range': `bytes ${start}-${end}/${size}`,
+        'Accept-Ranges': 'bytes',
+      });
+      fs.createReadStream(file, { start, end }).pipe(res);
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': type, 'Content-Length': size, 'Accept-Ranges': 'bytes' });
+    fs.createReadStream(file).pipe(res);
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
