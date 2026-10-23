@@ -45,8 +45,15 @@ export function registerHistoryHandlers() {
       return { ok: false, error: 'Caminho de exportação inválido ou fora das pastas permitidas.' };
     }
 
-    const format = validated.format;
-    const entries = validated.entries || services.history.list();
+    const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
+    const format = payload.format === 'csv' ? 'csv' : 'json';
+    const entries = payload.entries ? payload.entries : services.history.list();
+
+    const validatedExport = validateExportHistoryPayload(payload, [...getAllowedRevealRoots()]);
+    if (!validatedExport) {
+      return { ok: false, error: 'Caminho de destino inválido ou fora das pastas permitidas.' };
+    }
+
     let destPath = validated.filePath;
     if (destPath) {
       const revealValidated = validateRevealPayload({ filePath: destPath }, [...getAllowedRevealRoots()]);

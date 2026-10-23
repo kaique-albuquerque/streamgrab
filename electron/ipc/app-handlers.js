@@ -49,11 +49,11 @@ export function registerAppHandlers(clipboardWatcher) {
   });
 
   // SPEC-07: espaço em disco para o dashboard da fila
-  ipcMain.handle('app:disk-space', async (_event, payload) => {
-    const defaultDownloads = (await import('electron')).app.getPath('downloads');
-    const validated = validateDiskSpacePayload(payload, [...getAllowedRevealRoots(), defaultDownloads]);
-    if (!validated) return { free: null, total: null, used: null };
-    const targetDir = validated.dir || defaultDownloads;
+  ipcMain.handle('app:disk-space', async (_event, rawPayload) => {
+    const { app } = await import('electron');
+    const defaultDownloads = app.getPath('downloads');
+    const validated = validateDiskSpacePayload(rawPayload, [...getAllowedRevealRoots(), defaultDownloads]);
+    const targetDir = validated?.dir || defaultDownloads;
     const { getDiskSpace } = await import('../../src/core/disk.js');
     const space = await getDiskSpace(targetDir);
     return space || { free: null, total: null, used: null };

@@ -23,6 +23,8 @@ import {
   validateBatchEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
+  validateDiskSpacePayload,
+  validatePreviewFilePathPayload,
   registerRevealRoot,
 } from '../../electron/security.js';
 
@@ -510,6 +512,22 @@ test('validatePreviewFilePathPayload valida caminho de preview e restringe ao pr
   assert.equal(validatePreviewFilePathPayload({ filePath: 'relative-preview.mp4' }, previewDir), null);
   assert.equal(validatePreviewFilePathPayload({}, previewDir), null);
   assert.equal(validatePreviewFilePathPayload({ filePath: '/tmp/app/streamgrab-preview/p.mp4' }, ''), null);
+});
+
+test('validateDiskSpacePayload valida caminho e restringe a raizes permitidas', () => {
+  const roots = ['C:\\Users\\teste\\Downloads', '/home/user/Downloads'];
+  assert.deepEqual(validateDiskSpacePayload({}, roots), { dir: null });
+  assert.deepEqual(
+    validateDiskSpacePayload({ dir: 'C:\\Users\\teste\\Downloads' }, roots),
+    { dir: 'C:\\Users\\teste\\Downloads' }
+  );
+  assert.deepEqual(
+    validateDiskSpacePayload({ dir: '/home/user/Downloads/subfolder' }, roots),
+    { dir: '/home/user/Downloads/subfolder' }
+  );
+  assert.equal(validateDiskSpacePayload({ dir: 'C:\\Windows\\System32' }, roots), null);
+  assert.equal(validateDiskSpacePayload({ dir: 'C:\\Users\\teste\\..\\evil' }, roots), null);
+  assert.equal(validateDiskSpacePayload({ dir: 'relative-dir' }, roots), null);
 });
 
 test('validateExportLogsPayload valida caminho e restringe a raizes permitidas', () => {
