@@ -20,9 +20,9 @@ import {
   validateHistoryIdPayload,
   validateHistoryExportPayload,
   validateQueueEnqueuePayload,
+  validateBatchEnqueuePayload,
   validateSettingsPayload,
   validateExportLogsPayload,
-  validateDiskSpacePayload,
   registerRevealRoot,
 } from '../../electron/security.js';
 
@@ -683,6 +683,44 @@ test('validateQueueEnqueuePayload aceita selectedUrl interna do yt-dlp', () => {
   });
   assert.ok(out);
   assert.equal(out.selectedUrl, 'ytdlp-format:137');
+});
+
+test('validateBatchEnqueuePayload aceita payload de lote valido e sanitiza opcoes', () => {
+  const out = validateBatchEnqueuePayload({
+    urls: ['https://example.com/v1.mp4', 'invalid-url', 'https://example.com/v2.mp4'],
+    outputDir: 'C:\\Users\\teste\\Downloads',
+    turbo: true,
+    allAudio: true,
+    subtitleLanguages: ['  en  ', 'es', 123],
+    embedSubs: true,
+  });
+  assert.ok(out);
+  assert.deepEqual(out.urls, ['https://example.com/v1.mp4', 'https://example.com/v2.mp4']);
+  assert.equal(out.outputDir, 'C:\\Users\\teste\\Downloads');
+  assert.equal(out.turbo, true);
+  assert.equal(out.allAudio, true);
+  assert.deepEqual(out.subtitleLanguages, ['en', 'es']);
+  assert.equal(out.embedSubs, true);
+});
+
+test('validateBatchEnqueuePayload rejeita payloads sem URLs validas ou com outputDir perigoso', () => {
+  assert.equal(validateBatchEnqueuePayload(null), null);
+  assert.equal(validateBatchEnqueuePayload({}), null);
+  assert.equal(validateBatchEnqueuePayload({ urls: ['javascript:alert(1)', 'file:///etc/passwd'] }), null);
+  assert.equal(
+    validateBatchEnqueuePayload({
+      urls: ['https://example.com/v1.mp4'],
+      outputDir: 'C:\\Users\\..\\Windows',
+    }),
+    null
+  );
+  assert.equal(
+    validateBatchEnqueuePayload({
+      urls: ['https://example.com/v1.mp4'],
+      outputDir: 'relative/dir',
+    }),
+    null
+  );
 });
 
 test('validateQueueEnqueuePayload normaliza campos opcionais e valida segurança', () => {
