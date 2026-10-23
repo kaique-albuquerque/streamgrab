@@ -5,20 +5,24 @@ import { createClipboardToast } from './renderer/clipboard-toast.js';
 import { createTutorialController } from './renderer/tutorial.js';
 import { createBatchDialog } from './renderer/batch-dialog.js';
 import { createPreviewPlayer } from './renderer/preview-player.js';
+import { resolveIncludes } from './renderer/template-include.js';
 
 // ---------------------------------------------------------------------------
 // Carrega templates HTML externos (tab, queue, history, settings) e os
 // insere no DOM antes de inicializar os controllers. Isso mantém o
 // index.html leve e os templates organizados por responsabilidade.
+// Templates grandes podem usar `<!--#include partial.html-->` para delegar
+// trechos a partials em ./templates/<nome>/.
 // ---------------------------------------------------------------------------
 async function loadTemplates() {
   const templates = ['tab', 'queue', 'history', 'transcribe', 'settings'];
+  const base = new URL('./templates/', window.location.href);
   const target = document.getElementById('dynamicViews');
   for (const name of templates) {
     try {
-      const res = await fetch(`./templates/${name}.html`);
+      const res = await fetch(new URL(`${name}.html`, base));
       if (!res.ok) continue;
-      const html = await res.text();
+      const html = await resolveIncludes(await res.text(), base);
       if (name === 'tab') {
         // O tabTemplate é um <template> que vai no body (já existe no DOM)
         document.body.insertAdjacentHTML('beforeend', html);

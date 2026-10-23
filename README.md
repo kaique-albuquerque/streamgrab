@@ -444,7 +444,8 @@ streamgrab/
     renderer.js         # UI: Videos / Queue / History / Settings
     services.js         # Core + Engine + Queue + Settings + History (pure Node)
     security.js         # IPC payload validation
-    index.html / styles.css
+    index.html
+    styles-*.css        # estilos divididos por area (base/layout/queue/batch/...)
   scripts/
     install-ffmpeg.mjs  # downloads/installs FFmpeg into vendor/ffmpeg/ (postinstall)
     install-electron.mjs# validates the Electron install (postinstall)

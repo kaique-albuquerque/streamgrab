@@ -1,0 +1,35 @@
+          <section class="card progress-card">
+            <div class="console-toolbar">
+              <div>
+                <div class="section-heading">Saída do processo</div>
+                <div data-field="status" class="status">Pronto.</div>
+              </div>
+              <div data-field="percent" class="percent">0%</div>
+            </div>
+
+            <div class="stats">
+              <div class="stat">
+                <span>Tempo</span>
+                <strong data-field="timeValue">--:--:--</strong>
+              </div>
+              <div class="stat">
+                <span>Tamanho</span>
+                <strong data-field="sizeValue">0 B</strong>
+              </div>
+              <div class="stat">
+                <span>Velocidade</span>
+                <strong data-field="speedValue">N/A</strong>
+              </div>
+            </div>
+
+            <div class="progress-shell">
+              <div data-field="progressBar" class="progress-bar"></div>
+            </div>
+
+            <pre data-field="log" class="log"></pre>
+
+            <div class="reveal-row" data-field="revealRow" hidden>
+              <button data-action="openFile" class="button button-ghost" type="button">Abrir arquivo</button>
+              <button data-action="showInFolder" class="button button-ghost" type="button">Mostrar na pasta</button>
+            </div>
+          </section>
