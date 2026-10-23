@@ -3,6 +3,24 @@
  */
 
 import { isSafeAbsolutePath, isPathWithin } from './security-primitives.js';
+import { getPreviewDir } from '../src/preview.js';
+
+/** Valida o payload de `preview:read-file` / `preview:clear`. */
+export function validatePreviewFilePathPayload(payload = {}, previewDir = '') {
+  const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
+  if (!filePath || typeof previewDir !== 'string' || !previewDir.trim()) return null;
+  if (!isSafeAbsolutePath(filePath)) return null;
+
+  const trimmedDir = previewDir.trim();
+  const targetDir = trimmedDir.endsWith('streamgrab-preview') || trimmedDir.endsWith('streamgrab-preview\\') || trimmedDir.endsWith('streamgrab-preview/')
+    ? trimmedDir
+    : path.join(trimmedDir, 'streamgrab-preview');
+
+  if (!isSafeAbsolutePath(targetDir) || !isPathWithin(filePath, targetDir)) {
+    return null;
+  }
+  return { filePath };
+}
 
 /** Valida o payload de `app:open-file` / `app:show-in-folder`. */
 export function validateRevealPayload(payload = {}, allowedRoots = []) {
@@ -35,28 +53,6 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
     return null;
   }
   return { path: customPath };
-}
-
-/** Valida o payload de `app:disk-space`. Retorna { dir: string } com diretório seguro ou null. */
-export function validateDiskSpacePayload(payload = {}, allowedRoots = []) {
-  const dir = typeof payload?.dir === 'string' ? payload.dir.trim() : '';
-  if (!dir) return { dir: null };
-  if (!isSafeAbsolutePath(dir)) return null;
-  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(dir, root))) {
-    return null;
-  }
-  return { dir };
-}
-
-/** Valida o payload de `preview:read-file` / `preview:clear`. */
-export function validatePreviewFilePathPayload(payload = {}, previewDir = '') {
-  const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
-  if (!filePath || typeof previewDir !== 'string' || !previewDir.trim()) return null;
-  if (!isSafeAbsolutePath(filePath)) return null;
-  if (typeof previewDir !== 'string' || !previewDir.trim() || !isPathWithin(filePath, previewDir)) {
-    return null;
-  }
-  return { filePath };
 }
 
 /**
