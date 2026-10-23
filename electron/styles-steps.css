@@ -1,0 +1,85 @@
+/* styles-steps.css — passos do fluxo, meta-card e prompts */
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.step small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.step.active {
+  border-color: rgba(114, 241, 184, 0.4);
+  background: rgba(114, 241, 184, 0.08);
+}
+
+.step.done {
+  border-color: rgba(78, 205, 196, 0.32);
+}
+
+.step-index {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  color: var(--bg);
+  background: var(--accent);
+  font-weight: 700;
+}
+
+.meta-card {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.meta-label {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.meta-value {
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.mono {
+  font-family: inherit;
+}
+
+.prompt-list {
+  display: grid;
+  gap: 14px;
+}
+
+.prompt {
+  display: grid;
+  gap: 8px;
+}
+
+.prompt-title {
+  color: var(--text);
+}

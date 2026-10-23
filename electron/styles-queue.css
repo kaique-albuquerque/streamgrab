@@ -142,20 +142,3 @@
   border: 1px dashed var(--line-strong);
   border-radius: 18px;
 }
-
-/* P11 — Configurações */
-.settings-form {
-  display: grid;
-  gap: 14px;
-  max-width: 720px;
-}
-
-.settings-form .prompt,
-.settings-form .toggle {
-  margin: 0;
-}
-
-.settings-status {
-  margin-top: 12px;
-  min-height: 18px;
-}

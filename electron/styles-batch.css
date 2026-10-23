@@ -1,4 +1,5 @@
 /* styles-batch.css — batch dialog overlay, modal, fields, progress */
+/* =========================================================================
    Batch Dialog — Download em lote (SPEC-03)
    ========================================================================= */
 
@@ -114,52 +115,3 @@
 .batch-summary.error {
   color: var(--danger);
 }
-
-.batch-progress {
-  margin-top: 14px;
-  max-height: 220px;
-  overflow-y: auto;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px;
-}
-
-.batch-progress-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  font-size: 12px;
-  border-radius: 6px;
-  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
-}
-
-.batch-progress-item.success {
-  color: var(--accent);
-}
-
-.batch-progress-item.error {
-  color: var(--danger);
-}
-
-.batch-progress-item.pending {
-  color: var(--muted);
-}
-
-.batch-progress-icon {
-  flex-shrink: 0;
-}
-
-.batch-progress-url {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.batch-progress-status {
-  flex-shrink: 0;
-  opacity: 0.85;
-}
-

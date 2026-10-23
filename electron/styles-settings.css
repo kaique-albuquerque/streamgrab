@@ -1,0 +1,16 @@
+/* styles-settings.css — formulário de configurações (SPEC-07) */
+.settings-form {
+  display: grid;
+  gap: 14px;
+  max-width: 720px;
+}
+
+.settings-form .prompt,
+.settings-form .toggle {
+  margin: 0;
+}
+
+.settings-status {
+  margin-top: 12px;
+  min-height: 18px;
+}
