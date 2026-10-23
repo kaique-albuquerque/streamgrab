@@ -4,12 +4,17 @@
 
 import { isSafeAbsolutePath, isPathWithin } from './security-primitives.js';
 
+const PREVIEW_DIR_NAME = 'streamgrab-preview';
+
 /** Valida o payload de `preview:read-file` / `preview:clear`. */
 export function validatePreviewFilePathPayload(payload = {}, dir = '') {
   const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
   if (!filePath || !dir || typeof dir !== 'string' || !dir.trim()) return null;
   if (!isSafeAbsolutePath(filePath)) return null;
-  const targetDir = dir.trim().endsWith('streamgrab-preview') ? dir.trim() : path.join(dir.trim(), 'streamgrab-preview');
+  const baseDir = dir.trim().replace(/[\\/]+$/, '');
+  const targetDir = baseDir.toLowerCase().endsWith(PREVIEW_DIR_NAME)
+    ? baseDir
+    : `${baseDir}/${PREVIEW_DIR_NAME}`;
   if (!isSafeAbsolutePath(targetDir) || !isPathWithin(filePath, targetDir)) return null;
   return { filePath };
 }
@@ -34,6 +39,17 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
     return null;
   }
   return { path: customPath };
+}
+
+/** Valida o payload de `app:disk-space`. */
+export function validateDiskSpacePayload(payload = {}, allowedRoots = []) {
+  const dir = typeof payload?.dir === 'string' ? payload.dir.trim() : '';
+  if (!dir) return { dir: null };
+  if (!isSafeAbsolutePath(dir)) return null;
+  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(dir, root))) {
+    return null;
+  }
+  return { dir };
 }
 
 /**

@@ -5,6 +5,7 @@
  * parameter, keeping the DownloadEngine class thin.
  */
 
+import fs from 'node:fs';
 import { setJobTaskState, transitionJob } from '../models/index.js';
 import { CancelledError } from '../errors.js';
 import { estimateMuxSpace } from '../disk.js';

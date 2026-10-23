@@ -22,6 +22,7 @@ export {
 export {
   validateRevealPayload,
   validateExportLogsPayload,
+  validateDiskSpacePayload,
   validatePreviewFilePathPayload,
   registerRevealRoot,
 } from './security-payloads-app.js';
