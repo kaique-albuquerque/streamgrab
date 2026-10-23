@@ -18,12 +18,6 @@ export {
   validateSettingsPayload,
 } from './security-payloads-queue.js';
 
-export {
-  validateRevealPayload,
-  validatePreviewPathPayload,
-  validateExportLogsPayload,
-  validatePreviewFilePathPayload,
-  registerRevealRoot,
-} from './security-payloads-app.js';
+export { validateRevealPayload, validateExportLogsPayload, validateDiskSpacePayload, registerRevealRoot } from './security-payloads-app.js';
 
 export { validateTranscribePayload, validateTranscribeJobPayload } from './security-payloads-transcribe.js';
