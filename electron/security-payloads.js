@@ -15,6 +15,7 @@ export {
   validateHistoryIdPayload,
   validateHistoryExportPayload,
   validateQueueEnqueuePayload,
+  validateBatchEnqueuePayload,
   validateSettingsPayload,
 } from './security-payloads-queue.js';
 
