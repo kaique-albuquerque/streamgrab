@@ -40,9 +40,9 @@ export function registerHistoryHandlers() {
     const services = getServices();
     if (!services) return { ok: false, error: 'Serviços não inicializados.' };
 
-    const validated = validateHistoryExportPayload(rawPayload);
+    const validated = validateHistoryExportPayload(rawPayload, [...getAllowedRevealRoots()]);
     if (!validated) {
-      return { ok: false, error: 'Payload de exportação de histórico inválido.' };
+      return { ok: false, error: 'Caminho de exportação inválido ou fora das pastas permitidas.' };
     }
 
     const format = validated.format;

@@ -25,12 +25,7 @@
 **Learning:** Preview IPC handlers that read or delete preview files must validate that paths are safe absolute paths constrained to the designated preview directory (`getPreviewDir(app.getPath('temp'))`).
 **Prevention:** Validate IPC payloads with `validatePreviewFilePathPayload` to enforce `isSafeAbsolutePath` and `isPathWithin` against the preview directory before file system access.
 
-## 2026-10-22 - Unsanitized Paths and Mismatched Security Validation in IPC Handlers
-**Vulnerability:** IPC handlers (`history:export`, `batch:enqueue`, `app:disk-space`) either failed due to non-existent security helper imports / syntax errors or lacked `isSafeAbsolutePath` validation on user-supplied output or disk check paths.
-**Learning:** Electron IPC channels taking file system paths must strictly validate inputs using `isSafeAbsolutePath` and match exported security payload validation functions.
-**Prevention:** Always validate user-supplied file/directory paths with `isSafeAbsolutePath` in IPC handlers before invoking file system or process operations.
-
-## 2026-11-05 - Defense-in-Depth Validation in Download Queue Handler
-**Vulnerability:** `enqueueDownload` accepted download parameters without direct validation, relying solely on caller IPC payload sanitizers.
-**Learning:** Internal job-enqueuing routines must independently enforce URL protocol restrictions and path traversal checks on output directories and cookie files.
-**Prevention:** Perform `isSafeHttpUrl`, `isSafeAbsolutePath(outputDir)`, and `isSafeAbsolutePath(cookiesFile)` checks directly inside `enqueueDownload`.
+## 2026-11-04 - Unsanitized Export File Path in History Export IPC Handler Vulnerable to Arbitrary File Overwrite
+**Vulnerability:** The `history:export` Electron IPC channel accepted custom `filePath` payloads in `validateHistoryExportPayload` without enforcing directory containment against allowed reveal roots (`allowedRoots`).
+**Learning:** File export IPC handlers that accept user-provided custom file paths must enforce root containment (`isPathWithin`) against allowed application directory roots to prevent malicious IPC invocations from writing files to arbitrary system directories.
+**Prevention:** Pass `allowedRoots` to payload validators like `validateHistoryExportPayload` and check `isPathWithin(filePath, root)` for all custom output paths prior to disk operations.
