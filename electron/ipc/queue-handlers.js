@@ -7,6 +7,8 @@ import { BrowserWindow, ipcMain } from 'electron';
 import { loadConfig, applyProviderHeaders } from '../../src/cli/config.js';
 import { friendlyReport } from '../../src/core/errors.js';
 import {
+  isSafeAbsolutePath,
+  isSafeHttpUrl,
   validateDownloadPayload,
   validateQueueEnqueuePayload,
   validateBatchEnqueuePayload,

@@ -9,6 +9,7 @@ import { friendlyReport } from '../../src/core/errors.js';
 import {
   validateHistoryIdPayload,
   validateHistoryExportPayload,
+  validateRevealPayload,
   validateSettingsPayload,
 } from '../security.js';
 import { PROJECT_ROOT, getServices, addRevealRoot, getAllowedRevealRoots } from './state.js';
