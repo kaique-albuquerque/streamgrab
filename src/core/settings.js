@@ -1,5 +1,5 @@
 /**
- * P7 — Settings persistidos (src/core/settings.js)
+ * P7 — Settings persistidos (barrel).
  *
  * Seção 22 do architect.md. Opcoes de usuario persistidas em JSON atomico
  * (storage.js). Regras:
@@ -7,147 +7,12 @@
  *  - valores passam por coerção de tipo e limites (clamp);
  *  - `reset()` restaura os defaults.
  *
- * Nota de privacidade: settings nao contem URLs/cookies — apenas preferencias.
+ * Implementação em ./settings/:
+ *  - defaults.js → DEFAULT_SETTINGS e SCHEMA
+ *  - coerce.js   → coerce (privado) e normalizeSettings
+ *  - store.js    → createSettingsStore
  */
 
-import { createJsonStore } from './storage.js';
-
-/** Defaults de configuração. `defaultDir: ''` = diretorio do sistema. */
-export const DEFAULT_SETTINGS = Object.freeze({
-  defaultDir: '',
-  maxConcurrentDownloads: 3,
-  turbo: false,
-  turboChunks: 8,
-  smartTurbo: false,
-  defaultQuality: 'best',
-  audio: 'original',
-  notifications: true,
-  clipboardWatch: true,
-  tutorialCompleted: false, // SPEC-02: tour interativo na primeira execução
-  theme: 'system',
-  onComplete: '',
-  historyRetentionDays: 0,
-  // SPEC-09: Transcrição de vídeo
-  transcribe: false,
-  transcribeLang: 'pt',
-  transcribeModel: 'small',
-  transcribeTimestamps: true,
-});
-
-const SCHEMA = {
-  defaultDir: { type: 'string', clamp: null },
-  maxConcurrentDownloads: { type: 'number', clamp: [1, 16] },
-  turbo: { type: 'boolean', clamp: null },
-  turboChunks: { type: 'number', clamp: [1, 32] },
-  smartTurbo: { type: 'json', clamp: null },
-  defaultQuality: { type: 'string', clamp: null },
-  audio: { type: 'string', clamp: null },
-  notifications: { type: 'boolean', clamp: null },
-  clipboardWatch: { type: 'boolean', clamp: null },
-  tutorialCompleted: { type: 'boolean', clamp: null },
-  theme: { type: 'string', clamp: null },
-  onComplete: { type: 'string', clamp: null },
-  historyRetentionDays: { type: 'number', clamp: [0, 3650] },
-  // SPEC-09: Transcrição de vídeo
-  transcribe: { type: 'boolean', clamp: null },
-  transcribeLang: { type: 'string', clamp: null },
-  transcribeModel: { type: 'string', clamp: null },
-  transcribeTimestamps: { type: 'boolean', clamp: null },
-};
-
-function coerce(key, value, current) {
-  const spec = SCHEMA[key];
-  if (!spec) return undefined; // chave desconhecida: ignorada
-  let out = value;
-  if (spec.type === 'number') {
-    out = Number(value);
-    if (!Number.isFinite(out)) return current; // NaN -> mantem atual
-    if (spec.clamp) out = Math.min(spec.clamp[1], Math.max(spec.clamp[0], out));
-  } else if (spec.type === 'boolean') {
-    out = Boolean(value);
-  } else if (spec.type === 'json') {
-    // boolean (liga/desliga) ou objeto (opcoes do Smart Turbo)
-    if (typeof value === 'boolean') {
-      out = value;
-    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
-      out = { ...value };
-    } else {
-      return current;
-    }
-  } else {
-    out = String(value);
-  }
-  return out;
-}
-
-/**
- * Normaliza um objeto cru contra o schema: ignora chaves desconhecidas,
- * coage tipos e aplica clamps. Retorna um objeto somente com chaves validas.
- */
-export function normalizeSettings(raw = {}) {
-  if (raw === null || typeof raw !== 'object') return {};
-  const out = {};
-  for (const [k, v] of Object.entries(raw)) {
-    if (k === 'version') continue;
-    const coerced = coerce(k, v, DEFAULT_SETTINGS[k]);
-    if (coerced !== undefined) out[k] = coerced;
-  }
-  return out;
-}
-
-/**
- * Cria o store de settings persistidos.
- *
- * Opcoes: file (obrigatorio), defaults (opcional, default DEFAULT_SETTINGS),
- * storage (opcional, injetavel p/ testes).
- */
-export function createSettingsStore({ file, defaults = DEFAULT_SETTINGS, storage } = {}) {
-  if (!file && !storage) throw new TypeError('createSettingsStore: file e obrigatorio');
-  const store = storage || createJsonStore({ file, version: 1, defaults });
-  store.load();
-
-  return {
-    file: store.file,
-    store,
-
-    /** Todos os settings (clone). */
-    all() {
-      const rest = { ...store.get() };
-      delete rest.version;
-      return rest;
-    },
-
-    /** Valor de uma chave (default se ausente). */
-    get(key) {
-      const data = store.get();
-      return key in data ? data[key] : defaults[key];
-    },
-
-    /** Define uma chave (validada) e persiste. */
-    set(key, value) {
-      const current = this.all();
-      const coerced = coerce(key, value, current[key]);
-      if (coerced === undefined) return this.get(key); // desconhecida: no-op
-      store.save({ ...current, [key]: coerced });
-      return this.get(key);
-    },
-
-    /** Aplica varias chaves de uma vez. */
-    update(partial = {}) {
-      const current = this.all();
-      const next = { ...current };
-      for (const [k, v] of Object.entries(partial)) {
-        const coerced = coerce(k, v, current[k]);
-        if (coerced !== undefined) next[k] = coerced;
-      }
-      store.save(next);
-      return this.all();
-    },
-
-    /** Restaura os defaults e persiste. */
-    reset() {
-      store.save({ ...defaults });
-      return this.all();
-    },
-  };
-}
+export { DEFAULT_SETTINGS } from './settings/defaults.js';
+export { normalizeSettings } from './settings/coerce.js';
+export { createSettingsStore } from './settings/store.js';
