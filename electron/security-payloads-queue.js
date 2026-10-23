@@ -10,6 +10,7 @@ import {
   isSafeAbsolutePath,
   isPathWithin,
 } from './security-primitives.js';
+import { isKnownModel } from '../src/transcribe/model-manager.js';
 
 const JOB_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -175,6 +176,8 @@ const SETTINGS_KEYS = new Set([
   'theme',
   'onComplete',
   'historyRetentionDays',
+  'transcribeLang',
+  'transcribeModel',
 ]);
 
 /**
@@ -205,6 +208,14 @@ export function validateSettingsPayload(payload = {}) {
     } else if (key === 'smartTurbo') {
       if (typeof value !== 'boolean' && !(value && typeof value === 'object' && !Array.isArray(value))) return null;
       clean[key] = value;
+    } else if (key === 'transcribeModel') {
+      const model = typeof value === 'string' ? value.trim().toLowerCase() : '';
+      if (!isKnownModel(model)) return null;
+      clean[key] = model;
+    } else if (key === 'transcribeLang') {
+      const lang = typeof value === 'string' ? value.trim().toLowerCase() : '';
+      if (!/^(auto|[a-z]{2,3})$/.test(lang)) return null;
+      clean[key] = lang;
     } else {
       clean[key] = value;
     }

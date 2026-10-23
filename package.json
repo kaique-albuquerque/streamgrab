@@ -30,7 +30,6 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "analyze": "node bin/streamgrab.mjs analyze",
     "analisar:linhas": "node scripts/analyze-large-files.mjs",
     "audit": "npm audit --omit=dev 2>&1 || echo '[audit] Vulnerabilities found  review above'",
     "curl:install": "node scripts/install-curl-impersonate.mjs",

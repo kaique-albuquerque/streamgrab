@@ -20,29 +20,45 @@ import { extractAudio } from './audio-extract.js';
 import { checkWhisperCpp, transcribeWithCpp } from './whisper-cpp.js';
 import { checkTransformers, transcribeWithTransformers } from './whisper-transformers.js';
 import { writeTranscription, titleFromVideoPath } from './format.js';
-
-// Modelo unico: small (~244 MB)
-const DEFAULT_MODEL = 'small';
+import { DEFAULT_MODEL, getModelStatusFor } from './model-manager.js';
 
 /**
  * Verifica se a transcricao e possivel no ambiente atual.
  *
- * @returns {Promise<{ available: boolean, engine: string, reason?: string }>}
+ * `available` refere-se ao MOTOR (binario presente). Quando `model` e
+ * informado, `modelInstalled` diz se o modelo escolhido ja foi baixado —
+ * são coisas independentes de propósito.
+ *
+ * @param {object} [params]
+ * @param {string} [params.model='small'] - Id do modelo no catalogo
+ * @returns {Promise<{ available: boolean, engine: string, reason?: string,
+ *                     model: string, modelInstalled: boolean }>}
  */
-export async function checkTranscriptionAvailable() {
+export async function checkTranscriptionAvailable({ model = DEFAULT_MODEL } = {}) {
   const cpp = checkWhisperCpp();
   if (cpp.available) {
-    return { available: true, engine: 'whisper-cpp' };
+    const status = getModelStatusFor(model, cpp.modelsDir);
+    return {
+      available: true,
+      engine: 'whisper-cpp',
+      model,
+      modelInstalled: status.installed,
+      reason: status.installed
+        ? ''
+        : `Modelo ${model} ainda nao foi baixado. Abra Transcrever > Modelos Whisper.`,
+    };
   }
 
   const transformers = await checkTransformers();
   if (transformers) {
-    return { available: true, engine: 'whisper-transformers' };
+    return { available: true, engine: 'whisper-transformers', model, modelInstalled: true };
   }
 
   return {
     available: false,
     engine: '',
+    model,
+    modelInstalled: false,
     reason:
       'Nenhum engine de transcricao encontrado.\n' +
       'Opcao 1: Execute npm run whisper:install\n' +
@@ -56,6 +72,7 @@ export async function checkTranscriptionAvailable() {
  * @param {object} params
  * @param {string} params.audioPath - Caminho do arquivo de audio (WAV 16kHz mono)
  * @param {string} [params.language='pt'] - Codigo do idioma
+ * @param {string} [params.model='small'] - Id do modelo no catalogo
  * @param {AbortSignal} [params.signal] - Sinal de cancelamento
  * @param {Function} [params.onProgress] - Callback de progresso
  * @param {Function} [params.onLog] - Callback de log
@@ -64,11 +81,12 @@ export async function checkTranscriptionAvailable() {
 export async function transcribeAudio({
   audioPath,
   language = 'pt',
+  model = DEFAULT_MODEL,
   signal,
   onProgress,
   onLog,
 }) {
-  onLog?.(`[transcribe] Engine: auto-detect, modelo: ${DEFAULT_MODEL}`);
+  onLog?.(`[transcribe] Engine: auto-detect, modelo: ${model}`);
 
   const cpp = checkWhisperCpp();
   if (cpp.available) {
@@ -76,7 +94,7 @@ export async function transcribeAudio({
     const result = await transcribeWithCpp({
       audioPath,
       language,
-      model: DEFAULT_MODEL,
+      model,
       signal,
       onProgress,
       onLog,
@@ -90,7 +108,7 @@ export async function transcribeAudio({
     const result = await transcribeWithTransformers({
       audioPath,
       language,
-      model: DEFAULT_MODEL,
+      model,
       signal,
       onProgress,
       onLog,
@@ -115,6 +133,7 @@ export async function transcribeAudio({
  * @param {string} [params.language='pt'] - Codigo do idioma
  * @param {string[]} [params.formats=['txt', 'md']] - Formatos de saida
  * @param {string} [params.title] - Titulo do documento opcional
+ * @param {string} [params.model='small'] - Id do modelo no catalogo
  * @param {AbortSignal} [params.signal] - Sinal de cancelamento
  * @param {Function} [params.onProgress] - Callback de progresso
  * @param {Function} [params.onLog] - Callback de log
@@ -125,6 +144,7 @@ export async function transcribeVideo({
   language = 'pt',
   formats = ['txt', 'md'],
   title,
+  model = DEFAULT_MODEL,
   signal,
   onProgress,
   onLog,
@@ -132,7 +152,7 @@ export async function transcribeVideo({
   const startedAt = Date.now();
 
   onLog?.(`[transcribe] Iniciando transcricao de: ${videoPath}`);
-  onLog?.(`[transcribe] Idioma: ${language}, Modelo: ${DEFAULT_MODEL}`);
+  onLog?.(`[transcribe] Idioma: ${language}, Modelo: ${model}`);
 
   onLog?.(`[transcribe] Etapa 1/3: Extraindo audio...`);
   const { audioPath, cleanup } = await extractAudio({
@@ -156,6 +176,7 @@ export async function transcribeVideo({
     const result = await transcribeAudio({
       audioPath,
       language,
+      model,
       signal,
       onProgress: (progress) => {
         onProgress?.({
@@ -205,7 +226,21 @@ export { checkWhisperCpp } from './whisper-cpp.js';
 export { checkTransformers } from './whisper-transformers.js';
 export { extractAudio, hasAudio, getAudioDuration } from './audio-extract.js';
 export { formatTxt, formatMd, formatSrt, writeTranscription, titleFromVideoPath } from './format.js';
-export { getModelStatus, downloadModel, MODEL_CATALOG, DEFAULT_MODEL as DEFAULT_WHISPER_MODEL } from './model-manager.js';
+export {
+  getModelStatus,
+  getModelStatusFor,
+  listModels,
+  listModelsFor,
+  modelSearchDirs,
+  setModelsDirResolver,
+  getModelsDir,
+  deleteModel,
+  isKnownModel,
+  listModelIds,
+  downloadModel,
+  MODEL_CATALOG,
+  DEFAULT_MODEL as DEFAULT_WHISPER_MODEL,
+} from './model-manager.js';
 export { createTranscriptionJobManager, createJsonJobStorage, JOB_STATUS } from './job-manager.js';
 
 export default transcribeVideo;

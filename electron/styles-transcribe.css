@@ -28,6 +28,80 @@
   flex-shrink: 0;
 }
 
+.transcribe-model-actions button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Catálogo de modelos Whisper */
+.transcribe-model-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.transcribe-model-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #30363d);
+  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.05);
+}
+
+.transcribe-model-item.is-selected {
+  border-color: var(--accent, #4a9eff);
+  background: rgba(74, 158, 255, 0.08);
+}
+
+.transcribe-model-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.transcribe-model-size {
+  margin-left: auto;
+  font-size: 0.8rem;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.transcribe-model-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 7px;
+  border: 1px solid var(--border, #30363d);
+  border-radius: 999px;
+  opacity: 0.85;
+}
+
+.transcribe-model-badge-accent {
+  color: var(--accent, #4a9eff);
+  border-color: var(--accent, #4a9eff);
+}
+
+.transcribe-model-badge-warn {
+  color: var(--warning, #d29922);
+  border-color: var(--warning, #d29922);
+}
+
+.transcribe-model-note,
+.transcribe-model-state {
+  margin: 0;
+}
+
+.transcribe-model-item .transcribe-model-actions {
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
 .transcribe-options {
   display: flex;
   flex-wrap: wrap;

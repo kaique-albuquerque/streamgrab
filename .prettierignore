@@ -6,3 +6,4 @@ out/
 coverage/
 tests/fixtures/
 package-lock.json
+.github/skills/

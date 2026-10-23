@@ -23,7 +23,7 @@ RUN mkdir -p /opt/whisper.cpp/build \
   && chmod +x /opt/whisper.cpp/whisper-cli \
   && rm -rf /opt/whisper.cpp/source /opt/whisper.cpp/build
 
-# Baixar modelo GGML small (~244 MB)
+# Baixar modelo GGML small (~465 MB)
 RUN mkdir -p /opt/whisper.cpp/models \
   && curl -L -o /opt/whisper.cpp/models/ggml-small.bin \
     "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"

@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import {
   validateTranscribePayload,
   validateTranscribeJobPayload,
+  validateModelPayload,
 } from '../../electron/security-payloads-transcribe.js';
 
 const WIN_PATH = 'C:\\Videos\\aula.mp4';
@@ -21,6 +22,7 @@ test('validateTranscribePayload: payload válido com defaults', () => {
   assert.equal(out.language, 'pt');
   assert.deepEqual(out.formats, ['txt', 'md']);
   assert.equal(out.title, '');
+  assert.equal(out.model, 'small');
 });
 
 test('validateTranscribePayload: formatos e idioma customizados', () => {
@@ -85,4 +87,50 @@ test('validateTranscribeJobPayload: rejeita vazio/caractere inválido/longo dema
   assert.equal(validateTranscribeJobPayload({ jobId: 'abc def' }), null);
   assert.equal(validateTranscribeJobPayload({ jobId: 'a'.repeat(101) }), null);
   assert.equal(validateTranscribeJobPayload({}), null);
+});
+
+test('validateTranscribePayload: modelo do catálogo é aceito e normalizado', () => {
+  const out = validateTranscribePayload({ videoPath: VIDEO_PATH, model: '  LARGE-V3 ' });
+  assert.ok(out);
+  assert.equal(out.model, 'large-v3');
+});
+
+test('validateTranscribePayload: modelo fora do catálogo é rejeitado', () => {
+  for (const model of ['gigante', 'constructor', '__proto__', 'toString', 42, {}]) {
+    assert.equal(
+      validateTranscribePayload({ videoPath: VIDEO_PATH, model }),
+      null,
+      `deveria rejeitar ${String(model)}`
+    );
+  }
+});
+
+test('validateTranscribePayload: modelo ausente/vazio cai no padrão', () => {
+  for (const model of [undefined, null, '']) {
+    const out = validateTranscribePayload({ videoPath: VIDEO_PATH, model });
+    assert.ok(out, `deveria aceitar ${String(model)}`);
+    assert.equal(out.model, 'small');
+  }
+  assert.equal(validateTranscribePayload({ videoPath: VIDEO_PATH }).model, 'small');
+});
+
+test('validateModelPayload: payload sem modelo cai no padrão', () => {
+  assert.deepEqual(validateModelPayload({}), { model: 'small' });
+  assert.deepEqual(validateModelPayload(undefined), { model: 'small' });
+  assert.deepEqual(validateModelPayload({ model: null }), { model: 'small' });
+  assert.deepEqual(validateModelPayload({ model: '' }), { model: 'small' });
+});
+
+test('validateModelPayload: aceita id do catálogo, rejeita o resto', () => {
+  assert.deepEqual(validateModelPayload({ model: 'base' }), { model: 'base' });
+  assert.deepEqual(validateModelPayload({ model: ' MEDIUM ' }), { model: 'medium' });
+  assert.equal(validateModelPayload({ model: 'ggml-small.bin' }), null);
+  assert.equal(validateModelPayload({ model: '../../etc/passwd' }), null);
+  assert.equal(validateModelPayload({ model: 'constructor' }), null);
+});
+
+test('validateModelPayload: payload que não é objeto retorna null', () => {
+  assert.equal(validateModelPayload(null), null);
+  assert.equal(validateModelPayload('small'), null);
+  assert.equal(validateModelPayload(['small']), null);
 });

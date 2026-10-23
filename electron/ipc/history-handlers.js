@@ -43,10 +43,10 @@ export function registerHistoryHandlers() {
 
     const validated = validateHistoryExportPayload(rawPayload, [...getAllowedRevealRoots()]);
     if (!validated) {
-      return { ok: false, error: 'Caminho de exportação inválido ou fora das pastas permitidas.' };
+      return { ok: false, error: 'Payload de exportação inválido.' };
     }
 
-    const format = validated.format;
+    const { format } = validated;
     const entries = validated.entries || services.history.list();
 
     let destPath = validated.filePath;

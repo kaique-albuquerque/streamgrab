@@ -1,6 +1,16 @@
 export default [
   {
-    ignores: ['node_modules/**', 'vendor/**', 'tools/**', 'dist/**', 'out/**', 'coverage/**', 'tests/fixtures/**'],
+    ignores: [
+      'node_modules/**',
+      'vendor/**',
+      'tools/**',
+      'dist/**',
+      'out/**',
+      'coverage/**',
+      'tests/fixtures/**',
+      // Skills de terceiros importados de obra/superpowers (MIT).
+      '.github/skills/**',
+    ],
   },
   {
     files: ['**/*.js', '**/*.mjs'],

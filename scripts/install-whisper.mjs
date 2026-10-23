@@ -29,9 +29,11 @@ const INSTALLED_MARKER = path.join(VENDOR_DIR, '.installed');
 const WHISPER_CPP_REPO = 'https://github.com/ggerganov/whisper.cpp.git';
 const HUGGINGFACE_BASE_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';
 
-// Apenas modelo small (~244 MB)  bom equilbrio qualidade/velocidade
+// Modelo padrão do script de build: `small` (~465 MB), bom equilíbrio
+// qualidade/velocidade. Tamanho oficial (ggml-small.bin) usado apenas para a
+// checagem de integridade com tolerância de 10%.
 const MODELS = [
-  { name: 'ggml-small.bin', size: 244_000_000, label: 'small' },
+  { name: 'ggml-small.bin', size: 487_601_967, label: 'small' },
 ];
 
 // Cross-compile: ex. WHISPER_CMAKE_ARCH=x86_64 para builds macOS x64 em

@@ -2,8 +2,9 @@
  * panel-transcribe.js — Painel de transcrição (view "Transcrever").
  *
  * Consome a API do preload (window.api.transcribe*):
- *  - transcribeCheck / transcribeModelStatus / transcribeModelDownload /
- *    transcribeModelCancel → status de engine e modelo (download em runtime)
+ *  - transcribeCheck → status do engine
+ *  - transcribeModels / transcribeModelDownload / transcribeModelCancel /
+ *    transcribeModelDelete → catálogo de modelos (download em runtime)
  *  - transcribeStart / transcribeCancel / transcribeRetry / transcribeJobList
  *  - eventos: onTranscribeProgress/Log/Done/Error/JobUpdated/ModelProgress
  *
@@ -43,7 +44,7 @@ export function createTranscribePanel() {
     ensureWired();
     await Promise.all([
       refreshEngineStatus().catch(() => {}),
-      modelSection.refreshModelStatus().catch(() => {}),
+      modelSection.refreshModels().catch(() => {}),
       refreshJobs().catch(() => {}),
     ]);
   }
@@ -94,13 +95,19 @@ export function createTranscribePanel() {
       return;
     }
 
+    const model = modelSection.getSelectedModel();
+    if (!modelSection.isModelInstalled(model)) {
+      setHint('O modelo selecionado ainda não foi baixado. Baixe-o na lista de modelos antes de transcrever.', false);
+      return;
+    }
+
     const videoPath = await window.api.pickMediaFile();
     if (!videoPath) return; // usuário cancelou o diálogo
 
     const language = document.getElementById('transcribeLanguage')?.value || 'pt';
     setHint('Enfileirando transcrição...');
 
-    const res = await window.api.transcribeStart({ videoPath, language, formats });
+    const res = await window.api.transcribeStart({ videoPath, language, formats, model });
     if (!res?.ok) {
       setHint(res?.error?.message || 'Falha ao iniciar a transcrição.', false);
       return;

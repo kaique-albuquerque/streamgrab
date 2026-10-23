@@ -9,7 +9,7 @@
           </div>
         </div>
 
-        <!-- Status do engine + modelo -->
+        <!-- Status do engine -->
         <div class="card transcribe-status-card">
           <div class="transcribe-status-row">
             <div>
@@ -18,20 +18,19 @@
             </div>
             <span id="transcribeEngineBadge" class="job-state" data-state="queued">...</span>
           </div>
-          <div class="transcribe-status-row" id="transcribeModelRow">
+        </div>
+
+        <!-- Modelos Whisper (catálogo) -->
+        <div class="card transcribe-status-card">
+          <div class="transcribe-status-row">
             <div>
-              <strong>Modelo Whisper (small, ~244 MB)</strong>
-              <p class="hint-line" id="transcribeModelInfo">Verificando...</p>
-              <div id="transcribeModelProgressWrap" class="transcribe-progress" hidden>
-                <div class="transcribe-progress-bar"><span id="transcribeModelProgressBar" style="width: 0%"></span></div>
-                <span id="transcribeModelProgressLabel" class="transcribe-progress-label">0%</span>
-              </div>
-            </div>
-            <div class="transcribe-model-actions">
-              <button id="transcribeModelDownloadBtn" class="button button-ghost" type="button" hidden>Baixar modelo</button>
-              <button id="transcribeModelCancelBtn" class="button button-ghost" type="button" hidden>Cancelar</button>
+              <strong>Modelos Whisper</strong>
+              <p class="hint-line" id="transcribeModelsHint">
+                Baixe um modelo por vez. Modelos maiores transcrevem melhor e demoram mais.
+              </p>
             </div>
           </div>
+          <ul id="transcribeModelList" class="transcribe-model-list"></ul>
         </div>
 
         <!-- Nova transcrição -->
@@ -50,6 +49,10 @@
                 <option value="ja">Japonês</option>
                 <option value="auto">Detectar automaticamente</option>
               </select>
+            </label>
+            <label class="transcribe-field">
+              <span>Modelo</span>
+              <select id="transcribeModelSelect" class="sort-select"></select>
             </label>
             <div class="transcribe-field">
               <span>Saídas</span>
