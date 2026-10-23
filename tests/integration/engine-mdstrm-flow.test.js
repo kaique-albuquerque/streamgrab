@@ -23,7 +23,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..', '..');
 const MDSTRM_URL = pathToFileURL(path.join(ROOT, 'src', 'mdstrm.js')).href;
-const CURL_URL = pathToFileURL(path.join(ROOT, 'src', 'transports', 'curl.js')).href;
+const CURL_URL = pathToFileURL(path.join(ROOT, 'src', 'transports', 'curl', 'index.js')).href;
 const FFMPEG_URL = pathToFileURL(path.join(ROOT, 'src', 'ffmpeg.js')).href;
 
 // isMdstrmUrl sempre true: as URLs locais do teste entram no roteamento
@@ -62,8 +62,11 @@ class FakeTransport {
     return { ok: true, localPlaylist: local, extraArgs: [], totalBytes: 10 };
   }
 }
+// Preserva os demais exports reais do módulo (extForUri, rewritePlaylist, ...):
+// substituir o módulo inteiro por um único export quebra os importadores.
+const realCurl = await import(CURL_URL);
 mock.module(CURL_URL, {
-  namedExports: { CurlImpersonateTransport: FakeTransport },
+  namedExports: { ...realCurl, CurlImpersonateTransport: FakeTransport },
 });
 
 // ffmpeg fake: registra a URL recebida. Se receber URL REMOTA (http/https)
@@ -201,6 +204,7 @@ test('fluxo mdstrm: transporte disponivel -> curl (segmentos) + mux local, nunca
       assert.ok(!line.includes('secret-'), `log nao pode conter tokens completos: ${line}`);
     }
   } finally {
+    server.closeAllConnections(); // sem isso, sockets keep-alive do fetch seguram o processo
     server.close();
   }
 });
@@ -242,6 +246,7 @@ test('fluxo mdstrm: transporte AUSENTE -> FFmpeg com a variante FRESCA (T2), nun
       assert.ok(!line.includes('secret-'), `log nao pode conter tokens completos: ${line}`);
     }
   } finally {
+    server.closeAllConnections();
     server.close();
   }
 });
