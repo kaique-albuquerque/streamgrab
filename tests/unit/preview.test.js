@@ -42,8 +42,12 @@ test('canPreview é case-insensitive', () => {
 });
 
 test('getPreviewDir fica dentro do tempDir informado', () => {
-  const dir = getPreviewDir('/tmp/base');
-  assert.equal(dir.startsWith('/tmp/base'), true);
+  const base = path.join(os.tmpdir(), 'sg-preview-base');
+  const dir = getPreviewDir(base);
+  // path separators variam por plataforma: compara por relativo, nao por prefixo
+  const rel = path.relative(base, dir);
+  assert.equal(rel.startsWith('..'), false, `deveria ficar dentro de ${base}: ${dir}`);
+  assert.equal(path.isAbsolute(rel), false);
   assert.ok(dir.includes('streamgrab-preview'));
 });
 
