@@ -57,18 +57,15 @@ export function registerModelDownloadHandler() {
       }
 
       const abort = new AbortController();
-      beginModelDownload(
-        payload.model,
-        downloadModel({
-          modelsDir,
-          model: payload.model,
-          signal: abort.signal,
-          onProgress: (progress) => broadcast('transcribe:model-progress', progress),
-        }),
-        abort,
-      );
+      const downloadPromise = downloadModel({
+        modelsDir,
+        model: payload.model,
+        signal: abort.signal,
+        onProgress: (progress) => broadcast('transcribe:model-progress', progress),
+      });
+      beginModelDownload(payload.model, downloadPromise, abort);
 
-      const status = await downloadModel;
+      const status = await downloadPromise;
       return { ok: true, modelsDir, ...status };
     } catch (err) {
       const cancelled = err?.cancelled === true || isCurrentDownloadAborted();
