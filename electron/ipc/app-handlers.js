@@ -59,7 +59,8 @@ export function registerAppHandlers(clipboardWatcher) {
     return space || { free: null, total: null, used: null };
   });
 
-  ipcMain.handle('app:open-external', async (_event, { url } = {}) => {
+  ipcMain.handle('app:open-external', async (_event, payload) => {
+    const url = payload && typeof payload === 'object' && typeof payload.url === 'string' ? payload.url : '';
     if (!isSafeHttpUrl(url)) return { ok: false, error: 'URL inválida.' };
     try {
       await shell.openExternal(url);
@@ -96,8 +97,9 @@ export function registerAppHandlers(clipboardWatcher) {
     return exportLogs(buffer, dest);
   });
 
-  ipcMain.handle('clipboard:ignore-url', async (_event, { url }) => {
-    if (clipboardWatcher && typeof url === 'string') {
+  ipcMain.handle('clipboard:ignore-url', async (_event, payload) => {
+    const url = payload && typeof payload === 'object' && typeof payload.url === 'string' ? payload.url : '';
+    if (clipboardWatcher && url) {
       clipboardWatcher.addCooldown(url);
     }
     return { ok: true };
