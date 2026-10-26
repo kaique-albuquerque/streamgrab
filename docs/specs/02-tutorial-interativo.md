@@ -144,5 +144,4 @@ TutorialController
 - Completar tour → `tutorialCompleted = true`.
 - Segunda execução → tour não abre.
 - Clicar botão ajuda → tour reabre.
-- Pular → tour fecha, `tutorialCompleted` continua `false`.
-- Tecla ESC → tour fecha.
+- Pular (ou fechar com ESC/clique fora) → tour fecha e `tutorialCompleted` vira `true`. O tour só reaparece pelo botão de ajuda.

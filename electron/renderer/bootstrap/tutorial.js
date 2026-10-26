@@ -3,13 +3,15 @@
 import { createTutorialController } from '../tutorial.js';
 
 export function setupTutorial({ appState }) {
+  // Concluir ou fechar o tour conta como "já visto": ele não abre mais
+  // sozinho e só reaparece pelo botão "?" (menu → Tour completo).
+  const markCompleted = () => {
+    window.api.settingsUpdate({ tutorialCompleted: true }).catch(() => {});
+  };
+
   const tutorialController = createTutorialController({
-    onFinish: () => {
-      window.api.settingsUpdate({ tutorialCompleted: true }).catch(() => {});
-    },
-    onSkip: () => {
-      // Não marca como completo, pode rodar de novo
-    },
+    onFinish: markCompleted,
+    onSkip: markCompleted,
   });
   appState.tutorial = tutorialController;
 
