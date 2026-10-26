@@ -48,7 +48,7 @@ window.api.onQueueEvent(({ event, payload }) => {
 });
 
 setupTranscribeEvents(getPanels);
-setupClipboardWatcher({ appState });
+setupClipboardWatcher({ appState, tabsController });
 
 dom.newTabBtn.addEventListener('click', () => tabsController.addTab());
 

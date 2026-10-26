@@ -40,9 +40,7 @@ export function initializeApp() {
   const mainWin = createWindow();
 
   clipboardWatcher.setOnDetected(broadcastClipboardDetection);
-  if (services.settings.get('clipboardWatch') !== false) {
-    clipboardWatcher.start();
-  }
+  clipboardWatcher.setEnabled(services.settings.get('clipboardWatch') !== false);
 
   mainWin.on('blur', () => clipboardWatcher.focusLost());
   mainWin.on('focus', () => clipboardWatcher.focusGained());

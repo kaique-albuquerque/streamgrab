@@ -16,6 +16,6 @@ export function registerAllHandlers(clipboardWatcher) {
   registerQueueHandlers();
   registerPreviewHandlers();
   registerHistoryHandlers();
-  registerSettingsHandlers();
+  registerSettingsHandlers({ clipboardWatcher });
   registerTranscribeHandlers();
 }

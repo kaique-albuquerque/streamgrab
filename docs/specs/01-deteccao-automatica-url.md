@@ -29,6 +29,7 @@ Reduzir o atrito de o usuário precisar colar manualmente a URL no campo de entr
 - Um intervalo periódico (a cada ~2s) verifica o conteúdo da área de transferência.
 - Quando uma URL compatível é detectada — contendo padrões como `.m3u8`, `.mpd`, `youtube.com/watch`, `youtu.be`, `instagram.com`, `facebook.com`, `tiktok.com`, etc. — o app exibe um badge/toast/notificação na interface.
 - O usuário pode clicar no badge para preencher automaticamente o campo de URL da aba ativa e iniciar a análise.
+- Se a aba ativa já estiver em uso (URL preenchida, análise ou download em andamento), uma aba nova é aberta automaticamente e recebe a URL — o trabalho atual nunca é sobrescrito.
 
 ### 3.2. Padrões Reconhecidos
 
@@ -56,7 +57,7 @@ Reduzir o atrito de o usuário precisar colar manualmente a URL no campo de entr
 
 - O toast é não-intrusivo (slide-in) e desaparece após 15s se ignorado.
 - O mesmo URL não é notificado novamente se já foi recentemente ignorado (cooldown de 5 min por URL).
-- O usuário pode desabilitar a detecção automática nas Configurações.
+- O usuário pode desabilitar a detecção automática nas Configurações; a mudança vale imediatamente, sem reiniciar o app.
 
 ### 3.4. CLI
 
