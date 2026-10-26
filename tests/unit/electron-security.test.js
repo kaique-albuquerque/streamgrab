@@ -843,6 +843,19 @@ test('validateSettingsPayload aceita somente chaves conhecidas e valida defaultD
   assert.equal(out.chaveEstranha, undefined);
 });
 
+test('validateSettingsPayload aceita tutorialCompleted (tour roda uma unica vez)', () => {
+  assert.deepEqual(validateSettingsPayload({ tutorialCompleted: true }), { tutorialCompleted: true });
+  assert.deepEqual(validateSettingsPayload({ tutorialCompleted: false }), { tutorialCompleted: false });
+  assert.equal(validateSettingsPayload({ tutorialCompleted: 'sim' }), null);
+  assert.equal(validateSettingsPayload({ tutorialCompleted: 1 }), null);
+});
+
+test('validateSettingsPayload aceita clipboardWatch como boolean (toggle do watcher)', () => {
+  assert.deepEqual(validateSettingsPayload({ clipboardWatch: false }), { clipboardWatch: false });
+  assert.deepEqual(validateSettingsPayload({ clipboardWatch: true }), { clipboardWatch: true });
+  assert.equal(validateSettingsPayload({ clipboardWatch: 'nao' }), null);
+});
+
 test('validateSettingsPayload rejeita payloads inválidos', () => {
   assert.equal(validateSettingsPayload(null), null);
   assert.equal(validateSettingsPayload('x'), null);

@@ -17,6 +17,8 @@ const SETTINGS_KEYS = new Set([
   'theme',
   'onComplete',
   'historyRetentionDays',
+  'clipboardWatch',
+  'tutorialCompleted',
   'transcribeLang',
   'transcribeModel',
 ]);
@@ -49,6 +51,12 @@ export function validateSettingsPayload(payload = {}) {
       clean[key] = value;
     } else if (key === 'turbo' || key === 'audio' || key === 'notifications') {
       if (typeof value !== 'boolean' && typeof value !== 'string') return null;
+      clean[key] = value;
+    } else if (key === 'tutorialCompleted') {
+      if (typeof value !== 'boolean') return null;
+      clean[key] = value;
+    } else if (key === 'clipboardWatch') {
+      if (typeof value !== 'boolean') return null;
       clean[key] = value;
     } else if (key === 'smartTurbo') {
       if (typeof value !== 'boolean' && !(value && typeof value === 'object' && !Array.isArray(value))) return null;
