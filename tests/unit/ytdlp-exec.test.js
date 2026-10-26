@@ -12,7 +12,7 @@ import { test, mock } from 'node:test';
 import { EventEmitter } from 'node:events';
 
 const spawnCalls = [];
-let nextResult = { stdout: '', stderr: '', code: 0, error: null };
+let nextResult = { stdout: '', stderr: '', code: 0, error: null, stdoutChunks: null, stderrChunks: null };
 
 function fakeSpawn(bin, argv, opts) {
   spawnCalls.push({ bin, argv, opts });
@@ -24,8 +24,10 @@ function fakeSpawn(bin, argv, opts) {
     child.killed = true;
   };
   setImmediate(() => {
-    if (nextResult.stdout) child.stdout.emit('data', nextResult.stdout);
-    if (nextResult.stderr) child.stderr.emit('data', nextResult.stderr);
+    for (const chunk of nextResult.stdoutChunks || []) child.stdout.emit('data', chunk);
+    for (const chunk of nextResult.stderrChunks || []) child.stderr.emit('data', chunk);
+    if (!nextResult.stdoutChunks && nextResult.stdout) child.stdout.emit('data', nextResult.stdout);
+    if (!nextResult.stderrChunks && nextResult.stderr) child.stderr.emit('data', nextResult.stderr);
     if (nextResult.error) child.emit('error', nextResult.error);
     else child.emit('close', nextResult.code);
   });
@@ -45,7 +47,7 @@ const buildArgs = (flags) => Object.entries(flags).map(([key, value]) => `--${ke
 
 function reset() {
   spawnCalls.length = 0;
-  nextResult = { stdout: '', stderr: '', code: 0, error: null };
+  nextResult = { stdout: '', stderr: '', code: 0, error: null, stdoutChunks: null, stderrChunks: null };
 }
 
 test('createYtDlpExec: exige binPath e buildArgs', () => {
@@ -120,3 +122,23 @@ test('createYtDlpExec: .exec expoe o child para cancelamento', async () => {
   assert.equal(promise.child.killed, true);
   await promise;
 });
+
+test('createYtDlpExec: hooks recebem os chunks de stdout/stderr em tempo real', async () => {
+  reset();
+  nextResult.stdoutChunks = ['[download]  10.0% of 1.00MiB', '\r\n[download] 100% of 1.00MiB in 00:00:01\r\n'];
+  nextResult.stderrChunks = ['WARNING: algo\n'];
+
+  const stdoutSeen = [];
+  const stderrSeen = [];
+  const ytDlp = createYtDlpExec(BIN, { buildArgs });
+  const out = await ytDlp('https://x/5', { newline: true }, {}, {
+    onStdout: (chunk) => stdoutSeen.push(chunk),
+    onStderr: (chunk) => stderrSeen.push(chunk),
+  });
+
+  assert.deepEqual(stdoutSeen, nextResult.stdoutChunks, 'hooks devem ver cada chunk antes do close');
+  assert.deepEqual(stderrSeen, nextResult.stderrChunks);
+  assert.equal(out, nextResult.stdoutChunks.join(''), 'contrato antigo: resolve o stdout acumulado');
+  assert.equal(spawnCalls[0].opts.onStdout, undefined, 'hooks nao podem vazar para as opcoes do spawn');
+});
+

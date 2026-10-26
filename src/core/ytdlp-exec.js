@@ -13,6 +13,9 @@
  * chega intacta. O contrato de retorno imita o do youtube-dl-exec
  * (`fn(url, flags)` resolve o JSON/string; `.exec(...)` devolve o
  * promise do processo com `.child` para cancelamento).
+ *
+ * O 4o argumento (`hooks = { onStdout, onStderr }`) entrega cada chunk do pipe
+ * em tempo real — usado pelo runner do yt-dlp para reportar progresso.
  */
 
 import { spawn } from 'node:child_process';
@@ -26,7 +29,7 @@ export function createYtDlpExec(binPath, { buildArgs }) {
   if (!binPath) throw new TypeError('createYtDlpExec: binPath e obrigatorio');
   if (typeof buildArgs !== 'function') throw new TypeError('createYtDlpExec: buildArgs e obrigatorio');
 
-  function exec(url, flags = {}, opts = {}) {
+  function exec(url, flags = {}, opts = {}, hooks = {}) {
     const argv = [url, ...buildArgs(flags)].filter((arg) => arg !== undefined && arg !== null);
     // `shell` nunca e habilitado: argv deve chegar ao processo sem passar por
     // reinterpretacao de `&`, `%`, `^` etc.
@@ -34,8 +37,17 @@ export function createYtDlpExec(binPath, { buildArgs }) {
 
     let stdout = '';
     let stderr = '';
-    child.stdout?.on('data', (chunk) => { stdout += chunk; });
-    child.stderr?.on('data', (chunk) => { stderr += chunk; });
+    // `hooks.onStdout/onStderr` recebem cada chunk do pipe antes do `close`
+    // (progresso do download). O acumulo em string continua para o contrato
+    // de retorno nao mudar.
+    child.stdout?.on('data', (chunk) => {
+      stdout += chunk;
+      hooks?.onStdout?.(chunk);
+    });
+    child.stderr?.on('data', (chunk) => {
+      stderr += chunk;
+      hooks?.onStderr?.(chunk);
+    });
 
     const promise = new Promise((resolve) => {
       const settle = (payload) => resolve({ stdout, stderr: payload.stderr ?? stderr, exitCode: payload.exitCode });
@@ -50,7 +62,7 @@ export function createYtDlpExec(binPath, { buildArgs }) {
     return promise;
   }
 
-  const ytDlp = (url, flags, opts) => exec(url, flags, opts).then(parseResult);
+  const ytDlp = (url, flags, opts, hooks) => exec(url, flags, opts, hooks).then(parseResult);
 
   ytDlp.exec = exec;
   return ytDlp;

@@ -159,3 +159,35 @@ test('runYtDlpDownload: onProgress chamado ao concluir', async () => {
   assert.equal(events.length, 1);
   assert.equal(events[0].percent, 100);
 });
+
+test('runYtDlpDownload: pede progresso ao yt-dlp (--newline)', async () => {
+  await runYtDlpDownload({ url: 'https://youtube.com/watch?v=abc', output: '/tmp/o.mp4' });
+  assert.equal(fakeCalls.lastOptions.newline, true, 'sem --newline os updates vem separados por \\r');
+});
+
+test('runYtDlpDownload: repassa o progresso do yt-dlp durante o download', async () => {
+  const events = [];
+  fakeCalls.impl = async (_url, _options, _spawnOpts, hooks) => {
+    hooks.onStdout('[info] abc: Downloading 1 format(s): 137+140\r\n');
+    hooks.onStdout('[download] Destination: /tmp/o.f137.mp4\r\n');
+    hooks.onStdout('[download]  50.0% of   30.00MiB at    5.00MiB/s ETA 00:03\r\n');
+    hooks.onStdout('[download] 100% of   30.00MiB in 00:00:06 at 5.00MiB/s\r\n');
+    hooks.onStdout('[download] Destination: /tmp/o.f140.m4a\r\n');
+    hooks.onStdout('[download] 100% of    3.00MiB in 00:00:01 at 3.00MiB/s\r\n');
+    hooks.onStdout('[Merger] Merging formats into "/tmp/o.mp4"\r\n');
+    return { downloaded: true };
+  };
+
+  await runYtDlpDownload({
+    url: 'https://youtube.com/watch?v=abc',
+    output: '/tmp/o.mp4',
+    onProgress: (u) => events.push(u),
+  });
+
+  const values = events.map((e) => e.percent).filter((p) => p != null);
+  assert.ok(values.length > 2, `esperado progresso incremental, recebido ${JSON.stringify(values)}`);
+  assert.ok(values.some((p) => p > 0 && p < 100), 'deve existir percentual intermediario');
+  assert.equal(values.at(-1), 100);
+  assert.ok(events.some((e) => e.stage === 'merging'), 'merge do ffmpeg precisa ser sinalizado');
+});
+

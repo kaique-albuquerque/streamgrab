@@ -42,7 +42,7 @@ export async function runMuxStrategy(job, prepared, output, headers, signal, onP
       await runYtDlpDownload({
         url: job.url, formatId: formatSelector, output, headers,
         auth: job.meta?.auth || {}, signal,
-        onProgress: (p) => onProgress?.({ ...p, stage: 'downloading' }),
+        onProgress: (p) => onProgress?.({ ...p, stage: p?.stage || 'downloading' }),
         subtitleLanguages: job.meta?.subtitleLanguages || [],
         embedSubs: job.meta?.embedSubs === true,
       });
