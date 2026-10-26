@@ -1,26 +1,28 @@
 // Unit: provider ytdlp (P3) — detecção + normalização MediaInfo/Format.
 //
-// Sem rede externa: o módulo youtube-dl-exec é mockado com mock.module
-// (--experimental-test-module-mocks) e devolve o FIXTURE REAL salvo em
-// tests/fixtures/ytdlp/youtube-info.json, garantindo que o shape cru do
+// Sem rede externa: o executor do yt-dlp (src/core/binaries.js) é mockado com
+// mock.module (--experimental-test-module-mocks) e devolve o FIXTURE REAL salvo
+// em tests/fixtures/ytdlp/youtube-info.json, garantindo que o shape cru do
 // yt-dlp não vaza para consumidores do provider (Format normalizado).
 
 import assert from 'node:assert/strict';
 import { test, mock } from 'node:test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = JSON.parse(
   fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'ytdlp', 'youtube-info.json'), 'utf8')
 );
 
+const BINARIES_URL = pathToFileURL(path.join(__dirname, '..', '..', 'src', 'core', 'binaries.js')).href;
+const realBinaries = await import(BINARIES_URL);
+
 let fakeYtDlpImpl = null;
-mock.module('youtube-dl-exec', {
-  namedExports: {
-    youtubeDl: async (...args) => fakeYtDlpImpl(...args),
-  },
+const fakeYtDlp = (...args) => fakeYtDlpImpl(...args);
+mock.module(BINARIES_URL, {
+  namedExports: { ...realBinaries, getYtDlpExec: async () => fakeYtDlp },
 });
 
 async function loadProvider() {

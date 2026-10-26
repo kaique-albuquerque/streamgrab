@@ -7,22 +7,30 @@
 //  - erro do yt-dlp vira YtDlpError (nao-retryable, com stderr no detail)
 //  - cancelamento via signal -> CancelledError
 //
-// Sem rede: youtube-dl-exec é mockado via mock.module (mesmo padrao P2.6).
+// Sem rede: o executor do yt-dlp (src/core/binaries.js) e mockado via
+// mock.module (mesmo padrao P2.6).
 
 import assert from 'node:assert/strict';
 import { test, mock } from 'node:test';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const BINARIES_URL = pathToFileURL(path.join(ROOT, 'src', 'core', 'binaries.js')).href;
 
 const fakeCalls = { args: [], lastOptions: null };
 
-mock.module('youtube-dl-exec', {
-  namedExports: {
-    youtubeDl: async (...args) => {
-      fakeCalls.args.push(args);
-      fakeCalls.lastOptions = args[1] || null;
-      if (fakeCalls.impl) return fakeCalls.impl(...args);
-      return { url: args[0], downloaded: true };
-    },
-  },
+const fakeYtDlp = async (...args) => {
+  fakeCalls.args.push(args);
+  fakeCalls.lastOptions = args[1] || null;
+  if (fakeCalls.impl) return fakeCalls.impl(...args);
+  return { url: args[0], downloaded: true };
+};
+
+const realBinaries = await import(BINARIES_URL);
+
+mock.module(BINARIES_URL, {
+  namedExports: { ...realBinaries, getYtDlpExec: async () => fakeYtDlp },
 });
 
 const { runYtDlpDownload } = await import('../../src/transports/ytdlp-runner.js');

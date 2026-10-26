@@ -23,6 +23,11 @@ import {
  * Opcoes padrao do yt-dlp para obter apenas o JSON de formatos.
  * - preferFreeFormats: prefere formatos com codecs abertos (vp9/opus) quando
  *   disponiveis, mantendo tambem os demais formatos no JSON.
+ * - noPlaylist: links copiados do YouTube costumam vir com `list=`/`start_radio=`
+ *   (`watch?v=X&list=...` ou `youtu.be/X?list=...`). Sem esta flag o yt-dlp
+ *   expande a playlist/radio mix inteira no --dump-single-json e a analise
+ *   nunca termina (radio e praticamente infinita). Tambem garante que o JSON
+ *   seja do video (com `formats`), e nao da playlist (com `entries`).
  * Nota: --no-call-home e --youtube-skip-dash-manifest foram deprecados no
  * yt-dlp 2026+ (call-home removido; skip de manifesto DASH virou automatico),
  * entao nao sao mais enviados.
@@ -33,6 +38,7 @@ export function buildBaseOptions() {
     noWarnings: true,
     noCheckCertificates: true,
     preferFreeFormats: true,
+    noPlaylist: true,
   };
 }
 

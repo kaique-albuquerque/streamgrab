@@ -12,12 +12,13 @@ const OUT_DIR = path.join(os.tmpdir(), 'vd-cli-commands-test');
 const FFMPEG_URL = pathToFileURL(path.join(ROOT, 'src', 'ffmpeg.js')).href;
 const MUXER_URL = pathToFileURL(path.join(ROOT, 'src', 'ffmpeg', 'muxer.js')).href;
 const HLS_URL = pathToFileURL(path.join(ROOT, 'src', 'hls.js')).href;
+const BINARIES_URL = pathToFileURL(path.join(ROOT, 'src', 'core', 'binaries.js')).href;
+const realBinaries = await import(BINARIES_URL);
 
 let fakeYtDlpImpl = null;
-mock.module('youtube-dl-exec', {
-  namedExports: {
-    youtubeDl: async (...args) => fakeYtDlpImpl(...args),
-  },
+const fakeYtDlp = (...args) => fakeYtDlpImpl(...args);
+mock.module(BINARIES_URL, {
+  namedExports: { ...realBinaries, getYtDlpExec: async () => fakeYtDlp },
 });
 
 const fakeCalls = { startDownload: 0, startMuxDownload: 0 };
