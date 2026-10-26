@@ -53,7 +53,7 @@ export function createTutorial({ dom, settings, onFinish, onSkip }):
        c. Highlight: aplicar outline/border glow no elemento alvo
        d. Renderizar navegação: [Anterior] [Próximo/Concluir] [Pular]
     3. Ao último passo, marcar settings.tutorialCompleted = true
-    4. "Pular" fecha o tour sem marcar como completo
+    4. "Pular"/fechar também marca como completo (o tour só reabre pelo botão "?")
 ```
 
 ### Etapa 2 — Modal "Como obter URL"

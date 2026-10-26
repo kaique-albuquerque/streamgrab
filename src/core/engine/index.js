@@ -7,6 +7,7 @@
  *
  * Modulos auxiliares:
  *  - helpers.js    — funcoes puras (progresso, ETA, mascaramento, etc)
+ *  - job/          — registro de jobs (registry.js) e execucao (runner.js)
  *  - runners/      — execucoes concretas de download (fetch, ffmpeg, curl, mux)
  *  - executor.js   — executor padrao + resolvedor de adapter
  *  - lifecycle.js  — pipeline de execucao (analyze, prepare, downloadLoop)
@@ -16,23 +17,6 @@
 
 import { createEventBus, createProgressPayload } from '../events.js';
 import {
-  createDownloadJob,
-  serializeJob,
-  isTerminalJobState,
-} from '../models/index.js';
-import {
-  analyze as _analyze,
-  prepare as _prepare,
-  resolveOutput as _resolveOutput,
-  downloadLoop as _downloadLoop,
-  processSubtitles,
-  processTranscription,
-} from './lifecycle.js';
-import {
-  complete as _complete,
-  handleFailure as _handleFailure,
-} from './completion.js';
-import {
   pause as _pause,
   resume as _resume,
   cancel as _cancel,
@@ -40,8 +24,11 @@ import {
   isAborted as _isAborted,
   makeProgress as _makeProgress,
 } from './control.js';
-
 import { defaultResolveAdapter, createDefaultExecutor } from './executor/index.js';
+import {
+  nextJobId, getJob, getQueue, getHistory, removeJob, enqueueJob,
+} from './job/registry.js';
+import { runTarget, runJob } from './job/runner.js';
 
 /**
  * Motor de ciclo de vida de downloads.
@@ -81,101 +68,17 @@ export class DownloadEngine {
 
   // -- fila -----------------------------------------------------------------
 
-  _nextId() {
-    const ts = Date.now().toString(36);
-    const rand = Math.random().toString(36).slice(2, 8);
-    return `job-${ts}-${rand}`;
-  }
-
-  getJob(id) {
-    const job = this._jobs.get(String(id));
-    return job ? serializeJob(job) : null;
-  }
-
-  getQueue() {
-    return [...this._jobs.values()]
-      .filter((j) => !isTerminalJobState(j.state)).map(serializeJob);
-  }
-
-  getHistory() {
-    return [...this._jobs.values()]
-      .filter((j) => isTerminalJobState(j.state)).map(serializeJob);
-  }
-
-  remove(id) {
-    const job = this._jobs.get(String(id));
-    if (!job) {
-      const err = new Error(`Job nao encontrado: ${id}`);
-      err.code = 'JOB_NOT_FOUND';
-      throw err;
-    }
-    if (!isTerminalJobState(job.state)) {
-      const err = new Error(`Job ${id} ainda nao terminou (${job.state}).`);
-      err.code = 'JOB_ACTIVE';
-      throw err;
-    }
-    this._jobs.delete(job.id);
-    return true;
-  }
-
-  enqueue(url, { id, title = '', meta = {} } = {}) {
-    const job = createDownloadJob({ id: id || this._nextId(), url, title, meta });
-    this._jobs.set(job.id, job);
-    return serializeJob(job);
-  }
+  _nextId() { return nextJobId(); }
+  getJob(id) { return getJob(this, id); }
+  getQueue() { return getQueue(this); }
+  getHistory() { return getHistory(this); }
+  remove(id) { return removeJob(this, id); }
+  enqueue(url, opts) { return enqueueJob(this, url, opts); }
 
   // -- execucao -------------------------------------------------------------
 
-  async run(target, opts = {}) {
-    let job;
-    const existing = typeof target === 'string' ? this._jobs.get(target) : null;
-    if (existing) {
-      if (isTerminalJobState(existing.state)) {
-        const err = new Error(`Job ${existing.id} ja finalizado (${existing.state}).`);
-        err.code = 'JOB_ALREADY_FINAL';
-        throw err;
-      }
-      if (existing.state !== 'queued') {
-        const err = new Error(`Job ${existing.id} ja esta em andamento (${existing.state}).`);
-        err.code = 'JOB_ALREADY_RUNNING';
-        throw err;
-      }
-      job = existing;
-    } else {
-      job = createDownloadJob({ id: this._nextId(), url: target, title: opts.title, meta: opts.meta });
-      this._jobs.set(job.id, job);
-    }
-    await this._runJob(job, opts);
-    return serializeJob(job);
-  }
-
-  async _runJob(job, {
-    selectedUrl, destination, headers = {}, auth = {},
-    forceYouTube = false, mode, audioLanguage, allAudio,
-    subtitleLanguages = [], embedSubs = false, turbo, turboChunks,
-    transcribe = false, transcribeLang, transcribeTimestamps,
-  } = {}) {
-    try {
-      const analyzed = await _analyze(this, job, { selectedUrl, headers, auth, forceYouTube });
-      const { adapter, raw } = analyzed;
-      const { prepared } = await _prepare(this, job, adapter, raw, {
-        selectedUrl: analyzed.selectedUrl, destination, headers, auth,
-        audioLanguage, allAudio, subtitleLanguages, embedSubs,
-      });
-      const outputPath = _resolveOutput(this, job, prepared, destination);
-      job.meta.output = outputPath;
-      await _downloadLoop(this, job, adapter, prepared, { headers, mode, turbo, turboChunks });
-      await processSubtitles(this, job, prepared, { subtitleLanguages, embedSubs, headers });
-      await processTranscription(this, job, {
-        transcribe, transcribeLang, transcribeTimestamps,
-      });
-      _complete(this, job);
-    } catch (err) {
-      _handleFailure(this, job, err);
-    } finally {
-      this._active.delete(job.id);
-    }
-  }
+  async run(target, opts = {}) { return runTarget(this, target, opts); }
+  async _runJob(job, opts = {}) { return runJob(this, job, opts); }
 
   // -- helpers delegados ----------------------------------------------------
 

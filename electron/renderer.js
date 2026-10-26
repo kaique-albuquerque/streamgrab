@@ -1,45 +1,24 @@
+/**
+ * Entrypoint do renderer: carrega os templates e orquestra os controllers.
+ * Os blocos de inicialização vivem em ./renderer/bootstrap/.
+ */
+
 import { createAppState, getRendererDom } from './renderer/app-state.js';
 import { createPanelsController } from './renderer/panels.js';
 import { createVideoTabsController } from './renderer/video-tabs.js';
-import { createClipboardToast } from './renderer/clipboard-toast.js';
-import { createTutorialController } from './renderer/tutorial.js';
-import { createBatchDialog } from './renderer/batch-dialog.js';
 import { createPreviewPlayer } from './renderer/preview-player.js';
-import { resolveIncludes } from './renderer/template-include.js';
-
-// ---------------------------------------------------------------------------
-// Carrega templates HTML externos (tab, queue, history, settings) e os
-// insere no DOM antes de inicializar os controllers. Isso mantém o
-// index.html leve e os templates organizados por responsabilidade.
-// Templates grandes podem usar `<!--#include partial.html-->` para delegar
-// trechos a partials em ./templates/<nome>/.
-// ---------------------------------------------------------------------------
-async function loadTemplates() {
-  const templates = ['tab', 'queue', 'history', 'transcribe', 'settings'];
-  const base = new URL('./templates/', window.location.href);
-  const target = document.getElementById('dynamicViews');
-  for (const name of templates) {
-    try {
-      const res = await fetch(new URL(`${name}.html`, base));
-      if (!res.ok) continue;
-      const html = await resolveIncludes(await res.text(), base);
-      if (name === 'tab') {
-        // O tabTemplate é um <template> que vai no body (já existe no DOM)
-        document.body.insertAdjacentHTML('beforeend', html);
-      } else {
-        target.insertAdjacentHTML('beforeend', html);
-      }
-    } catch {
-      // Silencia erro de fetch (dev mode com file:// pode ter issues)
-    }
-  }
-}
+import { loadTemplates } from './renderer/bootstrap/templates.js';
+import { setupClipboardWatcher } from './renderer/bootstrap/clipboard.js';
+import { setupTranscribeEvents } from './renderer/bootstrap/transcribe-events.js';
+import { setupTutorial } from './renderer/bootstrap/tutorial.js';
+import { setupHelpFab } from './renderer/bootstrap/help-fab.js';
+import { setupBatchDialog } from './renderer/bootstrap/batch.js';
 
 const appState = createAppState();
 const dom = getRendererDom();
 
 let panelsController = null;
-let tutorialController = null;
+const getPanels = () => panelsController;
 
 // SPEC-06: player de preview (compartilhado entre abas)
 const previewPlayer = createPreviewPlayer({ api: window.api });
@@ -68,124 +47,14 @@ window.api.onQueueEvent(({ event, payload }) => {
   panelsController?.handleQueueEvent(event, payload);
 });
 
-// Transcrição — eventos do job manager/model manager (main process).
-window.api.onTranscribeProgress((data) => panelsController?.handleTranscribeEvent('progress', data));
-window.api.onTranscribeLog(() => {}); // logs ficam no terminal/main
-window.api.onTranscribeDone((data) => panelsController?.handleTranscribeEvent('done', data));
-window.api.onTranscribeError((data) => panelsController?.handleTranscribeEvent('error', data));
-window.api.onTranscribeJobUpdated((data) => panelsController?.handleTranscribeEvent('job-updated', data));
-window.api.onTranscribeRemoved((data) => panelsController?.handleTranscribeEvent('removed', data));
-window.api.onTranscribeModelProgress((data) => panelsController?.handleTranscribeEvent('model-progress', data));
-
-// Clipboard watcher — detecta URLs de mídia na clipboard
-const clipboardToast = createClipboardToast();
-window.api.onClipboardDetected(({ url, sourceType }) => {
-  const activeTab = appState.tabs.get(appState.activeTabId);
-  if (!activeTab) return;
-
-  clipboardToast.show({
-    url,
-    sourceType,
-    onAnalyze: (detectedUrl) => {
-      activeTab.fields.url.value = detectedUrl;
-      activeTab.fields.url.dispatchEvent(new Event('input', { bubbles: true }));
-      // Dispara análise automaticamente
-      activeTab.fields.analyzeBtn.click();
-    },
-    onFillOnly: (detectedUrl) => {
-      activeTab.fields.url.value = detectedUrl;
-      activeTab.fields.url.dispatchEvent(new Event('input', { bubbles: true }));
-    },
-  });
-});
+setupTranscribeEvents(getPanels);
+setupClipboardWatcher({ appState, tabsController });
 
 dom.newTabBtn.addEventListener('click', () => tabsController.addTab());
 
-// Tutorial interativo — verifica se é primeira execução
-tutorialController = createTutorialController({
-  onFinish: () => {
-    window.api.settingsUpdate({ tutorialCompleted: true }).catch(() => {});
-  },
-  onSkip: () => {
-    // Não marca como completo, pode rodar de novo
-  },
-});
-appState.tutorial = tutorialController;
-
-// Inicia o tutorial na primeira execução
-window.api.settingsGet().then((settings) => {
-  if (!settings?.tutorialCompleted) {
-    // Pequeno delay para a UI terminar de renderizar
-    setTimeout(() => tutorialController.start(), 500);
-  }
-});
-
-// Botão de ajuda flutuante (FAB)
-const helpFab = document.createElement('button');
-helpFab.className = 'help-fab';
-helpFab.textContent = '?';
-helpFab.title = 'Ajuda';
-helpFab.setAttribute('aria-label', 'Abrir menu de ajuda');
-
-helpFab.addEventListener('click', () => {
-  if (tutorialController.isRunning()) return;
-
-  const menu = document.createElement('div');
-  menu.className = 'help-menu';
-  menu.innerHTML = `
-    <button class="help-menu-item" data-action="tour">📖 Tour completo</button>
-    <button class="help-menu-item" data-action="urlhelp">❓ Como obter URL</button>
-    <button class="help-menu-item" data-action="tips">💡 Dicas rápidas</button>
-    <button class="help-menu-item" data-action="readme" target="_blank">📄 Ver README</button>
-  `;
-
-  // Posiciona o menu acima do FAB
-  document.body.appendChild(menu);
-
-  const closeMenu = () => { if (menu.parentNode) menu.parentNode.removeChild(menu); };
-
-  menu.querySelector('[data-action="tour"]').addEventListener('click', () => {
-    closeMenu();
-    tutorialController.start();
-  });
-  menu.querySelector('[data-action="urlhelp"]').addEventListener('click', () => {
-    closeMenu();
-    tutorialController.showUrlHelp();
-  });
-  menu.querySelector('[data-action="tips"]').addEventListener('click', () => {
-    closeMenu();
-    tutorialController.showQuickTips();
-  });
-  menu.querySelector('[data-action="readme"]').addEventListener('click', () => {
-    closeMenu();
-    window.api.openExternal('https://github.com/kaique-albuquerque/streamgrab#readme').catch(() => {});
-  });
-
-  // Fecha ao clicar fora
-  const outsideClick = (e) => {
-    if (!menu.contains(e.target) && e.target !== helpFab) {
-      closeMenu();
-      document.removeEventListener('click', outsideClick);
-    }
-  };
-  setTimeout(() => document.addEventListener('click', outsideClick), 0);
-});
-
-document.body.appendChild(helpFab);
-
-// SPEC-03: Download em lote
-const batchDialog = createBatchDialog({
-  api: window.api,
-  getDefaultOutputDir: () => appState.defaultOutputDir || '',
-  onEnqueued: () => {
-    panelsController?.refreshQueuePanel();
-  },
-});
-
-const batchBtn = document.getElementById('batchBtn');
-if (batchBtn) {
-  batchBtn.addEventListener('click', () => batchDialog.open());
-}
+const tutorialController = setupTutorial({ appState });
+setupHelpFab({ tutorialController });
+setupBatchDialog({ appState, getPanels });
 
 // Carrega templates HTML e só então inicializa o app
 loadTemplates().then(() => {

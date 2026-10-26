@@ -14,6 +14,7 @@ import {
 } from '../security.js';
 import { PROJECT_ROOT, getServices, addRevealRoot, getAllowedRevealRoots } from './state.js';
 import { enqueueDownload } from './queue-handlers.js';
+import { applyRuntimeSettings } from './settings-runtime.js';
 
 export function registerHistoryHandlers() {
   ipcMain.handle('history:list', async () => {
@@ -97,7 +98,7 @@ export function registerHistoryHandlers() {
   });
 }
 
-export function registerSettingsHandlers() {
+export function registerSettingsHandlers({ clipboardWatcher } = {}) {
   ipcMain.handle('settings:get', async () => {
     const services = getServices();
     if (!services) return {};
@@ -109,7 +110,9 @@ export function registerSettingsHandlers() {
     if (!services) return null;
     const clean = validateSettingsPayload(rawPayload);
     if (!clean) return null;
-    return { ok: true, settings: services.applySettings(clean) };
+    const updated = services.applySettings(clean);
+    applyRuntimeSettings(clean, { clipboardWatcher });
+    return { ok: true, settings: updated };
   });
 
   ipcMain.handle('settings:reset', async () => {
@@ -118,6 +121,7 @@ export function registerSettingsHandlers() {
     const updated = services.settings.reset();
     services.queue.setMaxConcurrent(updated.maxConcurrentDownloads);
     services.queue.save();
+    applyRuntimeSettings(updated, { clipboardWatcher });
     return updated;
   });
 }

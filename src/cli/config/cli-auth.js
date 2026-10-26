@@ -1,0 +1,60 @@
+/** Parsers de flags do CLI: headers, cookies e headers do DevTools. */
+
+import { normalizeHeaders } from '../../utils.js';
+
+export function parseCliHeaders(argv) {
+  const headers = {};
+  const map = {
+    '--referer': 'Referer',
+    '--origin': 'Origin',
+    '--user-agent': 'User-Agent',
+    '--useragent': 'User-Agent',
+    '--cookie': 'Cookie',
+  };
+  for (let i = 0; i < argv.length; i++) {
+    const key = map[argv[i]];
+    if (key && argv[i + 1] !== undefined) headers[key] = argv[i + 1];
+  }
+  return headers;
+}
+
+/**
+ * Flags de autenticacao do yt-dlp:
+ *   --cookies <arquivo>           cookies.txt (formato Netscape exportado do navegador)
+ *   --cookies-from-browser <b>    extrai cookies do navegador (chrome, edge, firefox, brave...)
+ */
+export function parseCliAuth(argv) {
+  const auth = { cookiesFile: '', cookiesFromBrowser: '' };
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--cookies' && argv[i + 1] !== undefined) auth.cookiesFile = argv[i + 1];
+    if (argv[i] === '--cookies-from-browser' && argv[i + 1] !== undefined) auth.cookiesFromBrowser = argv[i + 1];
+  }
+  return auth;
+}
+
+export function isGoogleVideoPlaybackUrl(url) {
+  try {
+    const u = new URL(url);
+    return u.hostname.toLowerCase().includes('googlevideo.com') && u.pathname.toLowerCase().includes('/videoplayback');
+  } catch {
+    return false;
+  }
+}
+
+export async function collectDevtoolsHeaders(ask, io, currentHeaders = {}) {
+  io.log('\nURL direta do YouTube/GoogleVideo detectada.');
+  io.log('Se quiser, cole os mesmos headers usados pelo navegador para aumentar a chance de funcionar.');
+
+  const referer = (await ask(`Referer (Enter = ${currentHeaders.Referer || 'manter atual/ignorar'}): `)).trim();
+  const origin = (await ask(`Origin (Enter = ${currentHeaders.Origin || 'manter atual/ignorar'}): `)).trim();
+  const userAgent = (await ask(`User-Agent (Enter = ${currentHeaders['User-Agent'] || 'manter atual/ignorar'}): `)).trim();
+  const cookie = (await ask('Cookie (opcional, Enter = ignorar): ')).trim();
+
+  return normalizeHeaders({
+    ...currentHeaders,
+    ...(referer ? { Referer: referer } : {}),
+    ...(origin ? { Origin: origin } : {}),
+    ...(userAgent ? { 'User-Agent': userAgent } : {}),
+    ...(cookie ? { Cookie: cookie } : {}),
+  });
+}
