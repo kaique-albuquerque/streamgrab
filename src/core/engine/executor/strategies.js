@@ -24,22 +24,45 @@ import {
 import { safePathname, isMdstrmPlayerUrl } from '../helpers.js';
 import { tryTurboDownload, runTurboMuxDownload } from './turbo.js';
 
+// -- yt-dlp routing ---------------------------------------------------------
+
+/**
+ * Fontes cujo download deve passar pelo yt-dlp: YouTube e redes sociais.
+ * `adapter.id` chega aqui como 'youtube'/'social' (fachada legada) ou 'ytdlp'
+ * (provider novo); a URL do YouTube cobre o caso sem `sourceType`.
+ */
+export function usesYtDlpDownload(sourceType, url) {
+  const st = String(sourceType || '').toLowerCase();
+  return st === 'ytdlp' || st === 'youtube' || st === 'social' || isYouTubeUrl(url || '');
+}
+
+/**
+ * Redes sociais com formato progressivo tambem vao pelo yt-dlp: as URLs de CDN
+ * do Facebook/Instagram/TikTok sao assinadas e expiram (HTTP direto devolve
+ * 403). O YouTube progressivo fica de fora de proposito — as URLs do
+ * googlevideo ja vao decifradas e o HTTP direto funciona.
+ */
+export function usesYtDlpForSingle(sourceType) {
+  return String(sourceType || '').toLowerCase() === 'social';
+}
+
 // -- mux strategy -----------------------------------------------------------
 
 /**
- * Handles 'mux' strategy: YouTube yt-dlp, turbo mux, or fallback fetch mux.
+ * Handles 'mux' strategy: yt-dlp (YouTube/redes sociais), turbo mux, or
+ * fallback fetch mux.
  */
 export async function runMuxStrategy(job, prepared, output, headers, signal, onProgress, onLog, {
   sourceType, turbo, turboChunks,
   prepareHlsSegments, prepareDashSegments, ffmpegStartDownload, ffmpegStartMuxDownload, curlTransportResolver,
+  ytdlpDownload = runYtDlpDownload,
 }) {
-  const isYouTube = sourceType === 'ytdlp' || isYouTubeUrl(job.url || '');
-  if (isYouTube) {
+  if (usesYtDlpDownload(sourceType, job.url)) {
     const height = prepared.chosenFormat?.height || 1080;
     const formatSelector = `bestvideo[height<=${height}][vcodec*=avc1]+bestaudio[acodec*=mp4a]/best[height<=${height}]`;
     onLog?.(`[yt-dlp] mux strategy: baixando com format="${formatSelector}" via yt-dlp`);
     try {
-      await runYtDlpDownload({
+      await ytdlpDownload({
         url: job.url, formatId: formatSelector, output, headers,
         auth: job.meta?.auth || {}, signal,
         onProgress: (p) => onProgress?.({ ...p, stage: p?.stage || 'downloading' }),
@@ -126,6 +149,33 @@ export async function runHlsDashStrategy(job, prepared, output, headers, signal,
 
   return runFfmpegDownload(url, output, headers, signal, onProgress, sourceType, mode,
     Number(job.meta?.durationMs || 0), ffmpegStartDownload || startDownload);
+}
+
+// -- yt-dlp progressive (redes sociais) --------------------------------------
+
+/**
+ * Rede social com formato progressivo (arquivo unico com video+audio): baixa
+ * pelo yt-dlp em vez do HTTP direto. Devolve null quando o yt-dlp falha para o
+ * executor cair no download HTTP (comportamento anterior).
+ */
+export async function runYtDlpSingleStrategy(job, prepared, output, headers, signal, onProgress, onLog, {
+  ytdlpDownload = runYtDlpDownload,
+} = {}) {
+  const formatId = prepared?.chosenFormat?.formatId || 'best';
+  onLog?.(`[yt-dlp] download progressivo: format="${formatId}" via yt-dlp`);
+  try {
+    await ytdlpDownload({
+      url: job.url, formatId, output, headers,
+      auth: job.meta?.auth || {}, signal,
+      onProgress: (p) => onProgress?.({ ...p, stage: p?.stage || 'downloading' }),
+      subtitleLanguages: job.meta?.subtitleLanguages || [],
+      embedSubs: job.meta?.embedSubs === true,
+    });
+    return { ok: true };
+  } catch (err) {
+    onLog?.(`[yt-dlp] download progressivo falhou, fallback para HTTP direto: ${err?.message || err}`);
+    return null;
+  }
 }
 
 // -- direct download (HTTP) -------------------------------------------------
