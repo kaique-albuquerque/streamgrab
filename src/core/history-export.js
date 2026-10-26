@@ -44,7 +44,7 @@ export function exportHistoryAsCsv(entries) {
 export function escapeCsvValue(value) {
   if (value === null || value === undefined) return '';
   let str = String(value);
-  if (typeof value !== 'number' && /^[=+\-@\t\r]/.test(str)) {
+  if (typeof value !== 'number' && /^\s*[@=+\-\t\r\n]/.test(str)) {
     str = `'${str}`;
   }
   if (/[",\n\r]/.test(str)) {
