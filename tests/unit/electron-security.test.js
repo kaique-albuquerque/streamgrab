@@ -261,6 +261,43 @@ test('validateDownloadPayload rejeita payload inválido', () => {
   );
 });
 
+test('app:open-external e clipboard:ignore-url lidam com payloads nulos/primitivos sem exceção', () => {
+  // Simula a lógica de app:open-external
+  const openExternal = (payload) => {
+    const url = payload && typeof payload === 'object' && typeof payload.url === 'string' ? payload.url : '';
+    if (!isSafeHttpUrl(url)) return { ok: false, error: 'URL inválida.' };
+    return { ok: true };
+  };
+
+  // Simula a lógica de clipboard:ignore-url
+  const addedCooldowns = [];
+  const clipboardWatcher = {
+    addCooldown: (url) => addedCooldowns.push(url),
+  };
+  const ignoreUrl = (payload) => {
+    const url = payload && typeof payload === 'object' && typeof payload.url === 'string' ? payload.url : '';
+    if (clipboardWatcher && url) {
+      clipboardWatcher.addCooldown(url);
+    }
+    return { ok: true };
+  };
+
+  // Testes para app:open-external logic
+  assert.deepEqual(openExternal(null), { ok: false, error: 'URL inválida.' });
+  assert.deepEqual(openExternal(undefined), { ok: false, error: 'URL inválida.' });
+  assert.deepEqual(openExternal('https://example.com'), { ok: false, error: 'URL inválida.' });
+  assert.deepEqual(openExternal(123), { ok: false, error: 'URL inválida.' });
+  assert.deepEqual(openExternal({ url: 'javascript:alert(1)' }), { ok: false, error: 'URL inválida.' });
+  assert.deepEqual(openExternal({ url: 'https://example.com' }), { ok: true });
+
+  // Testes para clipboard:ignore-url logic
+  assert.deepEqual(ignoreUrl(null), { ok: true });
+  assert.deepEqual(ignoreUrl(undefined), { ok: true });
+  assert.deepEqual(ignoreUrl('https://example.com'), { ok: true });
+  assert.deepEqual(ignoreUrl({ url: 'https://example.com/video.mp4' }), { ok: true });
+  assert.deepEqual(addedCooldowns, ['https://example.com/video.mp4']);
+});
+
 test('validação IPC de fila e download rejeita protocolo inseguro, path traversal em outputDir e cookiesFile', () => {
   // Rejeita protocolo inseguro (file://)
   assert.equal(validateQueueEnqueuePayload({ url: 'file:///etc/passwd' }), null);

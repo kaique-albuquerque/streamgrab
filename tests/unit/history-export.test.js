@@ -103,6 +103,9 @@ test('escapeCsvValue e exportHistoryAsCsv sanitizam caracteres de fórmula no in
   assert.equal(escapeCsvValue(-100), '-100'); // numeros permanecem intocados
   assert.equal(escapeCsvValue('@SUM(1;2)'), "'@SUM(1;2)");
   assert.equal(escapeCsvValue('@SUM(1,2)'), `"'@SUM(1,2)"`);
+  assert.equal(escapeCsvValue('  =SUM(1+1)'), "'  =SUM(1+1)");
+  assert.equal(escapeCsvValue('\n=1+1'), '"\'\n=1+1"');
+  assert.equal(escapeCsvValue(' \t@SUM(1,2)'), '"\' \t@SUM(1,2)"');
 
   const csv = exportHistoryAsCsv([entry({ title: '=1+1' })]);
   assert.ok(csv.includes("'=1+1"));

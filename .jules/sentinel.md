@@ -29,3 +29,8 @@
 **Vulnerability:** The `history:export` IPC payload validator did not check directory containment against `allowedRoots`, allowing IPC callers to supply arbitrary export file paths.
 **Learning:** File export IPC channels must validate that user-provided destination paths reside within permitted directory roots rather than relying solely on absolute path checking.
 **Prevention:** Pass `allowedRoots` to `validateHistoryExportPayload` and enforce `isPathWithin` containment for any custom `filePath`.
+
+## 2026-11-20 - Unawaited Async Function Reference in IPC Model Download Handler Bypassed Download Concurrency Lock
+**Vulnerability:** The `transcribe:model-download` IPC handler executed `await downloadModel` where `downloadModel` was the imported async function object rather than the returned download promise, causing the handler and its `finally` block to execute immediately.
+**Learning:** Awaiting a function object resolves instantly in JavaScript, bypassing async lock states (`isModelDownloading()`) and clearing cancellation abort controllers (`modelDownloadAbort`) while background network streams are actively writing to disk.
+**Prevention:** Always capture function invocation return values in explicit promise variables (e.g., `const downloadPromise = downloadModel(...)`) before passing them to state managers and awaiting them.
