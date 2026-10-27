@@ -34,3 +34,8 @@
 **Vulnerability:** The `transcribe:model-download` IPC handler executed `await downloadModel` where `downloadModel` was the imported async function object rather than the returned download promise, causing the handler and its `finally` block to execute immediately.
 **Learning:** Awaiting a function object resolves instantly in JavaScript, bypassing async lock states (`isModelDownloading()`) and clearing cancellation abort controllers (`modelDownloadAbort`) while background network streams are actively writing to disk.
 **Prevention:** Always capture function invocation return values in explicit promise variables (e.g., `const downloadPromise = downloadModel(...)`) before passing them to state managers and awaiting them.
+
+## 2026-12-05 - Empty Root Check Guard Bypassed Directory Containment in History Export Payload Validation
+**Vulnerability:** `validateHistoryExportPayload` checked `if (Array.isArray(allowedRoots) && allowedRoots.length > 0)` before enforcing `isPathWithin`, causing custom file path inputs to bypass directory containment restrictions when `allowedRoots` was empty or passed as a `Set`.
+**Learning:** Guarding root array checks with length checks (`allowedRoots.length > 0`) bypasses path containment validation when the allowed roots collection is empty or a non-Array collection type like `Set`.
+**Prevention:** Normalize root inputs with `Array.isArray(roots) ? roots : Array.from(roots || [])` and unconditionally evaluate containment via `roots.some(...)` for all custom file path inputs.
