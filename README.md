@@ -591,8 +591,8 @@ Installers are produced with **electron-builder**. Windows uses MSI, macOS uses 
 
 ```powershell
 npm run pack:resources   # copies binaries into build/extraResources/bin
-npm run dist             # produces the Windows MSI in dist/
-npm run dist:dir         # unpacked Windows build — for testing
+npm run dist:windows     # produces the Windows MSI in dist/
+npm run dist:windows:dir # unpacked Windows build — for testing
 npm run dist:mac         # produces macOS PKG packages
 npm run dist:linux       # produces Linux AppImage and DEB packages
 npm run release          # Windows build + SHA-256 checksums

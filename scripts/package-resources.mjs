@@ -106,7 +106,7 @@ export function runResourcePlan(
     const list = missingRequired.map((e) => `  - ${e.label} (${e.from})`).join('\n');
     throw new Error(
       `Binários obrigatórios ausentes para o empacotamento:\n${list}\n\n` +
-        'Rode `npm install` (postinstall instala FFmpeg e yt-dlp) antes de `npm run dist`.'
+        'Rode `npm install` (postinstall instala FFmpeg e yt-dlp) antes de `npm run dist:windows`.'
     );
   }
 

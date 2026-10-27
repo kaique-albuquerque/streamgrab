@@ -22,7 +22,7 @@ function sha256(filePath) {
 
 export function main() {
   if (!fs.existsSync(DIST_DIR)) {
-    throw new Error(`Diretório ${DIST_DIR} não existe — rode 'npm run dist' primeiro.`);
+    throw new Error(`Diretório ${DIST_DIR} não existe — rode 'npm run dist:windows' primeiro.`);
   }
   const artifacts = fs
     .readdirSync(DIST_DIR)
