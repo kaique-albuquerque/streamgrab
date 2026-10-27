@@ -77,10 +77,33 @@ try {
   console.log(`[whisper] Modelos: ${listInstalledModels().join(', ')}`);
 } catch (err) {
   console.error(`\n[whisper]  Falha na instalao: ${err.message}`);
+
+  // whisper.cpp  opcional: o app cai para o fallback Node.js
+  // (@xenova/transformers). Falhar aqui abortaria o `npm install` inteiro,
+  // deixando o projeto sem dependncias nenhuma instaladas.
+  if (!isStrict()) {
+    console.warn('\n[whisper]  Instalao do whisper.cpp ignorada (no fatal).');
+    console.warn('[whisper] O download/resto do app continua funcionando; a transcrio');
+    console.warn('[whisper] usar o fallback Node.js ou podera ser habilitada depois com:');
+    console.warn('[whisper]   npm run whisper:install');
+    console.warn('[whisper] Para tornar esta etapa obrigatria: WHISPER_STRICT=1');
+    process.exit(0);
+  }
+
   console.log('\n[whisper] Alternativas:');
   console.log('  1. Instale manualmente: https://github.com/ggerganov/whisper.cpp#build');
   console.log('  2. Use o fallback Node.js: npm install @xenova/transformers');
   process.exit(1);
+}
+
+/**
+ * Em CI/packaging o binrio  obrigatrio (vai para o pacote final);
+ * na mquina do usurio no. Pode ser forado com WHISPER_STRICT=0|1.
+ */
+function isStrict() {
+  if (process.env.WHISPER_STRICT === '1') return true;
+  if (process.env.WHISPER_STRICT === '0') return false;
+  return Boolean(process.env.CI);
 }
 
 // ---------------------------------------------------------------------------
@@ -154,8 +177,16 @@ async function buildBinary() {
   const sourceDir = path.join(buildDir, 'whisper.cpp');
 
   try {
-    // Verificar dependncias
-    checkBuildDependencies();
+    // Verificar dependncias (tenta instalar automaticamente antes de desistir)
+    let missing = checkBuildDependencies();
+    if (missing.length > 0) {
+      console.log(`[whisper] Dependncias de compilao faltando: ${missing.join(', ')}`);
+      autoInstallDeps(missing);
+      missing = checkBuildDependencies();
+    }
+    if (missing.length > 0) {
+      throw new Error(describeMissingDeps(missing));
+    }
 
     // Clonar repositrio
     console.log(`[whisper] Clonando repositrio...`);
@@ -232,6 +263,16 @@ async function buildBinary() {
   }
 }
 
+function describeMissingDeps(missing) {
+  return (
+    `Dependncias de compilao faltando: ${missing.join(', ')}\n` +
+    '\nWindows: winget install -e --id Kitware.CMake  (e "Visual Studio Build Tools" com "Desenvolvimento para Desktop com C++")\n' +
+    'Linux: sudo apt install git cmake build-essential\n' +
+    'Mac: xcode-select --install && brew install cmake\n' +
+    '\nAlternativa: npm install @xenova/transformers'
+  );
+}
+
 function checkBuildDependencies() {
   const missing = [];
 
@@ -275,15 +316,7 @@ function checkBuildDependencies() {
     if (!hasCc || !hasCxx) missing.push('gcc/g++ ou cc/c++');
   }
 
-  if (missing.length > 0) {
-    throw new Error(
-      `Dependncias de compilao faltando: ${missing.join(', ')}\n` +
-      '\nWindows: instale o Visual Studio Build Tools com "Desenvolvimento para Desktop com C++"\n' +
-      'Linux: sudo apt install git cmake build-essential\n' +
-      'Mac: xcode-select --install && brew install cmake\n' +
-      '\nAlternativa: npm install @xenova/transformers'
-    );
-  }
+  return missing;
 }
 
 function hasAnyCommand(commands, args = []) {
@@ -359,6 +392,11 @@ function getCmakeGenerators() {
  * Instala dependncias automaticamente no Linux/Mac.
  */
 function autoInstallDeps(missing) {
+  if (process.platform === 'win32') {
+    installWindowsDeps(missing);
+    return;
+  }
+
   if (process.platform === 'linux') {
     // Detectar gerenciador de pacotes
     const hasApt = spawnSync('which', ['apt'], { encoding: 'utf8', windowsHide: true }).status === 0;
@@ -457,6 +495,85 @@ function autoInstallDeps(missing) {
         console.log('[whisper] Depois adicione ao PATH: eval "$(/opt/homebrew/bin/brew shellenv)"');
       }
     }
+  }
+}
+
+/**
+ * Instala cmake/git no Windows via winget ou choco (quando disponveis).
+ * Novos binrios no entram no PATH do processo atual, ento procuramos cmake
+ * em locais conhecidos e ajustamos process.env.PATH.
+ */
+function installWindowsDeps(missing) {
+  const wantsCmake = missing.includes('cmake');
+  const wantsGit = missing.includes('git');
+  if (!wantsCmake && !wantsGit) return;
+
+  const hasWinget = hasCommand('winget');
+  const hasChoco = hasCommand('choco');
+
+  if (!hasWinget && !hasChoco) {
+    console.log('[whisper] winget/choco no encontrados — instale manualmente:');
+    console.log('[whisper]   winget install -e --id Kitware.CMake');
+    return;
+  }
+
+  if (wantsCmake) {
+    if (hasWinget) {
+      console.log('[whisper] Instalando CMake via winget...');
+      const result = spawnSync('winget', [
+        'install', '-e', '--id', 'Kitware.CMake',
+        '--accept-package-agreements', '--accept-source-agreements', '--silent',
+      ], { encoding: 'utf8', windowsHide: true, timeout: 600_000 });
+      if (result.status !== 0) console.log('[whisper] Aviso: falha no winget (CMake).');
+    } else {
+      console.log('[whisper] Instalando CMake via choco...');
+      const result = spawnSync('choco', ['install', 'cmake', '-y'], {
+        encoding: 'utf8', windowsHide: true, timeout: 600_000,
+      });
+      if (result.status !== 0) console.log('[whisper] Aviso: falha no choco (CMake).');
+    }
+    refreshWindowsPath(['cmake']);
+  }
+
+  if (wantsGit && hasWinget) {
+    console.log('[whisper] Instalando Git via winget...');
+    spawnSync('winget', [
+      'install', '-e', '--id', 'Git.Git',
+      '--accept-package-agreements', '--accept-source-agreements', '--silent',
+    ], { encoding: 'utf8', windowsHide: true, timeout: 600_000 });
+    refreshWindowsPath(['git']);
+  }
+}
+
+/**
+ * Adiciona ao PATH do processo dirs conhecidos de ferramentas recm-instaladas.
+ */
+function refreshWindowsPath(tools) {
+  const knownDirs = {
+    cmake: [
+      'C:\\Program Files\\CMake\\bin',
+      'C:\\Program Files (x86)\\CMake\\bin',
+      'C:\\ProgramData\\chocolatey\\bin',
+    ],
+    git: [
+      'C:\\Program Files\\Git\\cmd',
+      'C:\\Program Files (x86)\\Git\\cmd',
+      'C:\\ProgramData\\chocolatey\\bin',
+    ],
+  };
+
+  const candidates = tools.flatMap((tool) => {
+    const exe = tool === 'git' ? 'git.exe' : `${tool}.exe`;
+    return (knownDirs[tool] || []).filter((dir) => fs.existsSync(path.join(dir, exe)));
+  });
+
+  if (candidates.length === 0) return;
+
+  const current = (process.env.PATH || '').split(';').filter(Boolean);
+  const extra = candidates.filter((dir) => !current.includes(dir));
+  if (extra.length > 0) {
+    process.env.PATH = [...extra, ...current].join(';');
+    console.log(`[whisper] PATH atualizado com: ${extra.join('; ')}`);
   }
 }
 
