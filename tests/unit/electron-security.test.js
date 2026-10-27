@@ -709,6 +709,21 @@ test('validateHistoryExportPayload restringe filePath a allowedRoots quando espe
     validateHistoryExportPayload({ filePath: '/etc/passwd' }, allowedRoots),
     null
   );
+
+  // Rejeita qualquer filePath customizado quando allowedRoots for vazio
+  assert.equal(
+    validateHistoryExportPayload({ filePath: '/home/user/Downloads/export.json' }, []),
+    null
+  );
+
+  // Aceita allowedRoots passado como Set
+  const setRoots = new Set(['/home/user/Downloads']);
+  const validSet = validateHistoryExportPayload(
+    { filePath: '/home/user/Downloads/export.json', format: 'json' },
+    setRoots
+  );
+  assert.ok(validSet);
+  assert.equal(validSet.filePath, '/home/user/Downloads/export.json');
 });
 
 test('validateHistoryExportPayload sanitiza arrays de entries e trata payload nulo/invalido', () => {
