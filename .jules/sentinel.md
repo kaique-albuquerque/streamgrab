@@ -39,3 +39,8 @@
 **Vulnerability:** `validateHistoryExportPayload` checked `if (Array.isArray(allowedRoots) && allowedRoots.length > 0)` before enforcing `isPathWithin`, causing custom file path inputs to bypass directory containment restrictions when `allowedRoots` was empty or passed as a `Set`.
 **Learning:** Guarding root array checks with length checks (`allowedRoots.length > 0`) bypasses path containment validation when the allowed roots collection is empty or a non-Array collection type like `Set`.
 **Prevention:** Normalize root inputs with `Array.isArray(roots) ? roots : Array.from(roots || [])` and unconditionally evaluate containment via `roots.some(...)` for all custom file path inputs.
+
+## 2026-12-20 - Unsanitized Control Characters and Flawed Stem Extraction in Filename Sanitization
+**Vulnerability:** `sanitizeFilename` did not strip ASCII control characters (`0x00-0x1F`) and stripped `.mp4` when checking Windows reserved names, losing extensions on reserved filenames and leaving non-mp4 reserved names (`aux.mkv`) unescaped.
+**Learning:** Windows invalid filename sanitization must explicitly include control characters (`\x00-\x1f`) and inspect the filename stem before any extension (e.g. `n.slice(0, dotIndex)`) so that reserved device names with any extension are safely prefixed with `_` while preserving extensions.
+**Prevention:** Include `\x00-\x1f` in invalid character regexes and extract base filename stems before performing reserved device name checks.

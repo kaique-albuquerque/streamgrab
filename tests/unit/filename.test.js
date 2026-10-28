@@ -45,3 +45,9 @@ test('filename: apenas caracteres invalidos vira underscores (nao cai para video
   // * : ? viram _; o resultado nao e vazio, entao nao ha fallback para "video"
   assert.equal(ensureMp4(sanitizeFilename('***:::???')), '_________.mp4');
 });
+
+test('filename: caracteres de controle sao removidos e reservados com extensao sao seguros', () => {
+  assert.equal(ensureMp4(sanitizeFilename("aula\n1\r2\x003.mp4")), 'aula_1_2_3.mp4');
+  assert.equal(ensureMp4(sanitizeFilename('con.mp4')), '_con.mp4');
+  assert.equal(sanitizeFilename('aux.mkv'), '_aux.mkv');
+});
