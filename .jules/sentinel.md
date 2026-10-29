@@ -39,3 +39,8 @@
 **Vulnerability:** `validateHistoryExportPayload` checked `if (Array.isArray(allowedRoots) && allowedRoots.length > 0)` before enforcing `isPathWithin`, causing custom file path inputs to bypass directory containment restrictions when `allowedRoots` was empty or passed as a `Set`.
 **Learning:** Guarding root array checks with length checks (`allowedRoots.length > 0`) bypasses path containment validation when the allowed roots collection is empty or a non-Array collection type like `Set`.
 **Prevention:** Normalize root inputs with `Array.isArray(roots) ? roots : Array.from(roots || [])` and unconditionally evaluate containment via `roots.some(...)` for all custom file path inputs.
+
+## 2026-12-21 - Unsanitized Video Path in Transcription Start IPC Vulnerable to Directory Containment Bypass and Arbitrary Root Registration
+**Vulnerability:** The `transcribe:start` IPC channel accepted arbitrary absolute file paths without validating containment against `allowedRoots`, causing the handler to register user-supplied parent directories into `allowedRoots` via `addRevealRoot`.
+**Learning:** File processing IPC handlers must enforce directory containment against `allowedRoots` before executing or registering user-supplied file paths in state.
+**Prevention:** Pass `[...getAllowedRevealRoots()]` to `validateTranscribePayload` and validate path containment with `isPathWithin` before performing file actions or registering reveal roots.

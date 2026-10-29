@@ -78,6 +78,18 @@ test('validateTranscribePayload: payload não-objeto retorna null', () => {
   assert.equal(validateTranscribePayload(undefined), null);
 });
 
+test('validateTranscribePayload: valida contenção em allowedRoots quando fornecido', () => {
+  const rootDir = process.platform === 'win32' ? 'C:\\Videos' : '/videos';
+  const outsideDir = process.platform === 'win32' ? 'C:\\Secrets\\aula.mp4' : '/secrets/aula.mp4';
+
+  const valid = validateTranscribePayload({ videoPath: VIDEO_PATH }, [rootDir]);
+  assert.ok(valid);
+  assert.equal(valid.videoPath, VIDEO_PATH);
+
+  const invalid = validateTranscribePayload({ videoPath: outsideDir }, [rootDir]);
+  assert.equal(invalid, null);
+});
+
 test('validateTranscribeJobPayload: jobId válido', () => {
   assert.deepEqual(validateTranscribeJobPayload({ jobId: 'tr_abc_1' }), { jobId: 'tr_abc_1' });
 });
