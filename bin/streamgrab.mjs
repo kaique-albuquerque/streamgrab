@@ -11,6 +11,6 @@ import { main } from '../src/index.js';
 main()
   .then((code) => process.exit(code ?? 0))
   .catch((err) => {
-    console.error('\n[ERRO inesperado]', err && err.stack ? err.stack : err);
-    process.exit(1);
+    console.error('\n[ERRO inesperado]', err && err.message ? err.message : err);
+    process.stdout.write('', () => process.exit(1));
   });
