@@ -40,7 +40,7 @@
 **Learning:** Guarding root array checks with length checks (`allowedRoots.length > 0`) bypasses path containment validation when the allowed roots collection is empty or a non-Array collection type like `Set`.
 **Prevention:** Normalize root inputs with `Array.isArray(roots) ? roots : Array.from(roots || [])` and unconditionally evaluate containment via `roots.some(...)` for all custom file path inputs.
 
-## 2026-12-20 - Unsanitized Control Characters and Flawed Stem Extraction in Filename Sanitization
-**Vulnerability:** `sanitizeFilename` did not strip ASCII control characters (`0x00-0x1F`) and stripped `.mp4` when checking Windows reserved names, losing extensions on reserved filenames and leaving non-mp4 reserved names (`aux.mkv`) unescaped.
-**Learning:** Windows invalid filename sanitization must explicitly include control characters (`\x00-\x1f`) and inspect the filename stem before any extension (e.g. `n.slice(0, dotIndex)`) so that reserved device names with any extension are safely prefixed with `_` while preserving extensions.
-**Prevention:** Include `\x00-\x1f` in invalid character regexes and extract base filename stems before performing reserved device name checks.
+## 2026-12-21 - Unsanitized Video Path in Transcription Start IPC Vulnerable to Directory Containment Bypass and Arbitrary Root Registration
+**Vulnerability:** The `transcribe:start` IPC channel accepted arbitrary absolute file paths without validating containment against `allowedRoots`, causing the handler to register user-supplied parent directories into `allowedRoots` via `addRevealRoot`.
+**Learning:** File processing IPC handlers must enforce directory containment against `allowedRoots` before executing or registering user-supplied file paths in state.
+**Prevention:** Pass `[...getAllowedRevealRoots()]` to `validateTranscribePayload` and validate path containment with `isPathWithin` before performing file actions or registering reveal roots.
