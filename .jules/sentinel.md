@@ -39,3 +39,8 @@
 **Vulnerability:** `validateHistoryExportPayload` checked `if (Array.isArray(allowedRoots) && allowedRoots.length > 0)` before enforcing `isPathWithin`, causing custom file path inputs to bypass directory containment restrictions when `allowedRoots` was empty or passed as a `Set`.
 **Learning:** Guarding root array checks with length checks (`allowedRoots.length > 0`) bypasses path containment validation when the allowed roots collection is empty or a non-Array collection type like `Set`.
 **Prevention:** Normalize root inputs with `Array.isArray(roots) ? roots : Array.from(roots || [])` and unconditionally evaluate containment via `roots.some(...)` for all custom file path inputs.
+
+## 2026-12-18 - Missing Root Collection Normalization in App Payload Validation Caused Runtime TypeErrors
+**Vulnerability:** `validateRevealPayload`, `validateExportLogsPayload`, and `validateDiskSpacePayload` directly invoked `allowedRoots.some(...)`, throwing unhandled TypeErrors when `allowedRoots` was passed as a `Set` (such as `getAllowedRevealRoots()`) or `null`/`undefined`, preventing safe containment evaluation and failing unsecurely.
+**Learning:** IPC security validators that check path containment against directory roots must normalize the collection to handle sets, arrays, iterables, and nullish inputs uniformly without throwing runtime errors.
+**Prevention:** Always normalize `allowedRoots` via `Array.isArray(allowedRoots) ? allowedRoots : Array.from(allowedRoots || [])` before evaluating `.some(...)` across all IPC payload validators.

@@ -524,6 +524,13 @@ test('validateRevealPayload restringe abertura a raízes permitidas', () => {
   assert.equal(validateRevealPayload({ filePath: '/home/user/project/src/index.js' }, roots), null);
   assert.equal(validateRevealPayload({}, roots), null);
   assert.equal(validateRevealPayload({ filePath: 'relative.mp4' }, roots), null);
+  // Aceita Set e lida com null/vazio com segurança
+  const setRoots = new Set(['/home/user/Downloads']);
+  assert.deepEqual(validateRevealPayload({ filePath: '/home/user/Downloads/v.mp4' }, setRoots), {
+    filePath: '/home/user/Downloads/v.mp4',
+  });
+  assert.equal(validateRevealPayload({ filePath: '/home/user/Downloads/v.mp4' }, []), null);
+  assert.equal(validateRevealPayload({ filePath: '/home/user/Downloads/v.mp4' }, null), null);
 });
 
 test('validatePreviewFilePathPayload valida caminho de preview e restringe ao previewDir', () => {
@@ -565,6 +572,14 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
+  // Aceita Set e lida com null/vazio com segurança
+  const setRoots = new Set(['/home/user/.config/StreamGrab']);
+  assert.deepEqual(
+    validateExportLogsPayload({ path: '/home/user/.config/StreamGrab/logs.txt' }, setRoots),
+    { path: '/home/user/.config/StreamGrab/logs.txt' }
+  );
+  assert.equal(validateExportLogsPayload({ path: '/home/user/.config/StreamGrab/logs.txt' }, []), null);
+  assert.equal(validateExportLogsPayload({ path: '/home/user/.config/StreamGrab/logs.txt' }, null), null);
 });
 
 test('validateDiskSpacePayload valida diretório e restringe a raízes permitidas', () => {
@@ -581,6 +596,14 @@ test('validateDiskSpacePayload valida diretório e restringe a raízes permitida
   assert.equal(validateDiskSpacePayload({ dir: 'C:\\Windows\\System32' }, roots), null);
   assert.equal(validateDiskSpacePayload({ dir: 'C:\\Users\\teste\\..\\Windows' }, roots), null);
   assert.equal(validateDiskSpacePayload({ dir: 'relative/dir' }, roots), null);
+  // Aceita Set e lida com null/vazio com segurança
+  const setRoots = new Set(['/home/user/Downloads']);
+  assert.deepEqual(
+    validateDiskSpacePayload({ dir: '/home/user/Downloads' }, setRoots),
+    { dir: '/home/user/Downloads' }
+  );
+  assert.equal(validateDiskSpacePayload({ dir: '/home/user/Downloads' }, []), null);
+  assert.equal(validateDiskSpacePayload({ dir: '/home/user/Downloads' }, null), null);
 });
 
 test('validatePreviewFilePathPayload valida e restringe caminho ao diretório de preview', () => {
