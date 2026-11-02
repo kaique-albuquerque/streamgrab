@@ -40,7 +40,7 @@
 **Learning:** Guarding root array checks with length checks (`allowedRoots.length > 0`) bypasses path containment validation when the allowed roots collection is empty or a non-Array collection type like `Set`.
 **Prevention:** Normalize root inputs with `Array.isArray(roots) ? roots : Array.from(roots || [])` and unconditionally evaluate containment via `roots.some(...)` for all custom file path inputs.
 
-## 2026-12-18 - Missing Root Collection Normalization in App Payload Validation Caused Runtime TypeErrors
-**Vulnerability:** `validateRevealPayload`, `validateExportLogsPayload`, and `validateDiskSpacePayload` directly invoked `allowedRoots.some(...)`, throwing unhandled TypeErrors when `allowedRoots` was passed as a `Set` (such as `getAllowedRevealRoots()`) or `null`/`undefined`, preventing safe containment evaluation and failing unsecurely.
-**Learning:** IPC security validators that check path containment against directory roots must normalize the collection to handle sets, arrays, iterables, and nullish inputs uniformly without throwing runtime errors.
-**Prevention:** Always normalize `allowedRoots` via `Array.isArray(allowedRoots) ? allowedRoots : Array.from(allowedRoots || [])` before evaluating `.some(...)` across all IPC payload validators.
+## 2026-12-18 - Missing Root Normalization in App Payload Validators Caused Unhandled TypeErrors on Set and Nullish Inputs
+**Vulnerability:** `validateRevealPayload`, `validateExportLogsPayload`, and `validateDiskSpacePayload` invoked `allowedRoots.some` directly without input normalization, throwing unhandled TypeErrors when `allowedRoots` was passed as a `Set` or was nullish.
+**Learning:** `allowedRevealRoots` is internally maintained as a `Set`. IPC payload validators accepting allowed directory roots must normalize them to arrays via `Array.isArray(roots) ? roots : Array.from(roots || [])` so iterable collection types like `Set` evaluate containment without throwing and nullish or empty roots fail closed.
+**Prevention:** Unconditionally normalize allowed directory root parameters with `Array.isArray(roots) ? roots : Array.from(roots || [])` in all path validation helpers prior to invoking `.some(...)`.
