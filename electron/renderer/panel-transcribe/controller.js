@@ -19,7 +19,7 @@ export function createTranscribePanel() {
   });
   const { refreshJobs, handleJobAction } = createJobsController({ jobs, jobList });
   const startTranscription = createStartTranscription({ jobs, jobList, modelSection });
-  const handleTranscribeEvent = createTranscribeEventHandler({ jobs, jobList, modelSection });
+  const handleTranscribeEvent = createTranscribeEventHandler({ jobs, jobList, modelSection, refreshJobs });
 
   function ensureWired() {
     if (wired) return;

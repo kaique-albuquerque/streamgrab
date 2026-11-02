@@ -1,4 +1,4 @@
-/** Enfileiramento de uma nova transcrição (formato, modelo, arquivo). */
+/** Enfileiramento de uma nova transcriÃ§Ã£o (formato, modelo, arquivo). */
 
 export function createStartTranscription({ jobs, jobList, modelSection }) {
   return async function startTranscription() {
@@ -15,30 +15,34 @@ export function createStartTranscription({ jobs, jobList, modelSection }) {
     if (document.getElementById('transcribeFmtMd')?.checked) formats.push('md');
     if (document.getElementById('transcribeFmtSrt')?.checked) formats.push('srt');
     if (formats.length === 0) {
-      setHint('Selecione ao menos um formato de saída (.txt, .md ou .srt).', false);
+      setHint('Selecione ao menos um formato de saÃ­da (.txt, .md ou .srt).', false);
       return;
     }
 
     const model = modelSection.getSelectedModel();
     if (!modelSection.isModelInstalled(model)) {
-      setHint('O modelo selecionado ainda não foi baixado. Baixe-o na lista de modelos antes de transcrever.', false);
+      setHint('O modelo selecionado ainda nÃ£o foi baixado. Baixe-o na lista de modelos antes de transcrever.', false);
       return;
     }
 
     const videoPath = await window.api.pickMediaFile();
-    if (!videoPath) return; // usuário cancelou o diálogo
+    if (!videoPath) return; // usuÃ¡rio cancelou o diÃ¡logo
 
     const language = document.getElementById('transcribeLanguage')?.value || 'pt';
-    setHint('Enfileirando transcrição...');
+    setHint('Enfileirando transcriÃ§Ã£o...');
 
     const res = await window.api.transcribeStart({ videoPath, language, formats, model });
     if (!res?.ok) {
-      setHint(res?.error?.message || 'Falha ao iniciar a transcrição.', false);
+      setHint(res?.error?.message || 'Falha ao iniciar a transcriÃ§Ã£o.', false);
       return;
     }
 
     setHint('');
-    if (res.job) jobs.set(res.job.jobId, res.job);
+    // A resposta do main traz o snapshot prÃ©-pump ('queued'), enquanto os
+    // broadcasts de 'added'/'started' jÃ¡ podem ter deixado o job em execuÃ§Ã£o:
+    // sÃ³ preenche se o job ainda nÃ£o estiver no espelho, para nÃ£o rebaixar o
+    // estado que o evento mais recente trouxe.
+    if (res.job && !jobs.has(res.job.jobId)) jobs.set(res.job.jobId, res.job);
     jobList.renderList(jobs);
   };
 }
