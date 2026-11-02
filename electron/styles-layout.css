@@ -78,3 +78,5 @@ body[data-theme="light"] .card {
   color: var(--warning);
   margin-bottom: 14px;
 }
+/* prefers-color-scheme */
+@media (prefers-color-scheme: dark) { body { background: #0a0e14; color: #e8e8e8; } }

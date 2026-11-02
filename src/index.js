@@ -51,7 +51,7 @@ export async function main(argv = process.argv.slice(2)) {
   });
 
   try {
-    prompter.close();
+    if (prompter && typeof prompter.close === 'function') await prompter.close();
   } catch {
     // ignore
   }
@@ -63,9 +63,29 @@ if (isEntry) {
   main()
     .then((code) => process.exit(code ?? 0))
     .catch((err) => {
-      console.error('\n[ERRO inesperado]', err && err.stack ? err.stack : err);
-      process.exit(1);
+      console.error('\n[ERRO inesperado]', err && err.message ? err.message : err);
+      process.stdout.write('', () => process.exit(1));
     });
 }
+
+
+process.on('SIGINT', () => {
+  try { prompter?.close(); } catch {}
+  process.exit(130);
+});
+
+
+process.on('SIGTERM', () => {
+  try { prompter?.close(); } catch {}
+  process.exit(143);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+  process.exit(1);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err && err.message ? err.message : err);
+  process.exit(1);
+});
 
 export default main;

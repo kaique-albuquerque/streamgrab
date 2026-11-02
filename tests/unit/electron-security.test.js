@@ -524,6 +524,16 @@ test('validateRevealPayload restringe abertura a raízes permitidas', () => {
   assert.equal(validateRevealPayload({ filePath: '/home/user/project/src/index.js' }, roots), null);
   assert.equal(validateRevealPayload({}, roots), null);
   assert.equal(validateRevealPayload({ filePath: 'relative.mp4' }, roots), null);
+
+  // Suporte a coleções Set e falha segura com raízes vazias ou nulas
+  const setRoots = new Set(roots);
+  assert.deepEqual(validateRevealPayload({ filePath: '/home/user/Downloads/v.mp4' }, setRoots), {
+    filePath: '/home/user/Downloads/v.mp4',
+  });
+  assert.equal(validateRevealPayload({ filePath: '/home/user/Downloads/v.mp4' }, []), null);
+  assert.equal(validateRevealPayload({ filePath: '/home/user/Downloads/v.mp4' }, new Set()), null);
+  assert.equal(validateRevealPayload({ filePath: '/home/user/Downloads/v.mp4' }, null), null);
+  assert.equal(validateRevealPayload({ filePath: '/home/user/Downloads/v.mp4' }, undefined), null);
 });
 
 test('validatePreviewFilePathPayload valida caminho de preview e restringe ao previewDir', () => {
@@ -565,6 +575,17 @@ test('validateExportLogsPayload valida caminho e restringe a raizes permitidas',
   assert.equal(validateExportLogsPayload({ path: 'C:\\Windows\\System32\\malicious.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'C:\\Users\\teste\\..\\evil.txt' }, roots), null);
   assert.equal(validateExportLogsPayload({ path: 'relative-log.txt' }, roots), null);
+
+  // Suporte a coleções Set e falha segura com raízes vazias ou nulas
+  const setRoots = new Set(roots);
+  assert.deepEqual(
+    validateExportLogsPayload({ path: '/home/user/.config/StreamGrab/logs.txt' }, setRoots),
+    { path: '/home/user/.config/StreamGrab/logs.txt' }
+  );
+  assert.equal(validateExportLogsPayload({ path: '/home/user/.config/StreamGrab/logs.txt' }, []), null);
+  assert.equal(validateExportLogsPayload({ path: '/home/user/.config/StreamGrab/logs.txt' }, new Set()), null);
+  assert.equal(validateExportLogsPayload({ path: '/home/user/.config/StreamGrab/logs.txt' }, null), null);
+  assert.equal(validateExportLogsPayload({ path: '/home/user/.config/StreamGrab/logs.txt' }, undefined), null);
 });
 
 test('validateDiskSpacePayload valida diretório e restringe a raízes permitidas', () => {
@@ -581,6 +602,17 @@ test('validateDiskSpacePayload valida diretório e restringe a raízes permitida
   assert.equal(validateDiskSpacePayload({ dir: 'C:\\Windows\\System32' }, roots), null);
   assert.equal(validateDiskSpacePayload({ dir: 'C:\\Users\\teste\\..\\Windows' }, roots), null);
   assert.equal(validateDiskSpacePayload({ dir: 'relative/dir' }, roots), null);
+
+  // Suporte a coleções Set e falha segura com raízes vazias ou nulas
+  const setRoots = new Set(roots);
+  assert.deepEqual(
+    validateDiskSpacePayload({ dir: '/home/user/Downloads' }, setRoots),
+    { dir: '/home/user/Downloads' }
+  );
+  assert.equal(validateDiskSpacePayload({ dir: '/home/user/Downloads' }, []), null);
+  assert.equal(validateDiskSpacePayload({ dir: '/home/user/Downloads' }, new Set()), null);
+  assert.equal(validateDiskSpacePayload({ dir: '/home/user/Downloads' }, null), null);
+  assert.equal(validateDiskSpacePayload({ dir: '/home/user/Downloads' }, undefined), null);
 });
 
 test('validatePreviewFilePathPayload valida e restringe caminho ao diretório de preview', () => {
@@ -709,6 +741,21 @@ test('validateHistoryExportPayload restringe filePath a allowedRoots quando espe
     validateHistoryExportPayload({ filePath: '/etc/passwd' }, allowedRoots),
     null
   );
+
+  // Rejeita qualquer filePath customizado quando allowedRoots for vazio
+  assert.equal(
+    validateHistoryExportPayload({ filePath: '/home/user/Downloads/export.json' }, []),
+    null
+  );
+
+  // Aceita allowedRoots passado como Set
+  const setRoots = new Set(['/home/user/Downloads']);
+  const validSet = validateHistoryExportPayload(
+    { filePath: '/home/user/Downloads/export.json', format: 'json' },
+    setRoots
+  );
+  assert.ok(validSet);
+  assert.equal(validSet.filePath, '/home/user/Downloads/export.json');
 });
 
 test('validateHistoryExportPayload sanitiza arrays de entries e trata payload nulo/invalido', () => {

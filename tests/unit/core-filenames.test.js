@@ -15,14 +15,17 @@ import {
   nextAvailableName,
 } from '../../src/core/filenames.js';
 
-test('core-filenames: caracteres invalidos do Windows viram underscore', () => {
+test('core-filenames: caracteres invalidos do Windows e controle viram underscore', () => {
   const out = sanitizeFilename('a<b>c:d"e/f\\g|h?i*j');
   assert.equal(out, 'a_b_c_d_e_f_g_h_i_j');
+  assert.equal(sanitizeFilename("video\n1\r2\x003\t4.mp4"), 'video_1_2_3_4.mp4');
 });
 
-test('core-filenames: nomes reservados recebem prefixo', () => {
+test('core-filenames: nomes reservados recebem prefixo mantendo extensao', () => {
   assert.equal(sanitizeFilename('CON'), '_CON');
   assert.equal(sanitizeFilename('con'), '_con');
+  assert.equal(sanitizeFilename('con.mp4'), '_con.mp4');
+  assert.equal(sanitizeFilename('aux.mkv'), '_aux.mkv');
   assert.equal(sanitizeFilename('lpt1'), '_lpt1');
   assert.equal(sanitizeFilename('com9'), '_com9');
   assert.equal(sanitizeFilename('console'), 'console', 'nao reservado nao recebe prefixo');

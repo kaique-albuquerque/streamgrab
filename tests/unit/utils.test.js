@@ -132,6 +132,7 @@ test('utils maskUrl: URL sem query e valores nao-string', () => {
 // ---- sanitizeFilename ----
 test('utils sanitizeFilename: caracteres invalidos viram underscore', () => {
   assert.equal(sanitizeFilename('a<b>c:d"e/f\\g|h?i*j'), 'a_b_c_d_e_f_g_h_i_j');
+  assert.equal(sanitizeFilename("video\n1\r2\x003\t4.mp4"), 'video_1_2_3_4.mp4');
 });
 
 test('utils sanitizeFilename: remove pontos e espacos nas bordas', () => {
@@ -145,10 +146,10 @@ test('utils sanitizeFilename: nome vazio vira "video"', () => {
   assert.equal(sanitizeFilename('...'), 'video');
 });
 
-test('utils sanitizeFilename: nomes reservados do Windows ganham prefixo _', () => {
+test('utils sanitizeFilename: nomes reservados do Windows ganham prefixo _ mantendo extensao', () => {
   assert.equal(sanitizeFilename('CON'), '_CON');
-  // quirk congelado: ao prefixar, o .mp4 e descartado (base sem extensao)
-  assert.equal(sanitizeFilename('con.mp4'), '_con');
+  assert.equal(sanitizeFilename('con.mp4'), '_con.mp4');
+  assert.equal(sanitizeFilename('aux.mkv'), '_aux.mkv');
   assert.equal(sanitizeFilename('PRN'), '_PRN');
   assert.equal(sanitizeFilename('NUL'), '_NUL');
   assert.equal(sanitizeFilename('AUX'), '_AUX');

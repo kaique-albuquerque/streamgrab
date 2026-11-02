@@ -2,15 +2,15 @@
  * Sanitização de nomes de arquivo.
  */
 
-// Caracteres inválidos em nomes de arquivo no Windows.
-const WINDOWS_INVALID_CHARS = /[<>:"/\\|?*]/g;
+// Caracteres inválidos em nomes de arquivo no Windows (inclui caracteres de controle 0x00-0x1F).
+const WINDOWS_INVALID_CHARS = /[<>:"/\\|?*\x00-\x1f]/g;
 
 // Nomes reservados pelo Windows (CON, PRN, AUX, NUL, COM1..9, LPT1..9).
 const RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 
 /**
  * Sanitiza um nome de arquivo para ser seguro no Windows:
- * remove < > : " / \ | ? * e espaços/pontos finais.
+ * remove < > : " / \ | ? *, caracteres de controle (0x00-0x1F) e espaços/pontos finais.
  */
 export function sanitizeFilename(name) {
   let n = String(name ?? '').trim();
@@ -18,8 +18,9 @@ export function sanitizeFilename(name) {
   n = n.replace(/[.\s]+$/g, '');
   n = n.replace(/^[.\s]+/g, '');
   if (!n) n = 'video';
-  const base = n.replace(/\.mp4$/i, '');
-  if (RESERVED_NAMES.test(base)) n = `_${base}`;
+  const dotIndex = n.indexOf('.');
+  const base = dotIndex !== -1 ? n.slice(0, dotIndex) : n;
+  if (RESERVED_NAMES.test(base)) n = `_${n}`;
   return n;
 }
 

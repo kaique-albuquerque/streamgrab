@@ -7,7 +7,7 @@ import path from 'node:path';
 import { ipcMain } from 'electron';
 import { friendlyReport } from '../../../src/core/errors.js';
 import { validateTranscribePayload } from '../../security.js';
-import { addRevealRoot } from '../state.js';
+import { addRevealRoot, getAllowedRevealRoots } from '../state.js';
 import { ensureJobManager } from './job-manager-provider.js';
 import {
   MODEL_MANAGER_MODULE,
@@ -50,7 +50,7 @@ export function registerCheckHandler() {
 /** `transcribe:start` — enfileira transcrição no job manager. */
 export function registerStartHandler() {
   ipcMain.handle('transcribe:start', async (_event, rawPayload) => {
-    const payload = validateTranscribePayload(rawPayload);
+    const payload = validateTranscribePayload(rawPayload, [...getAllowedRevealRoots()]);
     if (!payload) {
       return invalidPayloadResponse(
         'Payload de transcrição inválido.',

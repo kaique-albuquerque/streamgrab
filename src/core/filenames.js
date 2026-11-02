@@ -9,7 +9,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 
-const WINDOWS_INVALID_CHARS = /[<>:"/\\|?*]/g;
+const WINDOWS_INVALID_CHARS = /[<>:"/\\|?*\x00-\x1f]/g;
 
 const RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 
@@ -23,8 +23,9 @@ export function sanitizeFilename(name) {
   n = n.replace(/[.\s]+$/g, '');
   n = n.replace(/^[.\s]+/g, '');
   if (!n) n = 'video';
-  const base = n.replace(/\.mp4$/i, '');
-  if (RESERVED_NAMES.test(base)) n = `_${base}`;
+  const dotIndex = n.indexOf('.');
+  const base = dotIndex !== -1 ? n.slice(0, dotIndex) : n;
+  if (RESERVED_NAMES.test(base)) n = `_${n}`;
   return n;
 }
 

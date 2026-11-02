@@ -580,6 +580,8 @@ npm run whisper:install       # dev setup: builds whisper-cli + downloads the mo
 ```
 
 > 💡 **No engine found?** Run `npm run whisper:install` (builds the binary from source — requires CMake and a C++ compiler) or `npm install @xenova/transformers` as a pure-Node fallback. Installers ship with the binary already bundled; the model is downloaded on first use.
+>
+> ⚠️ This build step is **optional during `npm install`**: if CMake/compiler are missing, the postinstall only warns and the rest of the install completes. Set `WHISPER_STRICT=1` to make it fail instead (CI/packaging does this automatically). On Windows, `winget install -e --id Kitware.CMake` followed by `npm run whisper:install` enables the native engine.
 
 ---
 
@@ -589,8 +591,8 @@ Installers are produced with **electron-builder**. Windows uses MSI, macOS uses 
 
 ```powershell
 npm run pack:resources   # copies binaries into build/extraResources/bin
-npm run dist             # produces the Windows MSI in dist/
-npm run dist:dir         # unpacked Windows build — for testing
+npm run dist:windows     # produces the Windows MSI in dist/
+npm run dist:windows:dir # unpacked Windows build — for testing
 npm run dist:mac         # produces macOS PKG packages
 npm run dist:linux       # produces Linux AppImage and DEB packages
 npm run release          # Windows build + SHA-256 checksums

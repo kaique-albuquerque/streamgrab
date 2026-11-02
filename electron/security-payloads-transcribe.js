@@ -2,7 +2,7 @@
  * Validação de payloads: transcrição (transcribe:*).
  */
 
-import { isSafeAbsolutePath } from './security-primitives.js';
+import { isSafeAbsolutePath, isPathWithin } from './security-primitives.js';
 import { DEFAULT_MODEL, isKnownModel } from '../src/transcribe/model-manager.js';
 
 /** Extensões de mídia aceitas para transcrição (vídeo e áudio). */
@@ -27,9 +27,14 @@ function normalizeModel(value, fallback = DEFAULT_MODEL) {
 }
 
 /** Valida o payload de `transcribe:start`. Retorna o payload limpo ou null. */
-export function validateTranscribePayload(payload = {}) {
+export function validateTranscribePayload(payload = {}, allowedRoots = []) {
   const videoPath = typeof payload?.videoPath === 'string' ? payload.videoPath.trim() : '';
   if (!isSafeAbsolutePath(videoPath)) return null;
+
+  const roots = Array.isArray(allowedRoots) ? allowedRoots : Array.from(allowedRoots || []);
+  if (roots.length > 0 && !roots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(videoPath, root))) {
+    return null;
+  }
 
   const ext = videoPath.split('.').pop()?.toLowerCase() || '';
   if (!MEDIA_EXTENSIONS.has(ext)) return null;

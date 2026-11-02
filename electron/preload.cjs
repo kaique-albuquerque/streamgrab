@@ -24,8 +24,7 @@ contextBridge.exposeInMainWorld('api', {
   resolvePaths: () => ipcRenderer.invoke('app:resolve-paths'),
   diskSpace: (payload) => ipcRenderer.invoke('app:disk-space', payload),
   openExternal: (url) => ipcRenderer.invoke('app:open-external', { url }),
-  openFile: (payload) => ipcRenderer.invoke('app:open-file', payload),
-  showInFolder: (payload) => ipcRenderer.invoke('app:show-in-folder', payload),
+  cleanup: () => ipcRenderer.removeAllListeners(),
 
   // P11 — Fila real (src/core/queue.js).
   queueEnqueue: (payload) => ipcRenderer.invoke('queue:enqueue', payload),
