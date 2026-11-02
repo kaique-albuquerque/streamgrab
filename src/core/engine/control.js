@@ -89,7 +89,10 @@ export function makeProgress(engine, job) {
   let lastEmit = 0;
   return (update = {}) => {
     const now = Date.now();
-    if (now - lastEmit < engine.progressThrottleMs) return;
+    // `merging` marca a transicao download -> processamento (merge do ffmpeg).
+    // Se o throttle engolir esse update a UI fica presa em "Baixando... 99%"
+    // e o job nunca entra em `processing`.
+    if (update.stage !== 'merging' && now - lastEmit < engine.progressThrottleMs) return;
     lastEmit = now;
     const clean = {};
     for (const [k, v] of Object.entries(update)) {

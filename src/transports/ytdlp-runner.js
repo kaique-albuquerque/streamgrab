@@ -13,6 +13,7 @@
 import { getYtDlpExec } from '../core/binaries.js';
 import { YtDlpError, CancelledError } from '../core/errors.js';
 import { getFfmpegCommand } from '../ffmpeg/service.js';
+import { createYtDlpProgressReporter } from './ytdlp-progress.js';
 
 function toYtDlpError(err) {
   const yerr = new YtDlpError(`Falha no download via yt-dlp: ${err?.message || String(err)}`, {
@@ -34,7 +35,8 @@ function toYtDlpError(err) {
  * @param {string} [params.ffmpegPath] — caminho do FFmpeg repassado ao yt-dlp
  *   (`--ffmpeg-location`); default: `getFfmpegCommand()` (vendor/extraResources/PATH).
  * @param {AbortSignal} [params.signal] — cancela (mata o processo, se exposto).
- * @param {Function} [params.onProgress] — `({bytesDownloaded, totalBytes, percent, message})`.
+ * @param {Function} [params.onProgress] — `({bytesDownloaded, totalBytes, percent, speed, etaSeconds, stage, message})`,
+ *   emitido durante o download (parse do stdout do yt-dlp) e no fim.
  * @returns {Promise<{ok: true, [key: string]: any}>}
  * @throws YtDlpError em falha; CancelledError em abort.
  */
@@ -53,6 +55,10 @@ export async function runYtDlpDownload({ url, formatId, output, headers = {}, au
     noPlaylist: true,
     noWarnings: true,
     noCheckCertificates: true,
+    // Sem `--newline` o yt-dlp separa as atualizacoes de progresso com `\r` e
+    // todas caem em uma unica linha; com a flag sai uma linha por update, que e
+    // o que o parser de progresso consome.
+    newline: true,
     // O yt-dlp so junta video+audio se achar o FFmpeg. Sem isso, no app
     // empacotado (PATH minimo) ele baixa os dois streams separados (.mp4 sem
     // som + .m4a) e pula o merge com o aviso "ffmpeg is not installed".
@@ -75,9 +81,19 @@ export async function runYtDlpDownload({ url, formatId, output, headers = {}, au
     }
   }
 
+  // Progresso: o yt-dlp escreve as linhas `[download]` no stdout enquanto
+  // baixa. Sem esse parser o runner so avisava `percent: 100` no fim e a barra
+  // ficava parada em 0% durante todo o download.
+  const reporter = typeof onProgress === 'function' ? createYtDlpProgressReporter(onProgress) : null;
+
   let promise;
   try {
-    promise = (await getYtDlpExec())(url, options);
+    promise = (await getYtDlpExec())(url, options, {}, reporter
+      ? {
+          onStdout: (chunk) => reporter.push(chunk),
+          onStderr: (chunk) => reporter.push(chunk),
+        }
+      : undefined);
   } catch (err) {
     throw toYtDlpError(err);
   }
@@ -109,7 +125,7 @@ export async function runYtDlpDownload({ url, formatId, output, headers = {}, au
   try {
     const result = await Promise.race([promise, abortPromise]);
     if (signal?.aborted) throw new CancelledError('Operacao cancelada.');
-    onProgress?.({ bytesDownloaded: 0, totalBytes: 0, percent: 100, message: 'Download concluido via yt-dlp.' });
+    reporter?.finish();
     return { ok: true, ...(result && typeof result === 'object' ? result : {}) };
   } catch (err) {
     if (signal?.aborted || err?.code === 'CANCELLED') throw new CancelledError('Operacao cancelada.');

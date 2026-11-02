@@ -15,8 +15,12 @@ import { startDownload, startMuxDownload } from '../../../ffmpeg.js';
 import { CurlImpersonateTransport } from '../../../transports/curl/index.js';
 import { prepareHlsSegmentDownloadToLocal } from '../../../transports/backends/hls-segments/index.js';
 import { prepareDashSegmentDownloadToLocal } from '../../../transports/backends/dash-segments/index.js';
+import { runYtDlpDownload } from '../../../transports/ytdlp-runner.js';
 
-import { runMuxStrategy, runMuxMultiStrategy, runHlsDashStrategy, runDirectStrategy } from './strategies.js';
+import {
+  runMuxStrategy, runMuxMultiStrategy, runHlsDashStrategy, runDirectStrategy,
+  runYtDlpSingleStrategy, usesYtDlpForSingle,
+} from './strategies.js';
 
 /**
  * Resolvedor de adapter padrao: mesma deteccao atual por URL/content-type
@@ -38,8 +42,12 @@ export function createDefaultExecutor({
   ffmpegStartDownload = startDownload,
   ffmpegStartMuxDownload = startMuxDownload,
   curlTransportResolver = (headers) => CurlImpersonateTransport.resolve({ headers }),
+  ytdlpDownload = runYtDlpDownload,
 } = {}) {
-  const ctx = { prepareHlsSegments, prepareDashSegments, ffmpegStartDownload, ffmpegStartMuxDownload, curlTransportResolver };
+  const ctx = {
+    prepareHlsSegments, prepareDashSegments, ffmpegStartDownload, ffmpegStartMuxDownload,
+    curlTransportResolver, ytdlpDownload,
+  };
 
   return {
     async analyze(adapter, { url, headers, auth }) {
@@ -72,6 +80,13 @@ export function createDefaultExecutor({
 
       if (!url) {
         return { ok: false, code: 'DOWNLOAD_FAILED', error: 'Nenhuma URL de download preparada.' };
+      }
+
+      // redes sociais progressivas: o CDN assina/expira a URL, entao o download
+      // vai pelo yt-dlp (com fallback para o HTTP direto).
+      if (strategy === 'single' && usesYtDlpForSingle(sourceType)) {
+        const result = await runYtDlpSingleStrategy(job, prepared, output, headers, signal, onProgress, onLog, ctx);
+        if (result) return result;
       }
 
       // hls / dash strategy (segments, curl, ffmpeg)

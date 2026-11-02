@@ -1,15 +1,31 @@
 import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
-import {
+// ---- executor do yt-dlp mockado (mock.module; sem rede) ----
+// mock.module so pode ser registrado UMA vez por processo; o impl e trocado
+// atraves de uma variavel compartilhada. A registracao precisa acontecer ANTES
+// de carregar src/adapters/ytdlp.js, senao o core/binaries.js real ja fica
+// cacheado e o mock nao tem efeito.
+const BINARIES_URL = pathToFileURL(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'core', 'binaries.js')
+).href;
+const realBinaries = await import(BINARIES_URL);
+
+let fakeYtDlpImpl = null;
+const fakeYtDlp = (...args) => fakeYtDlpImpl(...args);
+mock.module(BINARIES_URL, {
+  namedExports: { ...realBinaries, getYtDlpExec: async () => fakeYtDlp },
+});
+
+const {
   YTDLP_FORMAT_UNAVAILABLE,
   ADAPTIVE_URI_PREFIX,
   isLoginRequiredError,
   prepareYtDlpDownload,
-} from '../../src/adapters/ytdlp.js';
+} = await import('../../src/adapters/ytdlp.js');
 
 const FIXTURE = JSON.parse(
   readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'ytdlp', 'youtube-info.json'), 'utf8')
@@ -162,15 +178,7 @@ test('ytdlp: fixture congela shape dos formatos (caracterizacao)', () => {
   assert.equal(adaptiveVideo.bitrate, 2500000);
 });
 
-// ---- analyzeYtDlpUrl (youtube-dl-exec mockado via mock.module; sem rede) ----
-// mock.module so pode ser registrado UMA vez por processo; o impl e trocado
-// atraves de uma variavel compartilhada.
-let fakeYtDlpImpl = null;
-mock.module('youtube-dl-exec', {
-  namedExports: {
-    youtubeDl: async (...args) => fakeYtDlpImpl(...args),
-  },
-});
+// ---- analyzeYtDlpUrl (executor do yt-dlp mockado no topo do arquivo) ----
 
 test('ytdlp analyzeYtDlpUrl: com youtube-dl mockado, extrai formatos do fixture', async () => {
   fakeYtDlpImpl = async () => FIXTURE;

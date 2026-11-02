@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { createYtDlpExec } from './ytdlp-exec.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -28,18 +30,24 @@ export function hasPackagedBinary(name, { fsImpl = fs } = {}) {
 
 let cachedYtDlp = null;
 
+/**
+ * Executor do yt-dlp sem shell.
+ *
+ * O `create()` do youtube-dl-exec usa `shell: true` no Windows para dar conta
+ * de caminhos com espacos — e isso quebra qualquer URL com `&` na query string
+ * (links `watch?v=X&list=Y`). `createYtDlpExec` (./ytdlp-exec.js) faz o spawn
+ * com argv em array, reaproveitando o mapper de flags do proprio pacote para
+ * manter o mesmo `--kebab-case`.
+ */
 export async function getYtDlpExec({ fsImpl = fs } = {}) {
   if (cachedYtDlp) return cachedYtDlp;
   const packaged = packagedBinaryPath(binName('yt-dlp'));
-  if (packaged && fsImpl.existsSync(packaged)) {
-    const mod = await import('youtube-dl-exec');
-    if (typeof mod.create === 'function') {
-      cachedYtDlp = mod.create(packaged);
-      return cachedYtDlp;
-    }
-  }
   const mod = await import('youtube-dl-exec');
-  cachedYtDlp = mod.youtubeDl;
+  const buildArgs = mod.args;
+  const binPath = packaged && fsImpl.existsSync(packaged)
+    ? packaged
+    : mod.constants.YOUTUBE_DL_PATH;
+  cachedYtDlp = createYtDlpExec(binPath, { buildArgs });
   return cachedYtDlp;
 }
 

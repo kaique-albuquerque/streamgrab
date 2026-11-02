@@ -1,15 +1,19 @@
 /** Tradução dos eventos broadcast do main process em updates de UI. */
 
-export function createTranscribeEventHandler({ jobs, jobList, modelSection }) {
+export function createTranscribeEventHandler({ jobs, jobList, modelSection, refreshJobs }) {
   return function handleTranscribeEvent(channel, data) {
     switch (channel) {
       case 'progress': {
         const job = jobs.get(data?.jobId);
-        if (job) {
-          job.stage = data.stage || job.stage;
-          if (typeof data.percent === 'number') job.percent = data.percent;
-          if (!jobList.updateJobItemDom(job)) jobList.renderList(jobs);
+        if (!job) {
+          // Job desconhecido (broadcast perdido ou retomado de outra sessão):
+          // revalida a lista no main em vez de esperar o botão Atualizar.
+          refreshJobs?.().catch(() => {});
+          break;
         }
+        job.stage = data.stage || job.stage;
+        if (typeof data.percent === 'number') job.percent = data.percent;
+        if (!jobList.updateJobItemDom(job)) jobList.renderList(jobs);
         break;
       }
       case 'log':

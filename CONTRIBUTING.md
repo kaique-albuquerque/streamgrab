@@ -34,7 +34,7 @@ npm run test:unit         # somente testes unitários
 npm run test:integration  # somente testes de integração
 npm run test:e2e          # somente E2E (curl-e2e)
 npm run lint              # ESLint (0 erros; avisos pré-existentes documentados)
-npm run format            # Prettier (--write)
+npm run format            # Prettier (--write) — usa o .prettierrc.json da raiz
 ```
 
 ## Arquitetura (visão geral)
