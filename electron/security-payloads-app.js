@@ -24,7 +24,9 @@ export function validateRevealPayload(payload = {}, allowedRoots = []) {
   const filePath = typeof payload?.filePath === 'string' ? payload.filePath.trim() : '';
   if (!filePath) return null;
   if (!isSafeAbsolutePath(filePath)) return null;
-  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(filePath, root))) {
+  // Normaliza coleções (Set/Array) e falha com segurança se nulo/vazio
+  const roots = Array.isArray(allowedRoots) ? allowedRoots : Array.from(allowedRoots || []);
+  if (!roots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(filePath, root))) {
     return null;
   }
   return { filePath };
@@ -35,7 +37,9 @@ export function validateExportLogsPayload(payload = {}, allowedRoots = []) {
   const customPath = typeof payload?.path === 'string' ? payload.path.trim() : '';
   if (!customPath) return { path: null };
   if (!isSafeAbsolutePath(customPath)) return null;
-  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(customPath, root))) {
+  // Normaliza coleções (Set/Array) e falha com segurança se nulo/vazio
+  const roots = Array.isArray(allowedRoots) ? allowedRoots : Array.from(allowedRoots || []);
+  if (!roots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(customPath, root))) {
     return null;
   }
   return { path: customPath };
@@ -46,7 +50,9 @@ export function validateDiskSpacePayload(payload = {}, allowedRoots = []) {
   const dir = typeof payload?.dir === 'string' ? payload.dir.trim() : '';
   if (!dir) return { dir: null };
   if (!isSafeAbsolutePath(dir)) return null;
-  if (!allowedRoots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(dir, root))) {
+  // Normaliza coleções (Set/Array) e falha com segurança se nulo/vazio
+  const roots = Array.isArray(allowedRoots) ? allowedRoots : Array.from(allowedRoots || []);
+  if (!roots.some((root) => typeof root === 'string' && root.trim() && isPathWithin(dir, root))) {
     return null;
   }
   return { dir };
