@@ -17,6 +17,25 @@ export function seedOrder(_order, engine) {
 }
 
 /**
+ * Returns every known job (including terminal ones) in queue order.
+ * Falls back to `getQueue()` for engines without `getAllJobs` (test doubles).
+ */
+export function allJobs(_order, engine) {
+  seedOrder(_order, engine);
+  const every = typeof engine.getAllJobs === 'function' ? engine.getAllJobs() : engine.getQueue();
+  const byId = new Map(every.map((j) => [j.id, j]));
+  const out = [];
+  for (const id of _order) {
+    if (byId.has(id)) {
+      out.push(byId.get(id));
+      byId.delete(id);
+    }
+  }
+  for (const job of byId.values()) out.push(job);
+  return out;
+}
+
+/**
  * Returns jobs in queue order. Jobs that exist in the engine but not
  * in `_order` (e.g. imported via restore) are appended at the end.
  */

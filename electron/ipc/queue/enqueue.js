@@ -12,7 +12,13 @@ function createQueueError(message, code) {
   return err;
 }
 
-export function enqueueDownload({ url, filename, outputDir, selectedUrl, title, turbo, cookiesFile, cookiesFromBrowser, taskId, audioLanguage, allAudio, subtitleLanguages, embedSubs }) {
+/** Pasta que receberá o arquivo: a do job ou a padrão das configurações. */
+function resolveRevealDir(services, outputDir) {
+  if (outputDir) return outputDir;
+  return services.settings?.get?.('defaultDir') || '';
+}
+
+export function enqueueDownload({ url, filename, outputDir, selectedUrl, title, turbo, cookiesFile, cookiesFromBrowser, taskId, audioLanguage, allAudio, subtitleLanguages, embedSubs, audioExtract }) {
   const services = getServices();
   if (!services) {
     throw createQueueError('Serviços ainda não inicializados.', 'NOT_READY');
@@ -27,7 +33,10 @@ export function enqueueDownload({ url, filename, outputDir, selectedUrl, title, 
   if (cookiesFile && !isSafeAbsolutePath(cookiesFile)) {
     throw createQueueError('Caminho do arquivo de cookies inválido.', 'INVALID_COOKIES_FILE');
   }
-  if (outputDir) addRevealRoot(outputDir);
+  // Registra a raiz que receberá o arquivo para que "Abrir arquivo" /
+  // "Mostrar na pasta" funcionem na aba Fila (inclui a pasta das configurações).
+  const revealDir = resolveRevealDir(services, outputDir);
+  if (revealDir) addRevealRoot(revealDir);
 
   const config = loadConfig(PROJECT_ROOT, { log: () => {} });
   const downloadHeaders = applyProviderHeaders({
@@ -55,6 +64,8 @@ export function enqueueDownload({ url, filename, outputDir, selectedUrl, title, 
       allAudio: Boolean(allAudio),
       subtitleLanguages: Array.isArray(subtitleLanguages) ? subtitleLanguages : [],
       embedSubs: Boolean(embedSubs),
+      // P13: '' = usa o setting global; 'off' | 'm4a' | 'mp3' = decisão do lote.
+      audioExtract: ['off', 'm4a', 'mp3'].includes(audioExtract) ? audioExtract : '',
     },
   });
   if (taskId) taskToJob.set(taskId, job.id);
