@@ -19,6 +19,7 @@ export function parseDownloadFlags(rest = []) {
     filename: '',
     format: '',
     audioOnly: false,
+    extractAudio: '',
     audioLanguage: '',
     allAudio: false,
     subLanguages: [],
@@ -38,6 +39,11 @@ export function parseDownloadFlags(rest = []) {
     else if (arg === '--filename') flags.filename = rest[++i] || '';
     else if (arg === '--format' || arg === '-f') flags.format = rest[++i] || '';
     else if (arg === '--audio-only') flags.audioOnly = true;
+    else if (arg === '--extract-audio') {
+      const val = (rest[i + 1] || '').toLowerCase();
+      flags.extractAudio = val === 'mp3' ? 'mp3' : 'm4a';
+      if (val === 'm4a' || val === 'mp3') i++;
+    }
     else if (arg === '--audio-lang') flags.audioLanguage = rest[++i] || '';
     else if (arg === '--all-audio') flags.allAudio = true;
     else if (arg === '--subs') {

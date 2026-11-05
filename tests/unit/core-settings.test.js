@@ -17,6 +17,7 @@ function makeTempDir() {
 test('DEFAULT_SETTINGS tem as chaves do plano (seção 22 + P6.2 + SPEC-01/02 + SPEC-09)', () => {
   assert.deepEqual(Object.keys(DEFAULT_SETTINGS).sort(), [
     'audio',
+    'audioExtract',
     'clipboardWatch',
     'defaultDir',
     'defaultQuality',

@@ -13,3 +13,4 @@
 export { FfmpegService, ffmpegService, getFfmpegCommand, checkFfmpeg } from './ffmpeg/service.js';
 export { MODES, MODE_LABELS, formatHeaders, buildDownloadArgs, buildMuxArgs, startDownload, startMuxDownload, remux, mux } from './ffmpeg/muxer.js';
 export { AUDIO_PROFILES, getAudioProfiles, canRemuxToProfile, audioProfileToArgs } from './ffmpeg/audio.js';
+export { EXTRACT_PROFILES, DEFAULT_EXTRACT_PROFILE, normalizeExtractProfile, buildExtractArgs, defaultAudioOutput, extractAudioFile } from './ffmpeg/audio-extract.js';

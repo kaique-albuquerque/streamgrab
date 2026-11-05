@@ -72,6 +72,7 @@ export function buildDownloadArgv({ options = {}, auth = {} }) {
   if (options.turbo) argv.push('--turbo');
   if (options.chunks > 0) argv.push('--chunks', String(options.chunks));
   if (options.noResume) argv.push('--no-resume');
+  if (options.extractAudio) argv.push('--extract-audio', options.extractAudio);
   if (options.forceCurl) argv.push('--curl-impersonate');
   if (auth.cookiesFile) argv.push('--cookies', auth.cookiesFile);
   if (auth.cookiesFromBrowser) argv.push('--cookies-from-browser', auth.cookiesFromBrowser);
