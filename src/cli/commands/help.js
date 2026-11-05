@@ -24,6 +24,7 @@ export function printSubcommandHelp(io) {
   io.log('  --filename <nome>            Nome do arquivo (sem extensao)');
   io.log('  --format <n|id>              Qualidade: indice 1..n ou formatId (ex.: 137)');
   io.log('  --audio-only                 Baixa apenas o audio');
+  io.log('  --extract-audio [m4a|mp3]    Extrai o audio apos baixar (padrao: m4a)');
   io.log('  --audio-lang <code>          Idioma do audio (ex: pt, en). Default: melhor disponivel');
   io.log('  --all-audio                  Baixa todas as faixas de audio (mux multi-audio)');
   io.log('  --subs <lang1,lang2>         Baixar legendas (ex: pt,en). --subs all = todas');

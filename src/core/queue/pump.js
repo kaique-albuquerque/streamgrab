@@ -20,6 +20,8 @@ export function extractRunOptions(job) {
     allAudio: job.meta?.allAudio || false,
     subtitleLanguages: job.meta?.subtitleLanguages || [],
     embedSubs: job.meta?.embedSubs || false,
+    // Só passa quando o lote escolheu: '' deixa o engine usar o setting global.
+    audioExtract: job.meta?.audioExtract || null,
     turbo: job.meta?.turbo || false,
     turboChunks: job.meta?.turboChunks || undefined,
   };

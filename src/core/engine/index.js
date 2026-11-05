@@ -26,7 +26,7 @@ import {
 } from './control.js';
 import { defaultResolveAdapter, createDefaultExecutor } from './executor/index.js';
 import {
-  nextJobId, getJob, getQueue, getHistory, removeJob, enqueueJob,
+  nextJobId, getJob, getQueue, getAllJobs, getHistory, removeJob, enqueueJob,
 } from './job/registry.js';
 import { runTarget, runJob } from './job/runner.js';
 
@@ -54,6 +54,8 @@ export class DownloadEngine {
     this.atomic = atomic;
     this._jobs = new Map();
     this._active = new Map();
+    /** Caminhos reservados por jobs em andamento (evita colisão no lote). */
+    this._reservedOutputs = new Set();
   }
 
   // -- eventos --------------------------------------------------------------
@@ -71,6 +73,7 @@ export class DownloadEngine {
   _nextId() { return nextJobId(); }
   getJob(id) { return getJob(this, id); }
   getQueue() { return getQueue(this); }
+  getAllJobs() { return getAllJobs(this); }
   getHistory() { return getHistory(this); }
   remove(id) { return removeJob(this, id); }
   enqueue(url, opts) { return enqueueJob(this, url, opts); }

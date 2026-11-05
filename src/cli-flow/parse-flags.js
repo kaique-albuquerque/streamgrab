@@ -44,6 +44,15 @@ export function parseCliFlags(argv, projectRoot, safeIo) {
     : [];
   const embedSubs = argv.includes('--embed-subs');
 
+  // P13: extração de áudio para formatos reproduzíveis na nuvem
+  const extractIdx = argv.indexOf('--extract-audio');
+  let extractAudio = '';
+  if (extractIdx !== -1) {
+    const raw = (argv[extractIdx + 1] || '').toLowerCase();
+    extractAudio = raw === 'mp3' ? 'mp3' : 'm4a';
+    safeIo.log(`[audio] Extracao de audio ativada (formato: ${extractAudio})`);
+  }
+
   if (audioLanguage) safeIo.log(`[audio] Idioma selecionado: ${audioLanguage}`);
   if (allAudio) safeIo.log('[audio] Modo multi-audio ativado (todas as faixas)');
   if (subLanguages.length) safeIo.log(`[subs] Legendas selecionadas: ${subLanguages.join(', ')}`);
@@ -85,7 +94,7 @@ export function parseCliFlags(argv, projectRoot, safeIo) {
 
   return {
     useCurlFlag, forceYouTube, config, headers, legacyFlow, auth,
-    audioLanguage, allAudio, subLanguages, embedSubs,
+    audioLanguage, allAudio, subLanguages, embedSubs, extractAudio,
     turboEnabled, turboChunks, smartTurboEnabled, smartTurboFlag, resumeEnabled,
     transcribe, transcribeLang, transcribeTimestamps,
   };

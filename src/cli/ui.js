@@ -33,6 +33,7 @@ export function printUsage(io) {
   io.log('  --turbo              Download paralelo por partes (mais rapido em URLs diretas)');
   io.log('  --chunks <n>         Numero de conexoes do modo turbo (padrao: 8)');
   io.log('  --no-resume          Desliga o resume do turbo (interrupcao descarta o parcial)');
+  io.log('  --extract-audio [m4a|mp3]  Extrai o audio apos baixar (padrao: m4a)');
   io.log('');
 }
 

@@ -24,6 +24,15 @@ export function getHistory(engine) {
     .filter((j) => isTerminalJobState(j.state)).map(serializeJob);
 }
 
+/**
+ * Todos os jobs conhecidos (em andamento e terminados).
+ * A fila usa isso para exibir concluídos/falhos — sem eles a UI fica sem
+ * retorno visual e não há como repetir um download que falhou.
+ */
+export function getAllJobs(engine) {
+  return [...engine._jobs.values()].map(serializeJob);
+}
+
 export function removeJob(engine, id) {
   const job = engine._jobs.get(String(id));
   if (!job) {

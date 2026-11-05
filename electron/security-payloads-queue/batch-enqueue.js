@@ -2,7 +2,7 @@
  * Validação do payload de `batch:enqueue` (download em lote).
  */
 
-import { isSafeHttpUrl, isSafeAbsolutePath } from '../security-primitives.js';
+import { isSafeHttpUrl, isSafeAbsolutePath, sanitizeDownloadFilename } from '../security-primitives.js';
 
 /**
  * Retorna o payload limpo ou null se as URLs forem inválidas ou o diretório inseguro.
@@ -11,10 +11,14 @@ export function validateBatchEnqueuePayload(payload = {}) {
   if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) return null;
 
   const rawUrls = Array.isArray(payload.urls) ? payload.urls : [];
+  const rawNames = Array.isArray(payload.names) ? payload.names : [];
   const urls = [];
-  for (const u of rawUrls) {
+  const names = [];
+  for (const [index, u] of rawUrls.entries()) {
     const value = typeof u === 'string' ? u.trim() : '';
     if (value && isSafeHttpUrl(value) && urls.length < 1000) {
+      const rawName = rawNames[index];
+      names.push(typeof rawName === 'string' ? sanitizeDownloadFilename(rawName).slice(0, 120) : '');
       urls.push(value);
     }
   }
@@ -24,6 +28,8 @@ export function validateBatchEnqueuePayload(payload = {}) {
   if (outputDir && !isSafeAbsolutePath(outputDir)) return null;
 
   const turbo = payload.turbo === true;
+  const rawAudio = typeof payload.audioExtract === 'string' ? payload.audioExtract.trim().toLowerCase() : '';
+  const audioExtract = ['off', 'm4a', 'mp3'].includes(rawAudio) ? rawAudio : '';
   const allAudio = payload.allAudio === true;
   const subtitleLanguages = Array.isArray(payload.subtitleLanguages)
     ? payload.subtitleLanguages
@@ -36,8 +42,10 @@ export function validateBatchEnqueuePayload(payload = {}) {
 
   return {
     urls,
+    names,
     outputDir,
     turbo,
+    audioExtract,
     allAudio,
     subtitleLanguages,
     embedSubs,

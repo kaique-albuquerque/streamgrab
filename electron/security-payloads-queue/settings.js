@@ -13,6 +13,7 @@ const SETTINGS_KEYS = new Set([
   'smartTurbo',
   'defaultQuality',
   'audio',
+  'audioExtract',
   'notifications',
   'theme',
   'onComplete',
@@ -49,6 +50,10 @@ export function validateSettingsPayload(payload = {}) {
     } else if (key === 'turboChunks') {
       if (!isIntInRange(value, 1, 64)) return null;
       clean[key] = value;
+    } else if (key === 'audioExtract') {
+      const mode = typeof value === 'string' ? value.trim().toLowerCase() : '';
+      if (!['off', 'm4a', 'mp3'].includes(mode)) return null;
+      clean[key] = mode;
     } else if (key === 'turbo' || key === 'audio' || key === 'notifications') {
       if (typeof value !== 'boolean' && typeof value !== 'string') return null;
       clean[key] = value;

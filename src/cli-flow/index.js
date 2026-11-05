@@ -15,10 +15,12 @@ import { applyProviderHeaders } from '../cli/config.js';
 import { parseCliFlags } from './parse-flags.js';
 import { analyzeAndChooseSource } from './analyze-source.js';
 import { dispatchDownload, interpretResult } from './execute-download.js';
+import { maybeExtractAudio } from './extract-audio.js';
 
 export { parseCliFlags } from './parse-flags.js';
 export { analyzeAndChooseSource, ADAPTER_BASED_SOURCES } from './analyze-source.js';
 export { dispatchDownload, interpretResult } from './execute-download.js';
+export { maybeExtractAudio } from './extract-audio.js';
 
 export async function runCliSession({
   argv = [],
@@ -123,6 +125,9 @@ export async function runCliSession({
   });
 
   // 7. Interpret result
+  if (result?.ok && flags.extractAudio) {
+    output = await maybeExtractAudio({ output, profile: flags.extractAudio, safeIo });
+  }
   const outcome = interpretResult(result, output, source.targetUrl);
   if (outcome.log) safeIo.log(outcome.log);
   return outcome;

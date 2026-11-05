@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   smartTurbo: false,
   defaultQuality: 'best',
   audio: 'original',
+  audioExtract: 'off', // P13: 'off' | 'm4a' | 'mp3' — extrai áudio no download
   notifications: true,
   clipboardWatch: true,
   tutorialCompleted: false, // SPEC-02: tour interativo na primeira execução
@@ -35,6 +36,7 @@ export const SCHEMA = {
   smartTurbo: { type: 'json', clamp: null },
   defaultQuality: { type: 'string', clamp: null },
   audio: { type: 'string', clamp: null },
+  audioExtract: { type: 'string', clamp: null },
   notifications: { type: 'boolean', clamp: null },
   clipboardWatch: { type: 'boolean', clamp: null },
   tutorialCompleted: { type: 'boolean', clamp: null },

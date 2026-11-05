@@ -8,6 +8,7 @@ import {
   downloadLoop as _downloadLoop,
   processSubtitles,
   processTranscription,
+  processAudioExtract,
 } from '../lifecycle.js';
 import { complete as _complete, handleFailure as _handleFailure } from '../completion.js';
 import { nextJobId } from './registry.js';
@@ -42,6 +43,7 @@ export async function runJob(engine, job, {
   forceYouTube = false, mode, audioLanguage, allAudio,
   subtitleLanguages = [], embedSubs = false, turbo, turboChunks,
   transcribe = false, transcribeLang, transcribeTimestamps,
+  audioExtract = null,
 } = {}) {
   try {
     const analyzed = await _analyze(engine, job, { selectedUrl, headers, auth, forceYouTube });
@@ -52,15 +54,27 @@ export async function runJob(engine, job, {
     });
     const outputPath = _resolveOutput(engine, job, prepared, destination);
     job.meta.output = outputPath;
+    job._reservedOutput = outputPath;
     await _downloadLoop(engine, job, adapter, prepared, { headers, mode, turbo, turboChunks });
     await processSubtitles(engine, job, prepared, { subtitleLanguages, embedSubs, headers });
     await processTranscription(engine, job, {
       transcribe, transcribeLang, transcribeTimestamps,
     });
+    await processAudioExtract(engine, job, { audioExtract });
     _complete(engine, job);
   } catch (err) {
     _handleFailure(engine, job, err);
   } finally {
+    releaseOutputReservation(engine, job);
     engine._active.delete(job.id);
   }
+}
+
+/** Libera o nome reservado por este job (inclusive o renomeado na extração). */
+function releaseOutputReservation(engine, job) {
+  const reserved = engine?._reservedOutputs;
+  if (!(reserved instanceof Set)) return;
+  if (job._reservedOutput) reserved.delete(job._reservedOutput);
+  if (job.meta?.output) reserved.delete(job.meta.output);
+  job._reservedOutput = null;
 }

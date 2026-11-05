@@ -14,4 +14,5 @@ export { resolveOutput } from './lifecycle/output.js';
 export { downloadLoop } from './lifecycle/download-loop.js';
 export { processSubtitles } from './lifecycle/subtitles.js';
 export { processTranscription } from './lifecycle/transcription.js';
+export { processAudioExtract } from './lifecycle/audio-extract.js';
 export { extensionFor } from './lifecycle/extension.js';

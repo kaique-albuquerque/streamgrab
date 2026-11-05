@@ -115,3 +115,36 @@
 .batch-summary.error {
   color: var(--danger);
 }
+.batch-names {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.batch-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.batch-name-index {
+  min-width: 20px;
+  text-align: right;
+  color: var(--muted, #8b949e);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.batch-name-row input {
+  flex: 1;
+  min-width: 120px;
+}
+.batch-names-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted, #8b949e);
+  margin-bottom: 2px;
+}

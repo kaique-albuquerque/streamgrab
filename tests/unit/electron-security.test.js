@@ -827,6 +827,24 @@ test('validateBatchEnqueuePayload aceita payload de lote valido e sanitiza opcoe
   assert.equal(out.embedSubs, true);
 });
 
+test('validateBatchEnqueuePayload sanitiza nomes por arquivo (alinhados às URLs)', () => {
+  const out = validateBatchEnqueuePayload({
+    urls: ['https://example.com/1', 'invalid-url', 'https://example.com/3'],
+    names: ['Aula 01', 'ignorado', 'A/B:C*D?'],
+  });
+  assert.deepEqual(out.urls, ['https://example.com/1', 'https://example.com/3']);
+  assert.deepEqual(out.names, ['Aula 01', ''], 'nome com separadores é descartado');
+
+  const semNomes = validateBatchEnqueuePayload({ urls: ['https://example.com/1'] });
+  assert.deepEqual(semNomes.names, ['']);
+
+  const perigoso = validateBatchEnqueuePayload({
+    urls: ['https://example.com/1'],
+    names: ['../../etc/passwd'],
+  });
+  assert.equal(perigoso.names[0], '', 'nome com traversal não passa');
+});
+
 test('validateBatchEnqueuePayload rejeita payloads sem URLs validas ou com outputDir perigoso', () => {
   assert.equal(validateBatchEnqueuePayload(null), null);
   assert.equal(validateBatchEnqueuePayload({}), null);
@@ -938,6 +956,14 @@ test('validateSettingsPayload aceita clipboardWatch como boolean (toggle do watc
   assert.deepEqual(validateSettingsPayload({ clipboardWatch: false }), { clipboardWatch: false });
   assert.deepEqual(validateSettingsPayload({ clipboardWatch: true }), { clipboardWatch: true });
   assert.equal(validateSettingsPayload({ clipboardWatch: 'nao' }), null);
+});
+
+test('validateSettingsPayload aceita audioExtract (off/m4a/mp3)', () => {
+  assert.deepEqual(validateSettingsPayload({ audioExtract: 'm4a' }), { audioExtract: 'm4a' });
+  assert.deepEqual(validateSettingsPayload({ audioExtract: 'MP3' }), { audioExtract: 'mp3' });
+  assert.deepEqual(validateSettingsPayload({ audioExtract: 'off' }), { audioExtract: 'off' });
+  assert.equal(validateSettingsPayload({ audioExtract: 'flac' }), null);
+  assert.equal(validateSettingsPayload({ audioExtract: true }), null);
 });
 
 test('validateSettingsPayload rejeita payloads inválidos', () => {

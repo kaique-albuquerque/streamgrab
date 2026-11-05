@@ -4,7 +4,10 @@
  */
 
 import { RUNNING_STATES, TERMINAL_STATES, isNonTerminal } from '../constants.js';
-import { seedOrder } from '../ordering.js';
+import { seedOrder, allJobs } from '../ordering.js';
+
+/** Quantos jobs terminados a UI mantém visíveis (os mais recentes). */
+const MAX_TERMINAL_VISIBLE = 100;
 
 function jobNotFound(id) {
   const err = new Error(`Job nao encontrado: ${id}`);
@@ -22,8 +25,15 @@ export function createJobsApi({ engine, state, jobs, pump }) {
       return jobs().filter(isNonTerminal);
     },
 
+    /** Snapshot da UI: inclui jobs concluídos/falhos (com o limite de exibição). */
     all() {
-      return jobs().map((j) => ({ ...j, meta: { ...j.meta } }));
+      const ordered = allJobs(state.order, engine);
+      const terminal = ordered.filter((j) => !isNonTerminal(j));
+      const excess = Math.max(0, terminal.length - MAX_TERMINAL_VISIBLE);
+      const hidden = new Set(terminal.slice(0, excess).map((j) => j.id));
+      return ordered
+        .filter((j) => !hidden.has(j.id))
+        .map((j) => ({ ...j, meta: { ...j.meta } }));
     },
 
     get(id) { return engine.getJob(id); },

@@ -122,6 +122,7 @@ Regras:
 
 ## Estilo
 
+- **Nenhum arquivo acima de ~150 linhas.** Se um módulo passar disso, extraia uma responsabilidade para `./<feature>/*.js` e mantenha o barrel. Valide com `npm run analisar:linhas` (relatório em `relatorio-arquivos-grandes.md`).
 - ESLint + Prettier: `npm run lint` deve terminar com **0 erros** (os 6 avisos pré-existentes são baseline e não devem aumentar).
 - ESM (`"type": "module"`); sem transpilação.
 - Sem TypeScript nesta migração (reavaliado no roadmap).
