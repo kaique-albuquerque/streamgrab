@@ -38,23 +38,24 @@ test('parseBatchUrls retorna [] para entrada inválida', () => {
 // ---------------------------------------------------------------------------
 
 test('buildFilename usa o título quando disponível', () => {
-  assert.equal(buildFilename({ title: 'Minha Aula', url: 'https://x.com/a.m3u8' }), 'Minha Aula.mp4');
+  assert.equal(buildFilename({ title: 'Minha Aula', url: 'https://x.com/a.m3u8' }), 'Minha Aula');
 });
 
 test('buildFilename sanitiza caracteres inválidos do título', () => {
-  assert.equal(buildFilename({ title: 'A/B:C*D?', url: 'https://x.com/a.m3u8' }), 'A_B_C_D_.mp4');
+  assert.equal(buildFilename({ title: 'A/B:C*D?', url: 'https://x.com/a.m3u8' }), 'A_B_C_D_');;
 });
 
 test('buildFilename deriva do path da URL quando não há título', () => {
-  assert.equal(buildFilename({ title: '', url: 'https://x.com/videos/aula-01.m3u8' }), 'aula-01.mp4');
+  assert.equal(buildFilename({ title: '', url: 'https://x.com/videos/aula-01.m3u8' }), 'aula-01');;
 });
 
 test('buildFilename usa "video" como fallback final', () => {
-  assert.equal(buildFilename({ title: '', url: 'https://x.com/' }), 'video.mp4');
+  assert.equal(buildFilename({ title: '', url: 'https://x.com/' }), 'video-1');;
 });
 
-test('buildFilename não duplica extensão .mp4', () => {
-  assert.equal(buildFilename({ title: 'aula.mp4', url: 'https://x.com/a.m3u8' }), 'aula.mp4');
+test('buildFilename remove extensão de mídia (o engine define a final)', () => {
+  assert.equal(buildFilename({ title: 'aula.mp4', url: 'https://x.com/a.m3u8' }), 'aula');
+  assert.equal(buildFilename({ title: 'aula.ts', url: 'https://x.com/a.ts' }), 'aula');
 });
 
 // ---------------------------------------------------------------------------
@@ -155,5 +156,5 @@ test('processBatch passa outputDir e options ao enqueue', async () => {
 
   assert.equal(captured.outputDir, '/tmp/videos');
   assert.equal(captured.options.turbo, true);
-  assert.equal(captured.filename, 'V.mp4');
+  assert.equal(captured.filename, 'V');
 });

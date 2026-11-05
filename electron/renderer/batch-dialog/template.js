@@ -25,7 +25,17 @@ export const MODAL_HTML = `
           <input data-field="turbo" type="checkbox" />
           <span>⚡ Turbo — download paralelo por partes</span>
         </label>
+        <label class="batch-field batch-field-inline">
+          <span class="batch-label">Áudio deste lote:</span>
+          <select data-field="audioExtract">
+            <option value="off">desligado (baixar vídeo)</option>
+            <option value="m4a">M4A — só áudio (vídeo removido)</option>
+            <option value="mp3">MP3 — só áudio (vídeo removido)</option>
+          </select>
+        </label>
       </div>
+
+      <div class="batch-names" data-field="names" hidden></div>
 
       <div class="batch-summary" data-field="summary">
         Cole as URLs acima. Cada vídeo será analisado e adicionado à fila.

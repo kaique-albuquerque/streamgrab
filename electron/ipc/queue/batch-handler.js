@@ -4,7 +4,8 @@
 
 import { BrowserWindow, ipcMain } from 'electron';
 import { validateBatchEnqueuePayload } from '../../security.js';
-import { addRevealRoot, getServices } from '../state.js';
+import { loadConfig, applyProviderHeaders } from '../../../src/cli/config.js';
+import { addRevealRoot, getServices, PROJECT_ROOT } from '../state.js';
 import { analyzePlaylist } from '../playlist-handlers.js';
 import { enqueueDownload } from './enqueue.js';
 
@@ -29,16 +30,32 @@ export function registerBatchEnqueueHandler() {
 
     const { processBatch } = await import('../../../src/batch.js');
 
+    // Análise com os mesmos headers/cookies do download: sem isso, fontes
+    // autenticadas devolvem 403/HTML e o lote fica sem título (ou estoura o
+    // timeout de análise), mesmo que o download em si use a config.
+    const config = loadConfig(PROJECT_ROOT, { log: () => {} });
+    const auth = {
+      cookiesFile: config.cookiesFile || '',
+      cookiesFromBrowser: config.cookiesFromBrowser || '',
+    };
+
     return processBatch({
       urls: payload.urls,
+      names: payload.names,
       outputDir: payload.outputDir,
       options: {
         turbo: payload.turbo,
+        audioExtract: payload.audioExtract || '',
         allAudio: payload.allAudio,
         subtitleLanguages: payload.subtitleLanguages,
         embedSubs: payload.embedSubs,
       },
-      analyze: (url) => analyzePlaylist({ url, headers: {}, auth: {} }),
+      analyze: (url) =>
+        analyzePlaylist({
+          url,
+          headers: applyProviderHeaders({ url, headers: config.headers, argv: ['--hotmart'] }),
+          auth,
+        }),
       enqueue: (item) =>
         enqueueDownload({
           url: item.url,
@@ -46,6 +63,7 @@ export function registerBatchEnqueueHandler() {
           title: item.title,
           outputDir: item.outputDir,
           turbo: item.options?.turbo === true,
+          audioExtract: item.options?.audioExtract || '',
           allAudio: item.options?.allAudio === true,
           subtitleLanguages: item.options?.subtitleLanguages || [],
           embedSubs: item.options?.embedSubs === true,
