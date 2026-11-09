@@ -13,6 +13,14 @@ import { resolveOutputFiles, readTranscription } from './output-files.js';
 import { cleanupDir, formatElapsed } from './fs-utils.js';
 import { spawnWhisper } from './spawn.js';
 
+// Número ótimo de threads baseado em núcleos disponíveis (mínimo 4, máximo 12)
+function getOptimalThreadCount() {
+  const cpus = os.cpus?.() || [];
+  const count = cpus.length;
+  // Usa até 50% dos núcleos, com teto de 12 e piso de 4
+  return Math.max(4, Math.min(12, Math.floor(count / 2)));
+}
+
 /**
  * Transcreve audio usando whisper.cpp.
  *
@@ -30,11 +38,14 @@ export async function transcribeWithCpp({
   audioPath,
   language = 'pt',
   model = DEFAULT_MODEL,
-  threads = 4,
+  threads: passedThreads = undefined,
   signal,
   onProgress,
   onLog,
 }) {
+  // Usa contagem ótima de threads baseada em núcleos de CPU,
+  // a menos que o usuário tenha especificado um valor
+  const threads = passedThreads !== undefined ? passedThreads : getOptimalThreadCount();
   const startedAt = Date.now();
 
   const { available, binPath, modelsDir } = checkWhisperCpp();
