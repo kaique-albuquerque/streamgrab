@@ -567,5 +567,5 @@ jobs:
             dist/*.blockmap
             dist/*.yml
             dist/SHA256SUMS.txt
-          generate_release_notes: true
+          generate_release_notes: false
           fail_on_unmatched_files: false
