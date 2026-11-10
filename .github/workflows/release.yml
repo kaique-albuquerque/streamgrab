@@ -188,7 +188,7 @@ jobs:
   build-macos-x64:
     name: Build installer (macOS Intel)
     needs: [test]
-    runs-on: macos-14
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v5
 
@@ -197,9 +197,8 @@ jobs:
           node-version: 22
           cache: npm
 
-      # ffmpeg-x64 estático: o runner macos-14 é arm64 — o brew instalaria um
-      # binário arm64 que NÃO roda em Macs Intel (bug pré-existente no build
-      # x64). Binário estático (eugeneware/ffmpeg-static b6.1.1) + verificação.
+      # FFmpeg x64 estático para garantir a arquitetura correta e evitar
+      # dependências de bibliotecas compartilhadas no instalador Intel.
       - name: Baixar FFmpeg x64 estático (macOS Intel)
         run: |
           mkdir -p vendor/ffmpeg
@@ -222,9 +221,8 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           YOUTUBE_DL_SKIP_DOWNLOAD: 1
           FFMPEG_SKIP_DOWNLOAD: 1
-          # O passo "Instalar whisper.cpp" é quem compila (com
-          # WHISPER_CMAKE_ARCH) — pular o postinstall evita binário
-          # nativo arm64 errado + build duplicado.
+          # O passo "Instalar whisper.cpp" compila para x86_64; pular o
+          # postinstall evita um build duplicado.
           WHISPER_SKIP_DOWNLOAD: 1
         run: npm ci 2>&1
         timeout-minutes: 10
@@ -243,7 +241,7 @@ jobs:
         run: node scripts/install-whisper.mjs 2>&1
         env:
           WHISPER_BINARY_ONLY: "1"
-          # Runner macos-14 é arm64; o instalador x64 precisa de binário x86_64.
+          # Define explicitamente a arquitetura do binário para Intel.
           WHISPER_CMAKE_ARCH: "x86_64"
         timeout-minutes: 30
 
@@ -298,7 +296,7 @@ jobs:
   build-macos-arm64:
     name: Build installer (macOS Apple Silicon)
     needs: [test]
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
 
