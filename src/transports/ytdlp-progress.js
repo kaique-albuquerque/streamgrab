@@ -13,46 +13,11 @@
  * aceita `\r` puro, e guarda a linha parcial entre chunks (o pipe corta em
  * qualquer byte).
  *
- * O download adaptativo (bestvideo+bestaudio) baixa DOIS streams com o
- * percentual voltando a zero no segundo. Aqui os streams sao agregados em um
- * unico percentual (a contagem vem do "+" em `Downloading 1 format(s): 137+140`),
- * senao a barra encheria, voltaria para 0% e encheria de novo.
+ * A agregacao dos streams (percentual voltando a zero no segundo) e a
+ * traducao de cada linha ficam em ./ytdlp-progress-parse.js.
  */
 
-const SIZE_FACTORS = {
-  b: 1,
-  kib: 1024,
-  mib: 1024 ** 2,
-  gib: 1024 ** 3,
-  tib: 1024 ** 4,
-  kb: 1000,
-  mb: 1000 ** 2,
-  gb: 1000 ** 3,
-  tb: 1000 ** 4,
-};
-
-const PROGRESS_RE = /^\[download\]\s+([\d.]+)%/;
-const SIZE_RE = /\bof\s+(?:~\s*)?([\d.]+)\s*([KMGTP]?i?B)\b/i;
-const SPEED_RE = /\bat\s+([\d.]+)\s*([KMGTP]?i?B)\/s/i;
-const ETA_RE = /\bETA\s+(\d+:\d+(?::\d+)?)/i;
-const FORMATS_RE = /Downloading\s+\d+\s+format\(s\):\s*(.+)$/;
-const DESTINATION_RE = /^\[download\]\s+Destination:/;
-const MERGER_RE = /^\[Merger\]/;
-
-function toBytes(match) {
-  if (!match) return undefined;
-  const value = Number(match[1]);
-  const factor = SIZE_FACTORS[String(match[2] || 'b').toLowerCase()];
-  if (!Number.isFinite(value) || !factor) return undefined;
-  return Math.round(value * factor);
-}
-
-function toSeconds(text) {
-  if (!text) return undefined;
-  const parts = text.split(':').map(Number);
-  if (parts.length === 0 || parts.some((n) => !Number.isFinite(n))) return undefined;
-  return parts.reduce((acc, n) => acc * 60 + n, 0);
-}
+import { aggregatePercent, classifyLine } from './ytdlp-progress-parse.js';
 
 /**
  * @param {(update: object) => void} onProgress recebe o update a cada linha.
@@ -79,14 +44,15 @@ export function createYtDlpProgressReporter(onProgress) {
   }
 
   function handleLine(line) {
-    const formats = FORMATS_RE.exec(line);
-    if (formats) {
-      const count = formats[1].trim().split(/\s*\+\s*/).filter(Boolean).length;
-      if (count > 0) formatsTotal = count;
+    const parsed = classifyLine(line);
+    if (!parsed) return;
+
+    if (parsed.kind === 'formats') {
+      if (parsed.count > 0) formatsTotal = parsed.count;
       return;
     }
 
-    if (MERGER_RE.test(line)) {
+    if (parsed.kind === 'merge') {
       if (merged) return;
       merged = true;
       onProgress({
@@ -99,7 +65,7 @@ export function createYtDlpProgressReporter(onProgress) {
       return;
     }
 
-    if (DESTINATION_RE.test(line)) {
+    if (parsed.kind === 'destination') {
       streamIndex += 1;
       if (formatsTotal > 1) {
         emit({ percent: lastPercent, message: `Baixando parte ${streamIndex} de ${formatsTotal}...` });
@@ -107,30 +73,24 @@ export function createYtDlpProgressReporter(onProgress) {
       return;
     }
 
-    const progress = PROGRESS_RE.exec(line);
-    if (!progress) return;
-    const streamPercent = Number(progress[1]);
-    if (!Number.isFinite(streamPercent)) return;
     if (streamIndex === 0) streamIndex = 1;
+    if (parsed.totalBytes !== undefined) lastTotalBytes = parsed.totalBytes;
 
-    const totalBytes = toBytes(SIZE_RE.exec(line));
-    if (totalBytes !== undefined) lastTotalBytes = totalBytes;
-    const speed = toBytes(SPEED_RE.exec(line));
-    const etaSeconds = toSeconds(ETA_RE.exec(line)?.[1]);
-
-    const streams = Math.max(formatsTotal, streamIndex, 1);
-    const percent = Math.min(
-      100,
-      Math.round((((streamIndex - 1) + Math.min(100, streamPercent) / 100) / streams) * 1000) / 10,
-    );
+    const percent = aggregatePercent({
+      streamIndex,
+      streamPercent: parsed.percent,
+      streams: Math.max(formatsTotal, streamIndex, 1),
+    });
     lastPercent = percent;
 
     emit({
       percent,
-      bytesDownloaded: totalBytes === undefined ? undefined : Math.round((streamPercent / 100) * totalBytes),
-      totalBytes,
-      speed,
-      etaSeconds,
+      bytesDownloaded: parsed.totalBytes === undefined
+        ? undefined
+        : Math.round((parsed.percent / 100) * parsed.totalBytes),
+      totalBytes: parsed.totalBytes,
+      speed: parsed.speed,
+      etaSeconds: parsed.etaSeconds,
     });
   }
 
