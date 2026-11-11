@@ -68,17 +68,26 @@ function mapYtDlpFormat(format) {
 
 function buildAnalysis(fixture) {
   const formats = fixture.formats.filter((f) => f.url).map(mapYtDlpFormat);
+  const progressiveFormats = formats.filter((f) => f.hasVideo && f.hasAudio);
+  const adaptiveVideoFormats = formats.filter((f) => f.hasVideo && !f.hasAudio);
   return {
     kind: 'ytdlp',
     pageUrl: fixture.webpage_url,
     title: fixture.title,
     videoId: fixture.id,
     durationSeconds: fixture.duration,
-    progressiveFormats: formats.filter((f) => f.hasVideo && f.hasAudio),
+    progressiveFormats,
     adaptiveFormats: formats.filter((f) => !(f.hasVideo && f.hasAudio)),
-    adaptiveVideoFormats: formats.filter((f) => f.hasVideo && !f.hasAudio),
+    adaptiveVideoFormats,
     adaptiveAudioFormats: formats.filter((f) => !f.hasVideo && f.hasAudio),
-    variants: [],
+    // Mesma ordem de buildAnalysisFromInfo: progressivas primeiro (por URL) e
+    // depois as adaptativas (URI interna ytdlp-format:<id>).
+    variants: [
+      ...progressiveFormats.map((f) => ({ uri: f.url, height: f.height, sourceKind: 'progressive' })),
+      ...adaptiveVideoFormats.map((f) => ({
+        uri: `${ADAPTIVE_URI_PREFIX}${f.formatId}`, height: f.height, sourceKind: 'adaptive',
+      })),
+    ],
   };
 }
 
@@ -157,9 +166,20 @@ test('ytdlp prepareYtDlpDownload: URL arbitraria passa direto', async () => {
   assert.equal(prepared.downloadUrl, 'https://exemplo.com/direto.mp4');
 });
 
-test('ytdlp prepareYtDlpDownload: sem selecao lanca YTDLP_FORMAT_UNAVAILABLE', async () => {
+test('ytdlp prepareYtDlpDownload: sem selecao usa a melhor variante da analise', async () => {
+  // O download em lote enfileira sem escolher qualidade (o modal nao tem esse
+  // campo), entao selectedUrl chega vazio. O prepare deve cair na melhor
+  // variante em vez de recusar com "Nenhuma variante de download selecionada".
+  const prepared = await prepareYtDlpDownload({ analysis });
+  assert.equal(prepared.strategy, 'single');
+  assert.equal(prepared.chosenFormat.formatId, '18');
+  assert.equal(prepared.downloadUrl, progressive.url);
+});
+
+test('ytdlp prepareYtDlpDownload: sem selecao e sem variantes lanca YTDLP_FORMAT_UNAVAILABLE', async () => {
+  const semVariantes = { ...analysis, variants: [], progressiveFormats: [], adaptiveVideoFormats: [] };
   await assert.rejects(
-    prepareYtDlpDownload({ analysis }),
+    prepareYtDlpDownload({ analysis: semVariantes }),
     (err) => {
       assert.equal(err.code, YTDLP_FORMAT_UNAVAILABLE);
       return true;

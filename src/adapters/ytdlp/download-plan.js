@@ -33,6 +33,18 @@ function pickAudioFormat(analysis, audioLanguage) {
 }
 
 /**
+ * Fallback do `selectedUrl`: a melhor variante da analise.
+ *
+ * O download em lote enfileira sem escolher qualidade (o modal nao tem esse
+ * campo), entao o `selectedUrl` chega vazio. Sem isto o prepare recusava com
+ * "Nenhuma variante de download selecionada" — mesmo a analise tendo trazido
+ * variantes. A aba de video ja fazia esse fallback explicitamente.
+ */
+function bestVariantUri(analysis) {
+  return analysis?.variants?.[0]?.uri || '';
+}
+
+/**
  * Prepara o download a partir da variante escolhida no CLI/Electron.
  * - "ytdlp-format:<formatId>" -> mux (video + melhor audio) via FFmpeg
  * - URL direta (progressivo)    -> download unico
@@ -40,8 +52,10 @@ function pickAudioFormat(analysis, audioLanguage) {
  * P12.1: accepts `audioLanguage` and `allAudio` options.
  */
 export async function prepareYtDlpDownload({ analysis, selectedUrl, headers = {}, auth = {}, audioLanguage, allAudio } = {}) {
-  if (selectedUrl?.startsWith(ADAPTIVE_URI_PREFIX)) {
-    const formatId = selectedUrl.slice(ADAPTIVE_URI_PREFIX.length);
+  const chosen = selectedUrl || bestVariantUri(analysis);
+
+  if (chosen.startsWith(ADAPTIVE_URI_PREFIX)) {
+    const formatId = chosen.slice(ADAPTIVE_URI_PREFIX.length);
     const video = analysis?.adaptiveVideoFormats?.find((format) => format.formatId === formatId) || null;
     if (!video || !video.url) {
       const err = new Error(`Formato adaptativo ${formatId} nao encontrado na analise.`);
@@ -84,7 +98,7 @@ export async function prepareYtDlpDownload({ analysis, selectedUrl, headers = {}
     };
   }
 
-  const progressive = analysis?.progressiveFormats?.find((format) => format.url === selectedUrl) || null;
+  const progressive = analysis?.progressiveFormats?.find((format) => format.url === chosen) || null;
   if (progressive?.url) {
     return {
       strategy: 'single',
@@ -95,8 +109,8 @@ export async function prepareYtDlpDownload({ analysis, selectedUrl, headers = {}
     };
   }
 
-  if (selectedUrl) {
-    return { strategy: 'single', downloadUrl: selectedUrl };
+  if (chosen) {
+    return { strategy: 'single', downloadUrl: chosen };
   }
 
   const err = new Error('Nenhuma variante de download selecionada.');
