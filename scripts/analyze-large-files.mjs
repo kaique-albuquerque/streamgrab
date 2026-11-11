@@ -5,7 +5,8 @@
  * linhas (padrao: 150).
  *
  * Diretorios ignorados: node_modules, .git, dist, build, vendor, coverage,
- * tests e scripts (ferramentas/validacoes ficam de fora do relatorio).
+ * tests, scripts e graphify-out (ferramentas/validacoes e saidas geradas
+ * ficam de fora do relatorio).
  *
  * Uso:
  *   node scripts/analyze-large-files.mjs                # padrao: 150 linhas
@@ -28,7 +29,17 @@ const DEFAULT_OUT = path.join(PROJECT_ROOT, 'relatorio-arquivos-grandes.md');
 const EXTENSIONS = new Set(['.js', '.mjs', '.cjs', '.yml', '.yaml', '.css', '.html']);
 
 /** Diretorios ignorados (nome da pasta, em qualquer nivel). */
-const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'vendor', 'coverage', 'tests', 'scripts']);
+const IGNORED_DIRS = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  'vendor',
+  'coverage',
+  'tests',
+  'scripts',
+  'graphify-out',
+]);
 
 function parseArgs(argv) {
   let minLines = DEFAULT_MIN_LINES;
