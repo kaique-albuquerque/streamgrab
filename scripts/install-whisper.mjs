@@ -337,6 +337,13 @@ function hasCommand(command, args = []) {
 function getCmakeConfigureArgs() {
   const args = [];
 
+  // Essencial para geradores single-config (Ninja): neles `--config` é
+  // ignorado e a configuração vem só de CMAKE_BUILD_TYPE. Sem isto o CI
+  // (que tem Ninja no PATH) compilava um binário Debug — sem otimização,
+  // ~7x mais lento na transcrição. Inofensivo no gerador do Visual Studio,
+  // que continua usando `--config Release`.
+  args.push('-DCMAKE_BUILD_TYPE=Release');
+
   if (process.platform === 'darwin' && TARGET_ARCH) {
     // macOS cross-compile (ex.: x86_64 em runner arm64) — clang suporta
     // nativamente via CMAKE_OSX_ARCHITECTURES.
