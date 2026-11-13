@@ -27,7 +27,7 @@ export function buildFormats(media) {
       container: '',
       hasVideo: true,
       hasAudio: true,
-    }),
+    })
   );
 }
 
@@ -51,11 +51,14 @@ export function buildResolution({ url, finalUrl, mediaInfo, headers }) {
   });
 }
 
-export function buildPlan({ url, selectedUrl, headers }) {
+export function buildPlan({ url, selectedUrl, headers, analysis }) {
+  // `toLegacyPrepared` le `source.durationMs` para alimentar
+  // `job.meta.durationMs` — sem ele o FFmpeg estima o percentual por bytes.
+  const durationMs = Math.max(0, Math.round(Number(analysis?.durationSeconds || 0) * 1000));
   return createDownloadPlan({
     contractVersion: 2,
     kind: 'hls',
-    source: { manifestUrl: String(selectedUrl || url || '') },
+    source: { manifestUrl: String(selectedUrl || url || ''), ...(durationMs > 0 ? { durationMs } : {}) },
     requestContext: createHlsRequestContext(headers),
     selectedFormat: selectedUrl ? { url: String(selectedUrl) } : null,
     capabilities: hlsCapabilities(url),

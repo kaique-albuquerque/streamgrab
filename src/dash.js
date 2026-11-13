@@ -1,7 +1,9 @@
 import { normalizeHeaders, DEFAULT_USER_AGENT } from './utils.js';
 
 function stripTag(value) {
-  return String(value || '').replace(/<[^>]+>/g, '').trim();
+  return String(value || '')
+    .replace(/<[^>]+>/g, '')
+    .trim();
 }
 
 function parseAttributes(tag) {
@@ -34,6 +36,24 @@ function parseSegmentBase(repBlock) {
   };
 }
 
+const ISO8601_DURATION_RE =
+  /^P(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$/i;
+
+/**
+ * Converte `mediaPresentationDuration` (ISO 8601, ex.: `PT1M2.5S`) em segundos.
+ * Retorna 0 quando ausente ou invalido.
+ */
+export function parseIso8601Duration(value) {
+  const text = String(value || '').trim();
+  const match = ISO8601_DURATION_RE.exec(text);
+  if (!match) return 0;
+
+  const [, days, hours, minutes, seconds] = match;
+  const secondsTotal =
+    (Number(days) || 0) * 86400 + (Number(hours) || 0) * 3600 + (Number(minutes) || 0) * 60 + (Number(seconds) || 0);
+  return Number.isFinite(secondsTotal) ? secondsTotal : 0;
+}
+
 export function parseDashManifest(text, baseUrl = '') {
   const representations = [];
   const adaptationBlocks = String(text || '').match(/<AdaptationSet\b[\s\S]*?<\/AdaptationSet>/gi) || [];
@@ -45,7 +65,9 @@ export function parseDashManifest(text, baseUrl = '') {
     const adaptationAttrs = parseAttributes(adaptationTag);
     const mimeType = adaptationAttrs.mimeType || '';
     const contentType = resolveContentType(adaptationAttrs, mimeType);
-    const adaptationBase = stripTag(block.match(/<AdaptationSet\b[\s\S]*?<BaseURL\b[^>]*>([\s\S]*?)<\/BaseURL>/i)?.[1] || '');
+    const adaptationBase = stripTag(
+      block.match(/<AdaptationSet\b[\s\S]*?<BaseURL\b[^>]*>([\s\S]*?)<\/BaseURL>/i)?.[1] || ''
+    );
     // P12: extract language from AdaptationSet
     const lang = adaptationAttrs.lang || '';
     const repBlocks = block.match(/<Representation\b[\s\S]*?(?:\/>|<\/Representation>)/gi) || [];
@@ -88,6 +110,7 @@ export function parseDashManifest(text, baseUrl = '') {
     baseUrl,
     type: String(mpdAttrs.type || '').toLowerCase(),
     profiles: String(mpdAttrs.profiles || ''),
+    durationSeconds: parseIso8601Duration(mpdAttrs.mediaPresentationDuration),
     representations,
     videoRepresentations,
     audioRepresentations,

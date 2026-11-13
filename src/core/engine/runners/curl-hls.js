@@ -60,7 +60,7 @@ export async function runCurlHlsDownload(
     const { promise, stop } = startDownload({
       url: result.localPlaylist, output, headers: {},
       modeIndex: 0, extraArgs: result.extraArgs,
-      onProgress: makeFfmpegProgress((u) => onProgress?.({ ...u, stage: 'merging' }), 0),
+      onProgress: makeFfmpegProgress((u) => onProgress?.({ ...u, stage: 'merging' }), 0, { minPercent: 90 }),
     });
     const onAbort = () => stop();
     signal?.addEventListener('abort', onAbort, { once: true });

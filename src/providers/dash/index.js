@@ -32,6 +32,8 @@ function createDashMediaInfo(parsed) {
       provider: 'dash',
       title: '',
       variants: [],
+      // Duracao do MPD: percentual deterministico no FFmpeg (HLS/DASH).
+      durationSeconds: parsed.durationSeconds || 0,
     }),
     baseUrl: parsed.baseUrl || '',
     representations: parsed.representations,
@@ -99,15 +101,17 @@ export const dashProvider = {
         container: 'mp4',
         hasVideo: true,
         hasAudio: false,
-      }),
+      })
     );
   },
 
-  async prepareDownloadPlan({ url, headers }) {
+  async prepareDownloadPlan({ url, headers, analysis }) {
+    // `toLegacyPrepared` le `source.durationMs` -> `job.meta.durationMs`.
+    const durationMs = Math.max(0, Math.round(Number(analysis?.durationSeconds || 0) * 1000));
     return createDownloadPlan({
       contractVersion: 2,
       kind: 'dash',
-      source: { manifestUrl: String(url || '') },
+      source: { manifestUrl: String(url || ''), ...(durationMs > 0 ? { durationMs } : {}) },
       requestContext: createDashRequestContext(headers),
       capabilities: {
         qualitySelection: false,

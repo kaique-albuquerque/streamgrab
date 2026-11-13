@@ -70,7 +70,7 @@ export async function runTurboMuxDownload(prepared, output, headers, signal, onP
     onProgress?.({ stage: 'merging', percent: 90, message: 'Juntando video e audio com FFmpeg' });
     const { promise, stop } = startMuxDownload({
       videoInput: videoTmp, audioInput: audioTmp, output,
-      onProgress: makeFfmpegProgress((u) => onProgress?.({ ...u, stage: 'merging' }), 0),
+      onProgress: makeFfmpegProgress((u) => onProgress?.({ ...u, stage: 'merging' }), 0, { minPercent: 90 }),
     });
     const onAbort = () => stop();
     signal?.addEventListener('abort', onAbort, { once: true });

@@ -4,17 +4,37 @@
 
 import { formatBytes, formatSpeed, formatEta, escapeHtml } from './dashboard-formatters.js';
 
-export function renderDashboard({ container, active, queued, completed, failed, totalSpeedBps, etaSeconds, totalBytes, downloadedBytes, disk }) {
+export function renderDashboard({
+  container,
+  active,
+  queued,
+  completed,
+  failed,
+  totalSpeedBps,
+  etaSeconds,
+  totalBytes,
+  downloadedBytes,
+  disk,
+  getPercent,
+  getMetric,
+}) {
   const cards = [
     card('active', '🟢 Ativos', String(active.length), `${queued.length + active.length} na fila`),
     card('queue', '⏳ Na fila', String(queued.length), ''),
-    card('done', '✅ Concluídos', String(completed.length), failed.length > 0 ? `${failed.length} falharam` : '', failed.length > 0),
+    card(
+      'done',
+      '✅ Concluídos',
+      String(completed.length),
+      failed.length > 0 ? `${failed.length} falharam` : '',
+      failed.length > 0
+    ),
     card('speed', '⚡ Velocidade', formatSpeed(totalSpeedBps), ''),
     card('eta', '⏱ ETA', etaSeconds > 0 ? formatEta(etaSeconds) : '—', ''),
   ].join('');
 
   const diskHtml = disk && disk.total ? renderDisk(disk) : '';
-  const progressHtml = active.length > 0 ? renderProgress(active, totalBytes, downloadedBytes) : '';
+  const progressHtml =
+    active.length > 0 ? renderProgress(active, totalBytes, downloadedBytes, getPercent, getMetric) : '';
 
   container.innerHTML = `
     <div class="dash-grid">${cards}</div>
@@ -46,11 +66,14 @@ function renderDisk(disk) {
 }
 
 export function renderProgress(active, totalBytes, downloadedBytes, getPercent, getMetric) {
+  const pctOf = typeof getPercent === 'function' ? (job) => Number(getPercent(job)) || 0 : () => 0;
+  const metricOf = typeof getMetric === 'function' ? getMetric : () => null;
+
   const barsHtml = active
     .map((job) => {
-      const pct = Math.min(100, Math.floor(getPercent(job)));
+      const pct = Math.min(100, Math.floor(pctOf(job)));
       const filename = job.meta?.filename || job.title || 'Download';
-      const speed = getMetric(job.id, 'speed');
+      const speed = metricOf(job.id, 'speed');
       const speedHtml = speed > 0 ? `<span class="mini-job-speed">${formatSpeed(speed)}</span>` : '';
       return `
         <div class="mini-job">

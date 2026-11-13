@@ -42,7 +42,7 @@ export async function runDashSegmentedDownload(
         videoInput: prepared.videoPath,
         audioInput: prepared.audioPath,
         output,
-        onProgress: makeFfmpegProgress((u) => onProgress?.({ ...u, stage: 'merging' }), 0),
+        onProgress: makeFfmpegProgress((u) => onProgress?.({ ...u, stage: 'merging' }), 0, { minPercent: 90 }),
       });
       const onAbort = () => stop();
       signal?.addEventListener('abort', onAbort, { once: true });
