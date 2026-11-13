@@ -197,22 +197,28 @@ jobs:
           node-version: 22
           cache: npm
 
-      # FFmpeg x64 estático para garantir a arquitetura correta e evitar
-      # dependências de bibliotecas compartilhadas no instalador Intel.
-      - name: Baixar FFmpeg x64 estático (macOS Intel)
-        run: |
-          mkdir -p vendor/ffmpeg
-          curl -fsSL -o vendor/ffmpeg/ffmpeg "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-x64"
-          chmod +x vendor/ffmpeg/ffmpeg
+      # Usa o mesmo binário independente do postinstall para evitar dependências
+      # de bibliotecas instaladas pelo Homebrew na máquina de build.
+      - name: Instalar FFmpeg independente (macOS Intel)
+        run: node scripts/install-ffmpeg.mjs
         timeout-minutes: 5
 
-      - name: Verificar arquitetura do ffmpeg (x86_64)
+      - name: Verificar FFmpeg (x86_64)
         run: |
           file vendor/ffmpeg/ffmpeg
           # macOS: "x86_64" (underline); Linux: "x86-64" (hífen) — aceita os dois.
           file vendor/ffmpeg/ffmpeg | grep -qE "x86[-_]64" && ! file vendor/ffmpeg/ffmpeg | grep -q "arm64" \
             && echo "OK: ffmpeg x86_64" \
             || { echo "ERRO: ffmpeg com arquitetura errada para macOS Intel"; exit 1; }
+          vendor/ffmpeg/ffmpeg -version
+          dependencies="$(otool -L vendor/ffmpeg/ffmpeg)"
+          printf '%s\n' "$dependencies"
+          if [[ "$dependencies" == *"/opt/homebrew/"* ]] || \
+             [[ "$dependencies" == *"/usr/local/Cellar/"* ]] || \
+             [[ "$dependencies" == *"/usr/local/opt/"* ]]; then
+            echo "ERRO: FFmpeg depende de bibliotecas do Homebrew"
+            exit 1
+          fi
         shell: bash
         timeout-minutes: 1
 
@@ -258,6 +264,23 @@ jobs:
       - name: Empacotar binários (pack:resources)
         run: npm run pack:resources 2>&1
         timeout-minutes: 5
+
+      - name: Verificar FFmpeg empacotado (x86_64)
+        run: |
+          file build/extraResources/bin/ffmpeg
+          file build/extraResources/bin/ffmpeg | grep -qE "x86[-_]64" \
+            || { echo "ERRO: FFmpeg empacotado com arquitetura errada"; exit 1; }
+          build/extraResources/bin/ffmpeg -version
+          dependencies="$(otool -L build/extraResources/bin/ffmpeg)"
+          printf '%s\n' "$dependencies"
+          if [[ "$dependencies" == *"/opt/homebrew/"* ]] || \
+             [[ "$dependencies" == *"/usr/local/Cellar/"* ]] || \
+             [[ "$dependencies" == *"/usr/local/opt/"* ]]; then
+            echo "ERRO: FFmpeg empacotado depende de bibliotecas do Homebrew"
+            exit 1
+          fi
+        shell: bash
+        timeout-minutes: 1
 
       - name: Build instalador PKG x64
         run: npx electron-builder --mac --x64 --publish never 2>&1
@@ -305,15 +328,26 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Instalar FFmpeg (brew)
-        run: brew install ffmpeg 2>&1
-        timeout-minutes: 5
+      - name: Instalar FFmpeg independente (macOS Apple Silicon)
+        run: node scripts/install-ffmpeg.mjs
+        timeout-minutes: 1
 
-      - name: Copiar FFmpeg para vendor/ffmpeg/
+      - name: Verificar FFmpeg (arm64)
         run: |
-          mkdir -p vendor/ffmpeg
-          cp "$(which ffmpeg)" vendor/ffmpeg/ffmpeg
-          chmod +x vendor/ffmpeg/ffmpeg
+          file vendor/ffmpeg/ffmpeg
+          file vendor/ffmpeg/ffmpeg | grep -q "arm64" \
+            && echo "OK: ffmpeg arm64" \
+            || { echo "ERRO: ffmpeg com arquitetura errada para macOS Apple Silicon"; exit 1; }
+          vendor/ffmpeg/ffmpeg -version
+          dependencies="$(otool -L vendor/ffmpeg/ffmpeg)"
+          printf '%s\n' "$dependencies"
+          if [[ "$dependencies" == *"/opt/homebrew/"* ]] || \
+             [[ "$dependencies" == *"/usr/local/Cellar/"* ]] || \
+             [[ "$dependencies" == *"/usr/local/opt/"* ]]; then
+            echo "ERRO: FFmpeg depende de bibliotecas do Homebrew"
+            exit 1
+          fi
+        shell: bash
         timeout-minutes: 1
 
       - name: Limpar cache npm (evitar conflito x64/arm)
@@ -362,8 +396,22 @@ jobs:
         timeout-minutes: 5
 
       - name: Verificar binários empacotados
-        run: ls -lh build/extraResources/bin/ 2>&1
+        run: |
+          ls -lh build/extraResources/bin/ 2>&1
+          file build/extraResources/bin/ffmpeg
+          file build/extraResources/bin/ffmpeg | grep -q "arm64" \
+            || { echo "ERRO: FFmpeg empacotado com arquitetura errada"; exit 1; }
+          build/extraResources/bin/ffmpeg -version
+          dependencies="$(otool -L build/extraResources/bin/ffmpeg)"
+          printf '%s\n' "$dependencies"
+          if [[ "$dependencies" == *"/opt/homebrew/"* ]] || \
+             [[ "$dependencies" == *"/usr/local/Cellar/"* ]] || \
+             [[ "$dependencies" == *"/usr/local/opt/"* ]]; then
+            echo "ERRO: FFmpeg empacotado depende de bibliotecas do Homebrew"
+            exit 1
+          fi
         shell: bash
+        timeout-minutes: 1
 
       - name: Build instalador PKG arm64
         run: npx electron-builder --mac --arm64 --publish never 2>&1

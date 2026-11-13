@@ -1,5 +1,5 @@
 /**
- * Instala o FFmpeg localmente em vendor/ffmpeg/ (Windows).
+ * Instala o FFmpeg localmente em vendor/ffmpeg/ (Windows e macOS).
  *
  * Roda automaticamente no `npm install` (via script "postinstall") ou
  * manualmente com: npm run ffmpeg:install
@@ -13,6 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { getMacFfmpegUrl } from './ffmpeg-downloads.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
@@ -51,6 +52,24 @@ if (process.env.FFMPEG_SKIP_DOWNLOAD === '1') {
   process.exit(0);
 }
 
+if (process.platform === 'darwin') {
+  try {
+    const url = getMacFfmpegUrl(process.arch);
+    if (isLocalFfmpegReady()) {
+      const ver = runLocal(['-version']);
+      console.log(`[ffmpeg] Já instalado: ${BIN_PATH}`);
+      console.log(`[ffmpeg] Versão: ${formatVersion(ver)}`);
+      process.exit(0);
+    }
+
+    await installMacFfmpeg(url);
+  } catch (err) {
+    console.error(`[ffmpeg] ❌ Falha ao instalar: ${err.message}`);
+    process.exitCode = 1;
+  }
+  process.exit(process.exitCode || 0);
+}
+
 if (isLocalFfmpegReady()) {
   const ver = runLocal(['-version']);
   console.log(`[ffmpeg] Já instalado: ${BIN_PATH}`);
@@ -58,7 +77,7 @@ if (isLocalFfmpegReady()) {
   process.exit(0);
 }
 
-const pathFfmpeg = resolveOnPath('ffmpeg') || resolveHomebrewFfmpeg();
+const pathFfmpeg = resolveOnPath('ffmpeg');
 if (pathFfmpeg) {
   console.log(`[ffmpeg] FFmpeg local encontrado: ${pathFfmpeg}`);
   installLocalFromPath(pathFfmpeg);
@@ -66,8 +85,8 @@ if (pathFfmpeg) {
 }
 
 if (!FFmpeg_URLS.length) {
-  console.log('[ffmpeg] Instalação automática local suportada apenas no Windows.');
-  console.log('[ffmpeg] Em Linux/macOS, instale o FFmpeg no sistema e adicione ao PATH.');
+  console.log('[ffmpeg] Instalação automática local não suportada nesta plataforma.');
+  console.log('[ffmpeg] Em Linux, instale o FFmpeg no sistema e adicione ao PATH.');
   console.log('[ffmpeg] Exemplos: sudo apt install ffmpeg | sudo dnf install ffmpeg | brew install ffmpeg');
   process.exit(0);
 }
@@ -194,6 +213,14 @@ function runLocal(args) {
 /** Verifica se a instalação local já está pronta para uso. */
 function isLocalFfmpegReady() {
   if (!fs.existsSync(BIN_PATH) || !fs.existsSync(INSTALLED_MARKER)) return false;
+  if (process.platform === 'darwin') {
+    try {
+      const installed = JSON.parse(fs.readFileSync(INSTALLED_MARKER, 'utf8'));
+      if (installed.source !== getMacFfmpegUrl(process.arch)) return false;
+    } catch {
+      return false;
+    }
+  }
   return checkLocalBinary(BIN_PATH);
 }
 
@@ -225,6 +252,35 @@ function formatVersion(output) {
   return firstLine || '?';
 }
 
+/** Baixa e valida o FFmpeg independente para macOS. */
+async function installMacFfmpeg(url) {
+  console.log(`[ffmpeg] Baixando FFmpeg independente para macOS: ${url}`);
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
+
+  const binary = Buffer.from(await response.arrayBuffer());
+  if (!binary.length) throw new Error('O download do FFmpeg retornou um arquivo vazio.');
+
+  fs.mkdirSync(VENDOR_DIR, { recursive: true });
+  fs.writeFileSync(BIN_PATH, binary, { mode: 0o755 });
+  fs.chmodSync(BIN_PATH, 0o755);
+  if (!checkLocalBinary(BIN_PATH)) {
+    fs.rmSync(BIN_PATH, { force: true });
+    throw new Error('O FFmpeg baixado não iniciou com `-version`.');
+  }
+
+  const versionLine = getVersionLine(BIN_PATH) || 'unknown';
+  fs.writeFileSync(INSTALLED_MARKER, JSON.stringify({
+    installedAt: new Date().toISOString(),
+    source: url,
+    binary: BIN_PATH,
+    version: versionLine,
+  }, null, 2));
+  fs.writeFileSync(INSTALLED_VERSION, `${versionLine}\n`);
+  console.log(`[ffmpeg] Instalado em: ${BIN_PATH}`);
+  console.log(`[ffmpeg] Versão: ${versionLine}`);
+}
+
 /** Tenta baixar de várias fontes em ordem de preferência. */
 async function downloadFromSources(zipPath) {
   let lastError = null;
@@ -254,16 +310,6 @@ function resolveOnPath(name) {
   if (r.status !== 0) return null;
   const found = r.stdout.split(/\r?\n/).find(Boolean);
   return found ? found.trim() : null;
-}
-
-/** Localiza e copia o FFmpeg instalado pelo Homebrew no macOS. */
-function resolveHomebrewFfmpeg() {
-  if (process.platform !== 'darwin') return null;
-  const brew = spawnSync('brew', ['--prefix', 'ffmpeg'], { encoding: 'utf8', windowsHide: true });
-  if (brew.status !== 0) return null;
-  const prefix = brew.stdout.trim();
-  const candidate = path.join(prefix, 'bin', 'ffmpeg');
-  return fs.existsSync(candidate) ? candidate : null;
 }
 
 /** Copia um FFmpeg do sistema para o diretório usado pelo empacotador. */

@@ -11,7 +11,7 @@ Requisitos:
 
 - **Node.js 20+**
 - **Windows 10/11** (plataforma principal; macOS/Linux funcionam, mas não são o alvo do instalador nesta fase)
-- **FFmpeg** — no Windows é baixado automaticamente pelo `npm install` (para `vendor/ffmpeg/`); em macOS/Linux instale manualmente e adicione ao PATH
+- **FFmpeg** — baixado automaticamente pelo `npm install` no Windows e macOS (para `vendor/ffmpeg/`); no Linux, instale manualmente e adicione ao PATH
 
 ```powershell
 git clone <seu-fork>
@@ -23,7 +23,7 @@ O `postinstall` valida o Electron e o FFmpeg. Para reparar manualmente:
 
 ```powershell
 npm run electron:install   # repara/instala o Electron local
-npm run ffmpeg:install     # baixa o FFmpeg para vendor/ffmpeg (Windows)
+npm run ffmpeg:install     # baixa o FFmpeg para vendor/ffmpeg (Windows/macOS)
 ```
 
 ## Comandos úteis

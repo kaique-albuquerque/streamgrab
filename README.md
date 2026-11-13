@@ -64,10 +64,10 @@ After downloading, just upload the `.mp4` to your personal cloud (Google Drive, 
 ### Requirements
 
 - **Node.js 20+** — [nodejs.org](https://nodejs.org)
-- **Windows 10/11** (also works on macOS/Linux, but automatic FFmpeg installation is Windows-only)
-- **FFmpeg** — downloaded **automatically** by `npm install` (into `vendor/ffmpeg/`). Alternatively, install it manually and add it to your PATH.
+- **Windows 10/11** (also works on macOS/Linux)
+- **FFmpeg** — downloaded automatically by `npm install` on Windows and macOS (into `vendor/ffmpeg/`). Linux users can install it manually and add it to their PATH.
 
-> 💡 `npm install` runs a script (`postinstall`) that downloads the *essentials* build of FFmpeg (gyan.dev) and installs it locally into `vendor/ffmpeg/`. The program uses the local binary if it exists; otherwise it uses `ffmpeg` from the PATH. To install/update manually: `npm run ffmpeg:install`.
+> 💡 `npm install` runs a script (`postinstall`) that downloads FFmpeg into `vendor/ffmpeg/` (gyan.dev on Windows and an architecture-matched standalone build on macOS). The program uses the local binary if it exists; otherwise it uses `ffmpeg` from the PATH. To install/update manually: `npm run ffmpeg:install`.
 
 ---
 
@@ -603,10 +603,9 @@ npm run update:ytdlp     # updates the yt-dlp binary (all local copies)
 
 ### macOS build (PKG)
 
-The macOS installer is produced by the same **electron-builder** setup. The build must run on a Mac and requires a local FFmpeg copy in `vendor/ffmpeg/` plus the yt-dlp binary from `node_modules/youtube-dl-exec/bin/`. The install script automatically copies FFmpeg from Homebrew or the PATH into that directory; for third-party distribution, also validate native libraries and binary signing.
+The macOS installer is produced by the same **electron-builder** setup. The build must run on a Mac and requires FFmpeg in `vendor/ffmpeg/` plus the yt-dlp binary from `node_modules/youtube-dl-exec/bin/`. The install script downloads an architecture-matched standalone FFmpeg, so the app does not depend on Homebrew libraries on the build or target machine.
 
 ```bash
-brew install ffmpeg
 npm install
 npm run pack:resources
 npm run dist:mac
