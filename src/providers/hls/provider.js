@@ -17,8 +17,8 @@ async function analyze({ url, headers }) {
   return mediaInfo;
 }
 
-async function prepareDownloadPlan({ url, selectedUrl, headers }) {
-  return buildPlan({ url, selectedUrl, headers });
+async function prepareDownloadPlan({ url, selectedUrl, headers, analysis }) {
+  return buildPlan({ url, selectedUrl, headers, analysis });
 }
 
 export const hlsProvider = {

@@ -71,7 +71,20 @@ export function createQueueDashboard({ container, api, getJobProgress }) {
 
     const disk = await fetchDiskSpace();
 
-    renderDashboard({ container, active, queued, completed, failed, totalSpeedBps, etaSeconds, totalBytes, downloadedBytes, disk });
+    renderDashboard({
+      container,
+      active,
+      queued,
+      completed,
+      failed,
+      totalSpeedBps,
+      etaSeconds,
+      totalBytes,
+      downloadedBytes,
+      disk,
+      getPercent: (job) => Math.min(100, metrics.getPercent(job, getJobProgress)),
+      getMetric: metrics.getMetric,
+    });
 
     if (active.length > 0 || queued.length > 0) startAutoRefresh();
     else stopAutoRefresh();

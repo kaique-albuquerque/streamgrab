@@ -16,11 +16,25 @@ import {
 } from './shared.js';
 import { applyProgress, finishTabDownload, failTabDownload, cancelTabDownload } from './video-tab-progress.js';
 
+/** Eventos cujo payload carrega `percent` valido (speed/eta trazem 0 default). */
+const PROGRESS_EVENTS = new Set(['start', 'progress']);
+
 export function findTabForJob(appState, payload) {
   if (!payload) return null;
   if (payload.taskId) {
     const byTask = appState.tabs.get(payload.taskId);
     if (byTask) return byTask;
+  }
+  // `started` carrega o job serializado (`id`/`meta`), nao o `jobId` dos
+  // eventos de progresso — sem isso a aba nao era encontrada no inicio.
+  if (payload.id) {
+    for (const tab of appState.tabs.values()) {
+      if (tab.jobId === payload.id || tab.taskId === payload.meta?.taskId) return tab;
+    }
+  }
+  if (payload.meta?.taskId) {
+    const byMetaTask = appState.tabs.get(payload.meta.taskId);
+    if (byMetaTask) return byMetaTask;
   }
   if (payload.jobId) {
     for (const tab of appState.tabs.values()) {
@@ -31,18 +45,27 @@ export function findTabForJob(appState, payload) {
 }
 
 export function createQueueEventHandler({ appState, jobProgress, onQueueRefresh, onHistoryRefresh }) {
+  /** A aba exibe progresso apenas quando o download foi iniciado por ela. */
+  function ownsJob(tab) {
+    return Boolean(tab) && tab.busy;
+  }
+
   function handleQueueEvent(event, payload) {
     payload = payload || {};
     const tab = findTabForJob(appState, payload);
 
-    if (payload.jobId && typeof payload.percent === 'number') {
-      jobProgress.set(payload.jobId, payload.percent);
+    // Apenas eventos que realmente carregam progresso. `speed`/`eta` vem de
+    // `createProgressPayload`, que preenche `percent: 0` por default — gravar
+    // esse 0 zeraria o progresso real consumido pelo painel da Fila.
+    if (PROGRESS_EVENTS.has(event) && payload.jobId) {
+      const percent = Number(payload.percent);
+      if (Number.isFinite(percent)) jobProgress.set(payload.jobId, percent);
     }
 
     switch (event) {
       case 'started':
         if (tab) {
-          tab.jobId = payload.jobId || tab.jobId;
+          tab.jobId = payload.id || payload.jobId || tab.jobId;
           tab.jobState = 'active';
           if (tab.busy) {
             tab.panel.classList.add('downloading');
@@ -54,16 +77,19 @@ export function createQueueEventHandler({ appState, jobProgress, onQueueRefresh,
         break;
       case 'start':
       case 'progress':
-        if (tab && tab.busy) applyProgress(tab, payload);
+        if (ownsJob(tab)) {
+          tab.panel.classList.add('downloading');
+          applyProgress(tab, payload);
+        }
         break;
       case 'speed':
-        if (tab && tab.busy && payload.speed != null && payload.speed !== '') {
+        if (ownsJob(tab) && payload.speed != null && payload.speed !== '') {
           tab.metrics.speed = formatKbps(Number(payload.speed) * 8) || 'N/A';
           syncMetrics(tab);
         }
         break;
       case 'eta':
-        if (tab && tab.busy && payload.etaSeconds != null) {
+        if (ownsJob(tab) && payload.etaSeconds != null) {
           tab.metrics.time = formatDuration(payload.etaSeconds);
           syncMetrics(tab);
         }

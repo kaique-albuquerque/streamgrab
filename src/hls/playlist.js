@@ -1,4 +1,5 @@
 import { parseAttributes } from './attributes.js';
+import { parseSegmentPlaylist } from './segments.js';
 
 const STREAM_INF_RE = /^#EXT-X-STREAM-INF:(.*)$/;
 const MEDIA_RE = /^#EXT-X-MEDIA:(.*)$/;
@@ -31,7 +32,9 @@ export function parsePlaylistText(text, baseUrl = '') {
     }
     if (!uri) continue;
 
-    const [w, h] = String(attrs.RESOLUTION || '').split('x').map(Number);
+    const [w, h] = String(attrs.RESOLUTION || '')
+      .split('x')
+      .map(Number);
     variants.push({
       uri,
       resolution: attrs.RESOLUTION || '',
@@ -88,7 +91,10 @@ export function parsePlaylistText(text, baseUrl = '') {
   }
 
   if (text.includes('#EXTINF') || text.includes('#EXT-X-TARGETDURATION')) {
-    return { kind: 'media', audioTracks: [], subtitleTracks: [] };
+    // Duracao total da playlist de segmentos: permite percentual
+    // deterministico no FFmpeg (out_time / duracao) em vez de estimativa.
+    const { totalDuration } = parseSegmentPlaylist(text);
+    return { kind: 'media', durationSeconds: totalDuration, audioTracks: [], subtitleTracks: [] };
   }
 
   return { kind: 'unknown', audioTracks: [], subtitleTracks: [] };

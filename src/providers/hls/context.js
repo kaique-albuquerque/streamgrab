@@ -21,6 +21,9 @@ export function createHlsMediaInfo(parsed) {
       provider: 'hls',
       title: '',
       variants: parsed.variants,
+      // Playlist de segmentos traz a duracao total via #EXTINF — usada para
+      // percentual deterministico no FFmpeg (HLS/DASH).
+      durationSeconds: parsed.durationSeconds || 0,
     }),
     baseUrl: parsed.baseUrl || '',
   };
