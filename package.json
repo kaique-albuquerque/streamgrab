@@ -1,6 +1,6 @@
 {
   "name": "streamgrab",
-  "version": "1.3.7",
+  "version": "1.3.8",
   "description": "Universal video downloader for HLS, DASH, YouTube and other supported sources.",
   "author": {
     "name": "Kaique Albuquerque",
@@ -104,4 +104,3 @@
     "electron@37.10.3": true
   }
 }
-
