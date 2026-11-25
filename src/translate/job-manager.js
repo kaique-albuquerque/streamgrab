@@ -11,16 +11,20 @@
 import { createJobQueue, createJsonJobStorage, JOB_STATUS } from '../core/job-queue.js';
 import { DEFAULT_TRANSLATE_MODEL, isKnownTranslateModel } from './model-manager.js';
 
+/** Alvo de leitura padrão (caracteres por segundo). */
+export const DEFAULT_CHARS_PER_SECOND = 17;
+
 export { createJsonJobStorage, JOB_STATUS };
 
 /** Cria o job de tradução a partir dos params recebidos. */
-function makeTranslateJob(ctx, { srtPath, targetLang = 'pt', model = DEFAULT_TRANSLATE_MODEL } = {}) {
+function makeTranslateJob(ctx, { srtPath, targetLang = 'pt', model = DEFAULT_TRANSLATE_MODEL, charsPerSecond = DEFAULT_CHARS_PER_SECOND } = {}) {
   ctx.idCounter++;
   return {
     jobId: `tl_${ctx.now().toString(36)}_${ctx.idCounter}`,
     srtPath,
     targetLang,
     model: isKnownTranslateModel(model) ? model : DEFAULT_TRANSLATE_MODEL,
+    charsPerSecond: Number.isFinite(charsPerSecond) ? charsPerSecond : DEFAULT_CHARS_PER_SECOND,
     status: JOB_STATUS.QUEUED,
     attempts: 0,
     stage: 'queued',
@@ -39,9 +43,9 @@ function makeTranslateJob(ctx, { srtPath, targetLang = 'pt', model = DEFAULT_TRA
  * Runner padrão: chama `translateSubtitle` e converte o resultado no formato
  * que o núcleo espera (`{ files, engine }`).
  */
-export async function defaultTranslateRunner({ srtPath, targetLang, model, signal, onProgress, onLog }) {
+export async function defaultTranslateRunner({ srtPath, targetLang, model, charsPerSecond, signal, onProgress, onLog }) {
   const { translateSubtitle } = await import('./index.js');
-  const result = await translateSubtitle({ srtPath, targetLang, model, signal, onProgress, onLog });
+  const result = await translateSubtitle({ srtPath, targetLang, model, charsPerSecond, signal, onProgress, onLog });
   return {
     files: [{ path: result.outputPath, format: 'srt', size: 0 }],
     engine: 'llama-cpp',

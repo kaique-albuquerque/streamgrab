@@ -5,12 +5,28 @@
 import { ipcMain } from 'electron';
 import { friendlyReport } from '../../../src/core/errors.js';
 import { validateTranslateJobPayload, validateTranslateStartPayload } from '../../security.js';
-import { addRevealRoot, getAllowedRevealRoots } from '../state.js';
+import { addRevealRoot, getAllowedRevealRoots, getServices } from '../state.js';
 import { ensureJobManager } from './job-manager-provider.js';
 import { TRANSLATE_MODEL_MANAGER_MODULE, bindTranslateModelsDir, invalidPayloadResponse } from './shared.js';
 import path from 'node:path';
 
 const INVALID_JOB = ['Job de tradução inválido.', 'Recarregue a aba e tente novamente.'];
+
+/** Alvo de leitura padrão (caracteres por segundo). */
+const DEFAULT_CHARS_PER_SECOND = 17;
+
+/**
+ * Lê `translateCharsPerSecond` dos settings (default 17).
+ *
+ * O setting é validado/clampado em `src/core/settings/coerce.js` (10..40);
+ * aqui só lemos o valor efetivo.
+ */
+function readCharsPerSecond() {
+  const value = getServices()?.settings?.get('translateCharsPerSecond');
+  const n = Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_CHARS_PER_SECOND;
+  return Math.min(40, Math.max(10, n));
+}
 
 /** `translate:start` — enfileira tradução no job manager. */
 export function registerStartHandler() {
@@ -38,7 +54,7 @@ export function registerStartHandler() {
 
     try {
       const manager = await ensureJobManager();
-      const job = manager.enqueue(payload);
+      const job = manager.enqueue({ ...payload, charsPerSecond: readCharsPerSecond() });
       return { ok: true, jobId: job.jobId, job };
     } catch (err) {
       return invalidPayloadResponse(
