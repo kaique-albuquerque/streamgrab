@@ -86,7 +86,9 @@
     "transcription",
     "whisper",
     "speech-to-text",
-    "notebooklm"
+    "notebooklm",
+    "mkv",
+    "container"
   ],
   "license": "MIT",
   "devDependencies": {
@@ -104,4 +106,3 @@
     "electron@37.10.3": true
   }
 }
-

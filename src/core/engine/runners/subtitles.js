@@ -8,7 +8,7 @@ import path from 'node:path';
 
 import { normalizeHeaders, DEFAULT_USER_AGENT } from '../../../utils.js';
 import { ffmpegService } from '../../../ffmpeg/service.js';
-import { containerOutputArgs, normalizeContainer } from '../lifecycle/container.js';
+import { buildEmbedArgs, copySidecars, unlinkQuietly } from './subtitles-embed.js';
 
 /**
  * Downloads and optionally embeds subtitles into a video file.
@@ -76,51 +76,14 @@ export async function embedSubtitles({
       return { ok: true };
     }
 
-    // Soft subs: copy files next to video
+    // Soft subs: salva os arquivos ao lado do video.
     if (!embedSubs) {
-      const videoDir = path.dirname(videoPath);
-      const videoBase = path.basename(videoPath, path.extname(videoPath));
-      for (const sub of subFiles) {
-        const dest = path.join(videoDir, `${videoBase}.${sub.language}${path.extname(sub.file)}`);
-        await fs.promises.copyFile(sub.file, dest).catch(() => {});
-      }
+      await copySidecars(videoPath, subFiles);
       onLog?.(`[subs] ${subFiles.length} legenda(s) salva(s) ao lado do video`);
       return { ok: true };
     }
 
-    // Embed por contêiner: MP4 queima (hardcode), MKV usa faixa (soft subs).
-    const container = normalizeContainer(path.extname(videoPath).slice(1));
-    const ext = path.extname(videoPath);
-    // O temp preserva a extensão final: um `.mkv` nunca recebe conteúdo MP4.
-    const tmpOutput = `${videoPath}.subbed${ext}`;
-
-    const inputs = ['-i', videoPath];
-    for (const sub of subFiles) inputs.push('-i', sub.file);
-
-    const ffmpegArgs = [
-      '-hide_banner', '-loglevel', 'error', '-nostats', '-y',
-      ...inputs, '-progress', 'pipe:1',
-    ];
-
-    if (container === 'mkv') {
-      // Legenda como faixa, sem re-encode do vídeo.
-      ffmpegArgs.push('-map', '0', '-c:v', 'copy', '-c:a', 'copy');
-      for (let i = 0; i < subFiles.length; i++) {
-        ffmpegArgs.push('-map', `${i + 1}:0`, '-c:s', 'srt');
-        ffmpegArgs.push(`-metadata:s:s:${i}`, `language=${subFiles[i].language}`);
-      }
-    } else {
-      // Hardcode (comportamento histórico do MP4).
-      const filters = subFiles.map((sub) => {
-        const escaped = sub.file.replace(/'/g, "\\'").replace(/:/g, '\\:');
-        return `subtitles='${escaped}':force_style='FontSize=24'`;
-      });
-      ffmpegArgs.push('-vf', filters.join(','));
-      ffmpegArgs.push('-c:v', 'libx264', '-crf', '18', '-preset', 'fast');
-      ffmpegArgs.push('-c:a', 'copy', ...containerOutputArgs(container));
-    }
-
-    ffmpegArgs.push(tmpOutput);
+    const { args: ffmpegArgs, container, tmpOutput } = buildEmbedArgs({ videoPath, subFiles });
     onLog?.(`[subs] embutindo ${subFiles.length} legenda(s) no video (${container}) via FFmpeg`);
 
     const { promise, stop } = ffmpegRun({ args: ffmpegArgs, onProgress: null });
@@ -129,19 +92,14 @@ export async function embedSubtitles({
     try {
       const result = await promise;
       if (signal?.aborted) {
-        try { await fs.promises.unlink(tmpOutput).catch(() => {}); } catch { /* ignora */ }
+        unlinkQuietly(tmpOutput);
         return { ok: false, error: 'Operacao cancelada.' };
       }
       if (!result.ok) {
-        try { await fs.promises.unlink(tmpOutput).catch(() => {}); } catch { /* ignora */ }
+        unlinkQuietly(tmpOutput);
         onLog?.(`[subs] FFmpeg embed falhou (code=${result.code}): ${String(result.stderr || '').slice(0, 300)}`);
-        // Fallback: soft subs
-        const videoDir = path.dirname(videoPath);
-        const videoBase = path.basename(videoPath, path.extname(videoPath));
-        for (const sub of subFiles) {
-          const dest = path.join(videoDir, `${videoBase}.${sub.language}${path.extname(sub.file)}`);
-          await fs.promises.copyFile(sub.file, dest).catch(() => {});
-        }
+        // Fallback: salva as legendas ao lado (nunca sobrescreve com outro container).
+        await copySidecars(videoPath, subFiles);
         return { ok: true };
       }
       await fs.promises.rename(tmpOutput, videoPath);

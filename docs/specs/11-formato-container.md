@@ -1,7 +1,7 @@
 # Spec: Formato de Contêiner Configurável (MP4 / MKV)
 
 > **ID:** SPEC-11
-> **Status:** Rascunho aprovado para planejamento
+> **Status:** Implementado
 > **Prioridade:** Média
 > **Impacto:** 🔥🔥
 > **Esforço:** Médio
