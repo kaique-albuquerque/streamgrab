@@ -28,3 +28,9 @@ export {
 } from './security-payloads-app.js';
 
 export { validateTranscribePayload, validateTranscribeJobPayload, validateModelPayload } from './security-payloads-transcribe.js';
+
+export {
+  validateTranslateStartPayload,
+  validateTranslateJobPayload,
+  validateTranslateModelPayload,
+} from './security-payloads-translate.js';

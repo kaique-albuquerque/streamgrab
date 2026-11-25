@@ -12,7 +12,7 @@
  *   await downloadTranslateModel({ model: 'qwen3-4b', onProgress });
  */
 
-import { downloadModel, getModelStatus, listModels } from '../transcribe/model-manager.js';
+import { deleteModel, downloadModel, getModelStatus, listModels } from '../transcribe/model-manager.js';
 import {
   DEFAULT_TRANSLATE_MODEL,
   TRANSLATE_MODEL_CATALOG,
@@ -75,4 +75,14 @@ export function getTranslateModelStatus(model = DEFAULT_TRANSLATE_MODEL, { model
 /** Status de todos os modelos de tradução, na ordem de exibição. */
 export function listTranslateModels({ modelsDir } = {}) {
   return listModels(modelsDir || getTranslateModelsDir(), { catalog: TRANSLATE_MODEL_CATALOG });
+}
+
+/**
+ * Exclui os arquivos de um modelo de tradução (modelo, `.part` e marcador).
+ *
+ * @param {string} modelsDir - Diretório gravável
+ * @param {string} model - Chave do catálogo
+ */
+export function deleteTranslateModel(modelsDir, model) {
+  return deleteModel(modelsDir || getTranslateModelsDir(), model, { catalog: TRANSLATE_MODEL_CATALOG });
 }

@@ -39,6 +39,21 @@ export function registerAppHandlers(clipboardWatcher) {
     return filePath;
   });
 
+  // Seletor de legenda para tradução (SPEC-10).
+  ipcMain.handle('app:pick-subtitle-file', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [
+        { name: 'Legendas', extensions: ['srt'] },
+        { name: 'Todos os arquivos', extensions: ['*'] },
+      ],
+    });
+    if (result.canceled || !result.filePaths[0]) return null;
+    const filePath = result.filePaths[0];
+    addRevealRoot(path.dirname(filePath));
+    return filePath;
+  });
+
   ipcMain.handle('app:resolve-paths', async () => {
     const defaultDownloads = (await import('electron')).app.getPath('downloads');
     addRevealRoot(defaultDownloads);
