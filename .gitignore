@@ -26,3 +26,6 @@ test-output*.txt
 
 # Pasta padrao p/ relatorios futuros de testes (npm test > test-results/...)
 test-results/
+
+# Worktrees isolados (superpowers:using-git-worktrees)
+.worktrees/
