@@ -52,7 +52,10 @@ test('translateSubtitle escreve .pt.srt ao lado e preserva tempos', async () => 
   });
 
   assert.equal(result.outputPath, path.join(dir, 'v.transcription.pt.srt'));
-  assert.match(fs.readFileSync(result.outputPath, 'utf8'), /-->/);
+  const out = fs.readFileSync(result.outputPath, 'utf8');
+  assert.match(out, /-->/);
+  assert.match(out, /Ola/);
+  assert.doesNotMatch(out, /Hello/);
   assert.equal(result.segments, 1);
 });
 

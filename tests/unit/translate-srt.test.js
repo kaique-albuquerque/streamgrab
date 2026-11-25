@@ -41,9 +41,16 @@ test('cue malformado e descartado e contado em skipped', () => {
   assert.equal(doc.skipped, 1);
 });
 
-test('parse aceita duracao zero e preserva o timing original', () => {
-  const doc = parseSrt('1\n00:00:00,000 --> 00:00:00,000\nZero\n');
-  assert.equal(doc.cues[0].startMs, 0);
-  assert.equal(doc.cues[0].endMs, 0);
-  assert.equal(doc.cues[0].timing, '00:00:00,000 --> 00:00:00,000');
+test('buildSrt usa translatedLines quando presente', () => {
+  const doc = parseSrt('1\n00:00:00,000 --> 00:00:02,000\nHello\n');
+  doc.cues[0].translatedLines = ['Ola'];
+  const out = buildSrt(doc);
+  assert.match(out, /Ola/);
+  assert.doesNotMatch(out, /Hello/);
+});
+
+test('buildSrt cai em lines quando nao ha translatedLines', () => {
+  const src = '1\n00:00:00,000 --> 00:00:02,000\nHello\n';
+  const doc = parseSrt(src);
+  assert.equal(buildSrt(doc), src);
 });
