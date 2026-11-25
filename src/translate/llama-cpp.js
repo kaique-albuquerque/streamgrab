@@ -9,3 +9,4 @@
 
 export { checkLlamaCpp } from './llama-cpp/detect.js';
 export { startServer, SERVER_START_TIMEOUT_MS } from './llama-cpp/server.js';
+export { chatJson, ChatJsonError } from './llama-cpp/chat.js';
