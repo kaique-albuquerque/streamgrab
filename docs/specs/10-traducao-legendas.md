@@ -1,7 +1,7 @@
 # Spec: Tradução Local de Legendas com LLM
 
 > **ID:** SPEC-10
-> **Status:** Rascunho aprovado para planejamento
+> **Status:** Implementado
 > **Prioridade:** Média
 > **Impacto:** 🔥🔥
 > **Esforço:** Médio-Alto

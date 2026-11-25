@@ -87,6 +87,8 @@
     "transcription",
     "whisper",
     "speech-to-text",
+    "translation",
+    "llama-cpp",
     "notebooklm"
   ],
   "license": "MIT",
