@@ -19,21 +19,6 @@ llama.cpp `b12676` (assets pré-compilados), GGUF Q4_K_M.
 
 **Spec:** `docs/specs/10-traducao-legendas.md`
 
-## Emendas aplicadas (revisão de viabilidade)
-
-Seis emendas foram incorporadas ao plano após conferência contra o código atual.
-Elas não mudam o objetivo nem a arquitetura — corrigem premissas que não se
-confirmaram e pontos de integração que o plano original não cobria.
-
-| # | Onde | Problema encontrado | Emenda |
-|---|------|---------------------|--------|
-| 1 | Task 1, Step 2–3 | `engine.js:startJob()` chama o runner com campos fixos de transcrição; `snapshot()` é transcrição-específico | `createRunner(ctx)` e `snapshotJob(job)` injetáveis; núcleo passa `{ job }` |
-| 2 | Task 3, Step 8 | `core-settings.test.js` faz `deepEqual` na lista **exata** de chaves — quebra ao adicionar as novas | Atualizar o array do teste junto |
-| 3 | Task 3, Step 8 | `SETTINGS_KEYS` em `security-payloads-queue/settings.js` é allowlist explícita — descarta as chaves novas | Adicionar as duas chaves + validação |
-| 4 | Task 4, Step 5 | `postinstall` e `release.yml` não instalam o `llama-server` — instalador sairia sem o binário | Acrescentar etapa no `postinstall` e nos 4 jobs de build; `LLAMA_SKIP_DOWNLOAD=1` no job de teste |
-| 5 | Task 13, Step 3 | `src/index.js` tem `prompter?.close()` fora de escopo — `ReferenceError` no Ctrl+C/erro | Mover `prompter` para módulo-level ou remover dos handlers; teste de regressão |
-| 6 | Global Constraints | `llama-server` com `--port 0` exige ler a porta efetiva do log — parte mais frágil | Já previsto no Task 5; reforçado no Review Focus |
-
 ## Global Constraints
 
 - 100% local: nenhuma chamada de rede exceto o download do modelo (Hugging Face)
@@ -76,21 +61,6 @@ confirmaram e pontos de integração que o plano original não cobria.
 5. **SRT com BOM ou CRLF:** o primeiro índice sai como `\uFEFF1` e a linha de
    tempo quebra; cues viram lixo. Esperado: BOM removido e `\r\n` normalizado
    antes do parse.
-6. **Refatoração da fila (Task 1) muda comportamento de transcrição:** o
-   `runner` do núcleo recebe `{ job }` em vez dos campos soltos, e o `snapshotJob`
-   é injetável. Esperado: `tests/unit/transcribe-job-manager.test.js` passa
-   **sem nenhuma edição** — se algum teste precisar mudar, a refatoração vazou
-   semântica e deve ser refeita antes de seguir.
-7. **`llama-server` com `--port 0`:** a porta efetiva só é conhecida depois de o
-   processo escrever no log (ou via `/health` em porta fixa). Esperado: ler a
-   porta do stdout/stderr com timeout; se não aparecer em
-   `SERVER_START_TIMEOUT_MS`, encerrar o processo e falhar com mensagem
-   acionável — nunca ficar pendurado em `/health` para sempre.
-8. **Preferência de modelo não persiste:** `settings:update` filtra por
-   `SETTINGS_KEYS`; sem a chave na allowlist, o usuário escolhe o modelo, o app
-   grava, e na próxima execução volta ao padrão. Esperado: `translateModel` e
-   `translateCharsPerSecond` presentes em `SETTINGS_KEYS` e no teste de
-   `DEFAULT_SETTINGS`.
 
 ---
 
@@ -103,11 +73,7 @@ confirmaram e pontos de integração que o plano original não cobria.
 
 **Interfaces:**
 - Consumes: nada.
-- Produces: `createJobQueue({ maxConcurrent = 1, maxRetries = 2, retryDelayMs = 5000, storage = null, runner = null, onEvent = null, now = Date.now, createJob, createRunner, snapshotJob })` → `{ enqueue(params), cancel(jobId), retry(jobId), remove(jobId), list(), setMaxConcurrent(n), load(), dispose() }`.
-  - `createJob(ctx, params)` devolve o objeto de job completo, incluindo `jobId`.
-  - `createRunner(ctx)` devolve `async ({ job, signal, onProgress, onLog }) => result`. **É o ponto que desacopla a fila da transcrição**: hoje `engine.js` chama o runner com `{ videoPath, language, formats, title, model }` fixos; o núcleo passa `{ job }` e o runner de transcrição extrai os campos de `job`.
-  - `snapshotJob(job)` devolve o snapshot serializável. O núcleo não conhece campos de domínio.
-  - O núcleo cuida de `ctx.jobs`, `ctx.order`, `ctx.controllers`, `ctx.retryTimers`, `running`, `persist`, `emit` e do bombeamento. `JOB_STATUS` fica no núcleo (é genérico: `queued/running/done/error/cancelled`).
+- Produces: `createJobQueue({ maxConcurrent = 1, maxRetries = 2, retryDelayMs = 5000, storage = null, runner = null, onEvent = null, now = Date.now, createJob })` → `{ enqueue(params), cancel(jobId), retry(jobId), remove(jobId), list(), setMaxConcurrent(n), load(), dispose() }`. `createJob(ctx, params)` devolve o objeto de job completo, incluindo `jobId`. O núcleo cuida de `ctx.jobs`, `ctx.order`, `ctx.controllers`, `ctx.retryTimers`, `running`, `persist`, `emit` e do bombeamento.
 
 - [ ] **Step 1: Rodar a suíte atual como linha de base**
 
@@ -117,45 +83,13 @@ Expected: todos os testes de `transcribe-job-manager` PASS antes da refatoraçã
 - [ ] **Step 2: Criar `src/core/job-queue.js` movendo a lógica de `job-manager/`**
 
 Move `api.js`, `engine.js`, `actions.js`, `recovery.js` e a criação de `ctx` para
-o núcleo, trocando a criação do job por `createJob(ctx, params)`.
-
-**Atenção — dois acoplamentos que o núcleo precisa resolver** (hoje estão em
-`src/transcribe/job-manager/`, e são a razão de a Task 1 ser a de maior risco):
-
-1. `engine.js:startJob()` chama o runner com campos fixos de transcrição:
-   `activeRunner({ videoPath, language, formats, title, model, signal, onProgress, onLog })`.
-   No núcleo, a chamada passa a ser `activeRunner({ job, signal, onProgress, onLog })`
-   — o runner de transcrição (`constants.js:defaultRunner`) extrai
-   `job.videoPath/language/formats/title/model` e monta a chamada que o
-   `transcribeVideo` já espera. O `onProgress` continua recebendo
-   `{ stage, percent }` e o `onLog` uma linha; isso é genérico e fica no núcleo.
-2. `storage.js:snapshot()` serializa `videoPath/language/formats/title/engine`.
-   No núcleo, `snapshotJob(job)` é injetável; o wrapper de transcrição mantém
-   exatamente o `snapshot()` atual (mesmos campos, mesma ordem) para que
-   `transcribe-job-manager.test.js` passe sem edição.
-
-`JOB_STATUS` passa a viver no núcleo (é genérico). `src/transcribe/job-manager.js`
-reexporta `JOB_STATUS` e `createJsonJobStorage` para não quebrar
-`src/transcribe/index.js` nem `electron/ipc/transcribe/*`. Não alterar nenhum nome
-público do gerenciador de transcrição.
+o núcleo, trocando a criação do job por `createJob(ctx, params)`. `JOB_STATUS` e
+`snapshot()` continuam onde estão. Não alterar nenhum nome público do gerenciador
+de transcrição.
 
 - [ ] **Step 3: Reduzir `src/transcribe/job-manager.js` a um wrapper**
 
-`createTranscriptionJobManager(options)` passa a chamar
-`createJobQueue({ ...options, createJob: makeTranscribeJob, createRunner: makeTranscribeRunner, snapshotJob })`, onde:
-
-- `makeTranscribeJob` mantém exatamente os campos de hoje (`videoPath`, `language`,
-  `formats`, `title`, `model`, `status`, `attempts`, `stage`, `percent`, `error`,
-  `files`, `engine`, timestamps) e o `jobId` no formato `tr_<base36>_<n>`;
-- `makeTranscribeRunner(ctx)` devolve `({ job, signal, onProgress, onLog }) =>
-  (ctx.runner || defaultRunner)({ videoPath: job.videoPath, language: job.language,
-  formats: job.formats, title: job.title || undefined, model: job.model || DEFAULT_MODEL,
-  signal, onProgress, onLog })` — repassa os campos que o `engine.js` montava hoje;
-- `snapshotJob` é o `snapshot()` atual, importado de `./job-manager/storage.js`.
-
-O wrapper reexporta `JOB_STATUS` e `createJsonJobStorage` (importados do núcleo e
-de `src/core/job-queue.js`) para manter `src/transcribe/index.js` e
-`electron/ipc/transcribe/shared.js` intactos.
+`createTranscriptionJobManager(options)` passa a chamar `createJobQueue({ ...options, createJob: makeTranscribeJob })`, onde `makeTranscribeJob` mantém exatamente os campos de hoje (`videoPath`, `language`, `formats`, `title`, `model`, `status`, `attempts`, `stage`, `percent`, `error`, `files`, `engine`, timestamps) e o `jobId` no formato `tr_<base36>_<n>`.
 
 - [ ] **Step 4: Rodar a suíte de transcrição e confirmar comportamento idêntico**
 
@@ -300,27 +234,9 @@ Expected: PASS.
 - [ ] **Step 8: Adicionar as chaves de settings**
 
 Acrescentar `translateModel: 'qwen3-4b'` e `translateCharsPerSecond: 17` em
-`DEFAULT_SETTINGS`, e as entradas correspondentes em `SCHEMA`
-(`translateModel: { type: 'string', clamp: null }`,
-`translateCharsPerSecond: { type: 'number', clamp: [10, 40] }`).
-
-**Dois arquivos que também precisam mudar — sem eles a preferência não persiste e
-a suíte quebra:**
-
-1. `tests/unit/core-settings.test.js` — o teste
-   `DEFAULT_SETTINGS tem as chaves do plano (seção 22 + P6.2 + SPEC-01/02 + SPEC-09)`
-   faz `assert.deepEqual(Object.keys(DEFAULT_SETTINGS).sort(), [...])` com a lista
-   **exata** de chaves. Acrescentar `translateCharsPerSecond` e `translateModel`
-   (em ordem alfabética na lista) é obrigatório, senão o teste falha.
-2. `electron/security-payloads-queue/settings.js` — `SETTINGS_KEYS` é uma allowlist
-   explícita; `settings:update` descarta silenciosamente qualquer chave fora dela.
-   Adicionar `translateModel` e `translateCharsPerSecond` (e validar
-   `translateModel` com `isKnownTranslateModel`, `translateCharsPerSecond` com
-   `isIntInRange(value, 10, 40)`).
-
-Em `tests/unit/core-settings.test.js`, adicionar um teste que rejeita chave
-desconhecida e faz clamp de `translateCharsPerSecond` fora do intervalo
-(9 → 10, 41 → 40).
+`DEFAULT_SETTINGS`, e as entradas correspondentes em `SCHEMA`. Em
+`tests/unit/core-settings.test.js`, adicionar um teste que rejeita chave desconhecida e
+faz clamp de `translateCharsPerSecond` fora do intervalo (9 → 10, 41 → 40).
 
 - [ ] **Step 9: Rodar os testes de settings**
 
@@ -340,7 +256,6 @@ git commit -m "feat(translate): catalogo e download de modelos GGUF"
 - Create: `scripts/install-llama.mjs`
 - Modify: `scripts/package-resources.mjs`
 - Modify: `package.json` (`llama:install`, `postinstall`)
-- Modify: `.github/workflows/release.yml` (jobs de build por plataforma)
 - Test: `tests/unit/install-llama-plan.test.js`
 
 **Interfaces:**
@@ -395,30 +310,13 @@ já usado pelas DLLs do FFmpeg. Adicionar teste em
 `tests/unit/package-resources.test.js` cobrindo `required: false` e presença de
 `depsDir`.
 
-**Atenção — dois pontos de integração que o script sozinho não resolve:**
-
-1. `package.json:postinstall` hoje é
-   `node scripts/install-ffmpeg.mjs && node scripts/install-electron.mjs && node scripts/install-whisper.mjs`.
-   Acrescentar `&& node scripts/install-llama.mjs` — mas o `install-llama` precisa
-   ser **tolerante a falha** (não derrubar o `npm install` de quem não vai usar
-   tradução): em caso de erro, logar aviso e sair 0, como o `install-whisper` faz
-   quando não consegue compilar.
-2. `.github/workflows/release.yml` — os jobs `build-windows` (L78),
-   `build-macos-x64` (L188), `build-macos-arm64` (L298) e `build-linux` (L403)
-   rodam `install-ffmpeg`/`install-whisper` por etapa, com
-   `FFMPEG_SKIP_DOWNLOAD`/`WHISPER_SKIP_DOWNLOAD` por job. Adicionar uma etapa
-   `Instalar llama.cpp (tradução)` com `run: node scripts/install-llama.mjs` e
-   `env: LLAMA_SKIP_DOWNLOAD: 1` nos jobs de teste (`test`, L25), espelhando o
-   padrão do whisper. Sem isso o instalador sai sem `llama-server` e a tradução
-   falha em runtime com "binário não encontrado".
-
 - [ ] **Step 6: Rodar testes de empacotamento e commit**
 
 Run: `node --test tests/unit/package-resources.test.js`
 Expected: PASS.
 
 ```bash
-git add scripts/install-llama.mjs scripts/package-resources.mjs package.json .github/workflows/release.yml tests/unit/install-llama-plan.test.js tests/unit/package-resources.test.js
+git add scripts/install-llama.mjs scripts/package-resources.mjs package.json tests/unit/install-llama-plan.test.js tests/unit/package-resources.test.js
 git commit -m "feat(translate): instalacao e empacotamento do llama.cpp"
 ```
 
@@ -1016,18 +914,6 @@ despacha para `runTranslateCommand`, que imprime progresso por bloco, o caminho
 final e a linha de aviso quando `overTarget.length > 0`. `help.js` documenta
 `translate <arquivo.srt>` e `--model`.
 
-**Correção pré-existente no mesmo arquivo (fora do escopo, mas no caminho):**
-`src/index.js` tem `prompter?.close()` nos handlers de `SIGINT`, `SIGTERM`,
-`unhandledRejection` e `uncaughtException`, mas `prompter` é declarado com
-`const` **dentro** de `main()` — fora de escopo nesses handlers. O `?.` não
-protege contra `ReferenceError`: no exato momento de um erro ou Ctrl+C, o handler
-que deveria fechar o prompter e sair com 130/143 lança `ReferenceError` e o
-processo morre com código 1. Corrigir movendo `prompter` para uma variável
-módulo-level (`let prompter = null`) e atribuindo em `main()`, ou removendo o
-`close()` dos handlers (o `main()` já fecha no caminho normal). Adicionar um
-teste em `tests/unit/translate-command.test.js` que dispara `main(['help'])` e
-depois emite `process.emit('SIGINT')` sem derrubar com `ReferenceError`.
-
 - [ ] **Step 4: Rodar e ver passar, depois commit**
 
 Run: `node --test tests/unit/translate-command.test.js`
@@ -1059,16 +945,6 @@ Expected: todos PASS, incluindo os 10 testes novos.
 
 Run: `npm run lint`
 Expected: 0 erros; no máximo os 6 avisos de baseline.
-
-**Arquivos de teste alterados (não são novos — são caracterização que precisa
-acompanhar a mudança):**
-
-| Arquivo | Por que muda |
-|---------|--------------|
-| `tests/unit/core-settings.test.js` | lista exata de chaves em `DEFAULT_SETTINGS` |
-| `tests/unit/package-resources.test.js` | `plan.entries.length` passa de 4 para 5 |
-| `tests/unit/transcribe-job-manager.test.js` | **não deve mudar** — se mudar, a Task 1 vazou semântica |
-| `tests/unit/transcribe-model-manager.test.js` | **não deve mudar** — Task 2 é puramente aditiva |
 
 - [ ] **Step 3: Rodar o verificador de tamanho de arquivo**
 
