@@ -10,9 +10,11 @@
  * yt-dlp e os transports HTTP/Range/FFmpeg existentes.
  */
 
+import path from 'node:path';
 import { getYtDlpExec } from '../core/binaries.js';
 import { YtDlpError, CancelledError } from '../core/errors.js';
 import { getFfmpegCommand } from '../ffmpeg/service.js';
+import { normalizeContainer } from '../core/engine/lifecycle/container.js';
 import { createYtDlpProgressReporter } from './ytdlp-progress.js';
 
 function toYtDlpError(err) {
@@ -51,7 +53,9 @@ export async function runYtDlpDownload({ url, formatId, output, headers = {}, au
   const options = {
     format: formatId || 'best',
     output,
-    mergeOutputFormat: 'mp4', // Forca container MP4
+    // Container do merge = o do output. Fixar 'mp4' aqui entregaria um .mkv
+    // com conteúdo MP4 (mesma classe do bug do embedSubtitles).
+    mergeOutputFormat: normalizeContainer(path.extname(String(output || '')).slice(1)),
     noPlaylist: true,
     noWarnings: true,
     noCheckCertificates: true,
