@@ -8,22 +8,32 @@ import path from 'node:path';
 
 import { normalizeHeaders, DEFAULT_USER_AGENT } from '../../../utils.js';
 import { ffmpegService } from '../../../ffmpeg/service.js';
+import { buildEmbedArgs, copySidecars, unlinkQuietly } from './subtitles-embed.js';
 
 /**
- * Downloads and optionally hardcodes subtitles into a video file.
+ * Downloads and optionally embeds subtitles into a video file.
+ *
+ * - MP4: legenda queimada (hardcode) via `-vf subtitles=...` (comportamento
+ *   histórico — MP4 não aceita `srt` como faixa de forma universal).
+ * - MKV: legenda como **faixa** (`-c:v copy -c:s srt`), sem re-encode.
+ *   Nunca grava conteúdo MP4 sobre um path `.mkv`.
  *
  * @param {object} params
  * @param {string} params.videoPath
  * @param {Array<{uri: string, language: string, name: string}>} params.subtitleTracks
  * @param {string[]} params.selectedLanguages
- * @param {boolean} params.embedSubs — if true, hardcode via FFmpeg
+ * @param {boolean} params.embedSubs — if true, embed via FFmpeg
  * @param {object} [params.headers]
  * @param {AbortSignal} [params.signal]
  * @param {Function} [params.onLog]
+ * @param {Function} [params.ffmpegRun] - Injetável (testes); default: serviço real
+ * @param {typeof fetch} [params.fetchImpl] - Injetável (testes)
  */
 export async function embedSubtitles({
   videoPath, subtitleTracks, selectedLanguages,
   embedSubs = false, headers = {}, signal, onLog,
+  ffmpegRun = ffmpegService.run.bind(ffmpegService),
+  fetchImpl = globalThis.fetch,
 }) {
   if (!videoPath || !fs.existsSync(videoPath)) {
     return { ok: false, error: 'Arquivo de video nao encontrado para embutir legendas.' };
@@ -45,7 +55,7 @@ export async function embedSubtitles({
       const subFile = path.join(tmpDir, `sub_${track.language || 'und'}.${ext}`);
       try {
         const requestHeaders = normalizeHeaders({ 'User-Agent': DEFAULT_USER_AGENT, ...headers });
-        const res = await fetch(track.uri, {
+        const res = await fetchImpl(track.uri, {
           headers: requestHeaders, signal,
           redirect: 'follow', signal: AbortSignal.timeout(15000),
         });
@@ -66,58 +76,30 @@ export async function embedSubtitles({
       return { ok: true };
     }
 
-    // Soft subs: copy files next to video
+    // Soft subs: salva os arquivos ao lado do video.
     if (!embedSubs) {
-      const videoDir = path.dirname(videoPath);
-      const videoBase = path.basename(videoPath, path.extname(videoPath));
-      for (const sub of subFiles) {
-        const dest = path.join(videoDir, `${videoBase}.${sub.language}${path.extname(sub.file)}`);
-        await fs.promises.copyFile(sub.file, dest).catch(() => {});
-      }
+      await copySidecars(videoPath, subFiles);
       onLog?.(`[subs] ${subFiles.length} legenda(s) salva(s) ao lado do video`);
       return { ok: true };
     }
 
-    // Hardcode subtitles via FFmpeg
-    const inputs = ['-i', videoPath];
-    const filters = [];
-    for (const sub of subFiles) {
-      inputs.push('-i', sub.file);
-      const escapedPath = sub.file.replace(/'/g, "\\'").replace(/:/g, '\\:');
-      filters.push(`subtitles='${escapedPath}':force_style='FontSize=24'`);
-    }
+    const { args: ffmpegArgs, container, tmpOutput } = buildEmbedArgs({ videoPath, subFiles });
+    onLog?.(`[subs] embutindo ${subFiles.length} legenda(s) no video (${container}) via FFmpeg`);
 
-    const ffmpegArgs = [
-      '-hide_banner', '-loglevel', 'error', '-nostats', '-y',
-      ...inputs, '-progress', 'pipe:1',
-    ];
-    if (filters.length > 0) ffmpegArgs.push('-vf', filters.join(','));
-    ffmpegArgs.push('-c:v', 'libx264', '-crf', '18', '-preset', 'fast');
-    ffmpegArgs.push('-c:a', 'copy', '-movflags', '+faststart');
-
-    const tmpOutput = videoPath + '.subbed.mp4';
-    ffmpegArgs.push(tmpOutput);
-    onLog?.(`[subs] embutindo ${subFiles.length} legenda(s) no video via FFmpeg`);
-
-    const { promise, stop } = ffmpegService.run({ args: ffmpegArgs, onProgress: null });
+    const { promise, stop } = ffmpegRun({ args: ffmpegArgs, onProgress: null });
     const onAbort = () => stop();
     signal?.addEventListener('abort', onAbort, { once: true });
     try {
       const result = await promise;
       if (signal?.aborted) {
-        try { await fs.promises.unlink(tmpOutput).catch(() => {}); } catch { /* ignora */ }
+        unlinkQuietly(tmpOutput);
         return { ok: false, error: 'Operacao cancelada.' };
       }
       if (!result.ok) {
-        try { await fs.promises.unlink(tmpOutput).catch(() => {}); } catch { /* ignora */ }
+        unlinkQuietly(tmpOutput);
         onLog?.(`[subs] FFmpeg embed falhou (code=${result.code}): ${String(result.stderr || '').slice(0, 300)}`);
-        // Fallback: soft subs
-        const videoDir = path.dirname(videoPath);
-        const videoBase = path.basename(videoPath, path.extname(videoPath));
-        for (const sub of subFiles) {
-          const dest = path.join(videoDir, `${videoBase}.${sub.language}${path.extname(sub.file)}`);
-          await fs.promises.copyFile(sub.file, dest).catch(() => {});
-        }
+        // Fallback: salva as legendas ao lado (nunca sobrescreve com outro container).
+        await copySidecars(videoPath, subFiles);
         return { ok: true };
       }
       await fs.promises.rename(tmpOutput, videoPath);

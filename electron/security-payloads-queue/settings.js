@@ -13,6 +13,7 @@ const SETTINGS_KEYS = new Set([
   'turboChunks',
   'smartTurbo',
   'defaultQuality',
+  'videoContainer',
   'audio',
   'audioExtract',
   'notifications',
@@ -57,6 +58,10 @@ export function validateSettingsPayload(payload = {}) {
       const mode = typeof value === 'string' ? value.trim().toLowerCase() : '';
       if (!['off', 'm4a', 'mp3'].includes(mode)) return null;
       clean[key] = mode;
+    } else if (key === 'videoContainer') {
+      const container = typeof value === 'string' ? value.trim().toLowerCase() : '';
+      if (!['mp4', 'mkv'].includes(container)) return null;
+      clean[key] = container;
     } else if (key === 'turbo' || key === 'audio' || key === 'notifications') {
       if (typeof value !== 'boolean' && typeof value !== 'string') return null;
       clean[key] = value;

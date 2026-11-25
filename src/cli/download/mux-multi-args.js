@@ -2,6 +2,9 @@
  * Montagem dos argumentos do FFmpeg para mux de vídeo + N faixas de áudio.
  */
 
+import path from 'node:path';
+import { containerOutputArgs, normalizeContainer } from '../../core/engine/lifecycle/container.js';
+
 export function buildMuxMultiArgs({ videoTmp, audioTmps, audioLanguages = [], audioLabels = [], output }) {
   const ffmpegArgs = [
     '-hide_banner', '-loglevel', 'error', '-nostats', '-y',
@@ -32,6 +35,7 @@ export function buildMuxMultiArgs({ videoTmp, audioTmps, audioLanguages = [], au
     if (label) ffmpegArgs.push('-metadata:s:a:' + i, `title=${label}`);
   }
 
-  ffmpegArgs.push('-movflags', '+faststart', output);
+  ffmpegArgs.push(...containerOutputArgs(normalizeContainer(path.extname(output).slice(1))));
+  ffmpegArgs.push(output);
   return ffmpegArgs;
 }

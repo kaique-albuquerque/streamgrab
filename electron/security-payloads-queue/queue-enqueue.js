@@ -43,6 +43,10 @@ export function validateQueueEnqueuePayload(payload = {}) {
     : [];
   const embedSubs = payload?.embedSubs === true;
 
+  // SPEC-11: contêiner do arquivo final. '' = usa o setting `videoContainer`.
+  const containerRaw = typeof payload?.container === 'string' ? payload.container.trim().toLowerCase() : '';
+  const container = ['mp4', 'mkv'].includes(containerRaw) ? containerRaw : '';
+
   return {
     url,
     filename,
@@ -57,5 +61,6 @@ export function validateQueueEnqueuePayload(payload = {}) {
     allAudio,
     subtitleLanguages,
     embedSubs,
+    container,
   };
 }

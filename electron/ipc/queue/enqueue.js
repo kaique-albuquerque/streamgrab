@@ -18,7 +18,7 @@ function resolveRevealDir(services, outputDir) {
   return services.settings?.get?.('defaultDir') || '';
 }
 
-export function enqueueDownload({ url, filename, outputDir, selectedUrl, title, turbo, cookiesFile, cookiesFromBrowser, taskId, audioLanguage, allAudio, subtitleLanguages, embedSubs, audioExtract }) {
+export function enqueueDownload({ url, filename, outputDir, selectedUrl, title, turbo, cookiesFile, cookiesFromBrowser, taskId, audioLanguage, allAudio, subtitleLanguages, embedSubs, audioExtract, container }) {
   const services = getServices();
   if (!services) {
     throw createQueueError('Serviços ainda não inicializados.', 'NOT_READY');
@@ -66,6 +66,8 @@ export function enqueueDownload({ url, filename, outputDir, selectedUrl, title, 
       embedSubs: Boolean(embedSubs),
       // P13: '' = usa o setting global; 'off' | 'm4a' | 'mp3' = decisão do lote.
       audioExtract: ['off', 'm4a', 'mp3'].includes(audioExtract) ? audioExtract : '',
+      // SPEC-11: '' = usa o setting `videoContainer`; 'mp4' | 'mkv' = override.
+      containerOverride: ['mp4', 'mkv'].includes(container) ? container : '',
     },
   });
   if (taskId) taskToJob.set(taskId, job.id);

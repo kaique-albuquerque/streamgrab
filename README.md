@@ -210,6 +210,7 @@ node src/index.js --referer "https://example.com/" --origin "https://example.com
 - `--turbo` — parallel chunked download (HTTP Range) on direct URLs (YouTube/social networks/files). Faster: multiple connections at once
 - `--chunks <n>` — number of turbo connections (default: 8)
 - `--smart-turbo` / `--no-smart-turbo` — enables/disables Smart Turbo (adaptive concurrency)
+- `--container <mp4|mkv>` — final file container (overrides the settings value for this download)
 - `--youtube` — forces the YouTube adapter (used by `npm run download:youtube`)
 - `--help` — shows help
 
@@ -556,6 +557,28 @@ Besides the CLI, the app can be opened as a graphical interface (`npm run electr
 - **History** — persisted records of every download with **open file / show in folder / download again / remove / clear**;
 - **Settings** — default folder, concurrent downloads, turbo, default quality, audio, theme, notifications, command on complete and history retention;
 - Queue, history and settings are **persisted to disk** (`settings.json`, `history.json`, `queue.json`) and restored on restart — including **interrupted-download recovery** (jobs come back to the queue as *waiting*).
+
+### 📦 Video container (MP4 / MKV)
+
+By default every download is an **MP4**. In **Settings → Formato do vídeo** you can pick **MKV** instead:
+
+| Container | When to use |
+|-----------|-------------|
+| **MP4** (default) | Maximum compatibility — plays anywhere, no extra step. |
+| **MKV** | Lets a subtitle live as a **selectable track** in the player, with no video re-encode. |
+
+The choice applies to every following download (HLS, DASH, YouTube adaptive, direct URLs without an extension). A direct URL that already carries its own extension (`.ts`, `.webm`…) keeps it — the setting only governs files the app itself composes.
+
+**Subtitles with MKV:** `--subs pt --embed-subs` adds the subtitle as a **track** (`-c:v copy -c:s srt`) instead of burning it into the picture. In MP4 the historical behaviour is kept (hardcoded), since MP4 does not accept `srt` as a track universally.
+
+**Transcription and audio extraction work with both containers** — whisper.cpp reads the audio stream regardless of the wrapper.
+
+CLI:
+
+```bash
+streamgrab download <url> --container mkv
+streamgrab download <url> --container mp4   # explicit
+```
 
 ### 🎙️ Video transcription (Whisper)
 

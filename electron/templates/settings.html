@@ -38,6 +38,14 @@
             <input data-setting="defaultQuality" placeholder="best" />
           </label>
           <label class="prompt">
+            <span class="prompt-title">Formato do vídeo:</span>
+            <select data-setting="videoContainer">
+              <option value="mp4">MP4 — compatível com qualquer player</option>
+              <option value="mkv">MKV — permite legenda como faixa selecionável</option>
+            </select>
+            <span class="hint-line">MKV embute a legenda como faixa no player, sem re-encodar o vídeo.</span>
+          </label>
+          <label class="prompt">
             <span class="prompt-title">Extrair áudio do download (para nuvem):</span>
             <select data-setting="audioExtract">
               <option value="off">desligado</option>
