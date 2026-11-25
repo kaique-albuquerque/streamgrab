@@ -14,7 +14,7 @@ function makeTempDir() {
 // DEFAULT_SETTINGS / normalizeSettings
 // ---------------------------------------------------------------------------
 
-test('DEFAULT_SETTINGS tem as chaves do plano (seção 22 + P6.2 + SPEC-01/02 + SPEC-09)', () => {
+test('DEFAULT_SETTINGS tem as chaves do plano (seção 22 + P6.2 + SPEC-01/02 + SPEC-09 + SPEC-11)', () => {
   assert.deepEqual(Object.keys(DEFAULT_SETTINGS).sort(), [
     'audio',
     'audioExtract',
@@ -34,8 +34,10 @@ test('DEFAULT_SETTINGS tem as chaves do plano (seção 22 + P6.2 + SPEC-01/02 + 
     'turbo',
     'turboChunks',
     'tutorialCompleted',
+    'videoContainer',
   ]);
   assert.equal(DEFAULT_SETTINGS.transcribeModel, 'small');
+  assert.equal(DEFAULT_SETTINGS.videoContainer, 'mp4');
 });
 
 test('normalizeSettings ignora chaves desconhecidas (typos nao corrompem)', () => {

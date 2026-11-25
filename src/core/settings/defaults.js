@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   turboChunks: 8,
   smartTurbo: false,
   defaultQuality: 'best',
+  videoContainer: 'mp4', // SPEC-11: 'mp4' | 'mkv' — formato do arquivo final
   audio: 'original',
   audioExtract: 'off', // P13: 'off' | 'm4a' | 'mp3' — extrai áudio no download
   notifications: true,
@@ -35,6 +36,7 @@ export const SCHEMA = {
   turboChunks: { type: 'number', clamp: [1, 32] },
   smartTurbo: { type: 'json', clamp: null },
   defaultQuality: { type: 'string', clamp: null },
+  videoContainer: { type: 'string', clamp: null },
   audio: { type: 'string', clamp: null },
   audioExtract: { type: 'string', clamp: null },
   notifications: { type: 'boolean', clamp: null },
