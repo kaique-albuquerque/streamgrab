@@ -39,4 +39,7 @@ export {
   validateTranscribePayload,
   validateTranscribeJobPayload,
   validateModelPayload,
+  validateTranslateStartPayload,
+  validateTranslateJobPayload,
+  validateTranslateModelPayload,
 } from './security-payloads.js';

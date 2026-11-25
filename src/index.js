@@ -8,12 +8,17 @@ import {
   printSubcommandHelp,
   parseAnalyzeFlags,
   parseDownloadFlags,
+  parseTranslateFlags,
   runAnalyzeCommand,
   runDownloadCommand,
+  runTranslateCommand,
 } from './cli/commands.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
+
+/** Prompter da sessão interativa (módulo-level: os handlers de sinal o leem). */
+export let prompter = null;
 
 export async function main(argv = process.argv.slice(2)) {
   const { command, url, rest } = parseCliCommand(argv);
@@ -43,7 +48,17 @@ export async function main(argv = process.argv.slice(2)) {
     return result?.code ?? 1;
   }
 
-  const prompter = createPrompter();
+  if (command === 'translate') {
+    if (rest.includes('--help') || rest.includes('-h') || url.startsWith('-')) {
+      printSubcommandHelp(console);
+      return 0;
+    }
+    const flags = parseTranslateFlags(rest);
+    const result = await runTranslateCommand({ srtPath: url, io: console, flags });
+    return result?.code ?? 1;
+  }
+
+  prompter = createPrompter();
   const result = await runCliSession({
     argv,
     projectRoot: PROJECT_ROOT,

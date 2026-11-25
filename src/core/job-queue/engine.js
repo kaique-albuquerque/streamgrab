@@ -1,10 +1,11 @@
 /**
  * Execução de jobs e bombeamento da fila.
+ *
+ * O runner é obtido de `ctx.createRunner(ctx)` e recebe `{ job, signal,
+ * onProgress, onLog }` — o núcleo não monta campos de domínio.
  */
 
-import { DEFAULT_MODEL } from '../model-manager.js';
-import { JOB_STATUS, defaultRunner } from './constants.js';
-import { snapshot } from './storage.js';
+import { JOB_STATUS } from './constants.js';
 
 /** Cancela (se existir) o timer de retry pendente de um job. */
 export function clearRetryTimer(ctx, jobId) {
@@ -29,17 +30,13 @@ export async function startJob(ctx, job) {
   const controller = new AbortController();
   ctx.controllers.set(job.jobId, controller);
 
-  ctx.emit('started', snapshot(job));
+  ctx.emit('started', ctx.snapshotJob(job));
   ctx.persist();
 
-  const activeRunner = ctx.runner || defaultRunner;
+  const activeRunner = ctx.createRunner(ctx);
   try {
     const result = await activeRunner({
-      videoPath: job.videoPath,
-      language: job.language,
-      formats: job.formats,
-      title: job.title || undefined,
-      model: job.model || DEFAULT_MODEL,
+      job,
       signal: controller.signal,
       onProgress: (progress) => {
         job.stage = progress.stage || job.stage;
@@ -55,20 +52,20 @@ export async function startJob(ctx, job) {
     job.finishedAt = ctx.now();
     job.files = result?.files || [];
     job.engine = result?.engine || '';
-    ctx.emit('done', snapshot(job));
+    ctx.emit('done', ctx.snapshotJob(job));
   } catch (err) {
     const cancelled = controller.signal.aborted;
     if (cancelled) {
       job.status = JOB_STATUS.CANCELLED;
       job.finishedAt = ctx.now();
       job.error = 'Cancelado pelo usuário.';
-      ctx.emit('cancelled', snapshot(job));
+      ctx.emit('cancelled', ctx.snapshotJob(job));
     } else if (job.attempts <= ctx.maxRetries) {
       // Retry com backoff progressivo (5s, 10s, ...).
       const delay = ctx.retryDelayMs * job.attempts;
       job.status = JOB_STATUS.QUEUED;
       job.nextRetryAt = ctx.now() + delay;
-      ctx.emit('retry-scheduled', snapshot(job));
+      ctx.emit('retry-scheduled', ctx.snapshotJob(job));
       const timer = setTimeout(() => {
         ctx.retryTimers.delete(job.jobId);
         ctx.order.push(job.jobId);
@@ -80,7 +77,7 @@ export async function startJob(ctx, job) {
       job.status = JOB_STATUS.ERROR;
       job.finishedAt = ctx.now();
       job.error = err?.message || String(err);
-      ctx.emit('error', snapshot(job));
+      ctx.emit('error', ctx.snapshotJob(job));
     }
   } finally {
     ctx.running--;

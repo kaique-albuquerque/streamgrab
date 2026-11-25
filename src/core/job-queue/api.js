@@ -1,13 +1,12 @@
 /**
- * API pública do gerenciador (fachada das ações).
+ * API pública do núcleo de fila (fachada das ações).
  */
 
 import { cancelJob, enqueueJob, removeJob, retryJob } from './actions.js';
 import { pump } from './engine.js';
 import { disposeManager, loadJobs } from './recovery.js';
-import { snapshot } from './storage.js';
 
-/** Cria a API pública do gerenciador. */
+/** Cria a API pública da fila. */
 export function createManagerApi(ctx) {
   return {
     /** Enfileira um job. Validação de entrada é responsabilidade do chamador. */
@@ -35,7 +34,7 @@ export function createManagerApi(ctx) {
 
     /** Lista snapshots de todos os jobs da sessão. */
     list() {
-      return [...ctx.jobs.values()].map(snapshot);
+      return [...ctx.jobs.values()].map((job) => ctx.snapshotJob(job));
     },
 
     /** Aplica novo limite de concorrência em tempo de execução. */
