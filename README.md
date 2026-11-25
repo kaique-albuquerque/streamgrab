@@ -608,6 +608,26 @@ npm run whisper:install       # dev setup: builds whisper-cli + downloads the mo
 
 ---
 
+### 🌐 Local subtitle translation (EN → PT)
+
+StreamGrab can **translate `.srt` subtitles to Portuguese 100% locally** with [llama.cpp](https://github.com/ggml-org/llama.cpp) — no API key, no network after the model is downloaded. Use it on a video you downloaded without subtitles: transcribe it (above) to get `video.transcription.srt`, then translate.
+
+1. **First time only:** in the **Traduzir legendas** card (Transcrever tab), pick a model and click **Baixar** — the GGUF comes from Hugging Face into the app data folder, with progress, resume and SHA-256 verification. **Qwen3-4B** (~2.4 GB) is the default; **Qwen2.5-7B** (~4.5 GB) is optional. After that it works **fully offline**.
+2. Click **🌐 Selecionar .srt e traduzir** and pick the `.srt`. The output is `video.transcription.pt.srt` **next to the original** — indices and timestamps are copied byte-for-byte, only the text changes.
+3. The LLM is instructed to **condense** when the Portuguese would exceed the reading speed (17 chars/second by default), so the subtitle fits the time on screen. Segments that still don't fit are kept (never truncated) and listed in the log.
+
+CLI:
+
+```bash
+streamgrab translate video.transcription.srt
+streamgrab translate video.transcription.srt --model qwen2.5-7b
+npm run llama:install       # dev setup: downloads llama-server + libraries
+```
+
+> ⚠️ The `llama-server` install is **optional during `npm install`**: if the download fails, the postinstall only warns and the rest of the install completes. Set `LLAMA_SKIP_DOWNLOAD=1` to skip it (CI).
+
+---
+
 ### Building (installers)
 
 Installers are produced with **electron-builder**. Windows uses MSI, macOS uses PKG, and Linux uses AppImage and DEB. External binaries (FFmpeg from `vendor/ffmpeg/`, yt-dlp from `youtube-dl-exec` and, if present, curl-impersonate) are bundled into `extraResources` (`resources/bin/`) — in production the app resolves binaries via `process.resourcesPath`, so the **target machine does not need** Node.js, FFmpeg or yt-dlp installed manually.

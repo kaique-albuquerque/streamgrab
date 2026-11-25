@@ -12,11 +12,12 @@ test('buildResourcePlan: entradas obrigatórias/opcionais + perfis v2', () => {
   const plan = buildResourcePlan({ projectRoot: 'P:/proj', listTools: () => FAKE_TOOLS });
 
   const BIN_EXT = process.platform === 'win32' ? '.exe' : '';
-  assert.equal(plan.entries.length, 4);
+  assert.equal(plan.entries.length, 5);
   const ffmpeg = plan.entries.find((e) => e.id === 'ffmpeg');
   const ytdlp = plan.entries.find((e) => e.id === 'yt-dlp');
   const curl = plan.entries.find((e) => e.id === 'curl-impersonate');
   const whisper = plan.entries.find((e) => e.id === 'whisper-cli');
+  const llama = plan.entries.find((e) => e.id === 'llama-server');
 
   assert.equal(ffmpeg.required, true);
   assert.ok(ffmpeg.from.endsWith(path.join('vendor', 'ffmpeg', `ffmpeg${BIN_EXT}`)));
@@ -27,6 +28,11 @@ test('buildResourcePlan: entradas obrigatórias/opcionais + perfis v2', () => {
   // GGML nunca é empacotado — o app o baixa em runtime (model-manager.js).
   assert.equal(whisper.required, false);
   assert.ok(whisper.from.endsWith(path.join('vendor', 'whisper', `whisper-cli${BIN_EXT}`)));
+  // llama-server é opcional (só empacotado se llama:install rodou); é stub e
+  // copia as bibliotecas da mesma pasta via depsDir.
+  assert.equal(llama.required, false);
+  assert.ok(llama.from.endsWith(path.join('vendor', 'llama', `llama-server${BIN_EXT}`)));
+  assert.ok(llama.depsDir.endsWith(path.join('vendor', 'llama')));
 
   // Perfis v2 copiados; arquivos sem padrão de perfil ignorados
   assert.deepEqual(
@@ -38,7 +44,7 @@ test('buildResourcePlan: entradas obrigatórias/opcionais + perfis v2', () => {
 test('buildResourcePlan: tools/ ausente não lança', () => {
   const plan = buildResourcePlan({ projectRoot: 'P:/proj', listTools: () => { throw new Error('ENOENT'); } });
   assert.deepEqual(plan.batProfiles, []);
-  assert.equal(plan.entries.length, 4);
+  assert.equal(plan.entries.length, 5);
 });
 
 test('runResourcePlan: obrigatório ausente lança com mensagem clara', () => {

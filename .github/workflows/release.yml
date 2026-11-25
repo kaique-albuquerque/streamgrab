@@ -40,6 +40,8 @@ jobs:
           YOUTUBE_DL_SKIP_DOWNLOAD: 1
           # Testes não precisam do whisper compilado (usa mocks/env).
           WHISPER_SKIP_DOWNLOAD: 1
+          # Nem do llama.cpp (tradução usa mocks/env).
+          LLAMA_SKIP_DOWNLOAD: 1
 
       # Três camadas de proteção contra hang:
       #  1. --test-timeout=30000  → Node mata qualquer teste individual > 30s
@@ -125,6 +127,10 @@ jobs:
         env:
           WHISPER_BINARY_ONLY: "1"
         timeout-minutes: 30
+
+      - name: Instalar llama.cpp (tradução de legendas)
+        run: node scripts/install-llama.mjs 2>&1
+        timeout-minutes: 15
 
       - name: Empacotar binários (pack:resources)
         run: npm run pack:resources 2>&1
@@ -250,6 +256,10 @@ jobs:
           # Define explicitamente a arquitetura do binário para Intel.
           WHISPER_CMAKE_ARCH: "x86_64"
         timeout-minutes: 30
+
+      - name: Instalar llama.cpp (tradução de legendas)
+        run: node scripts/install-llama.mjs 2>&1
+        timeout-minutes: 15
 
       - name: Verificar arquitetura do whisper-cli (x86_64)
         run: |
@@ -382,6 +392,10 @@ jobs:
           WHISPER_BINARY_ONLY: "1"
         timeout-minutes: 30
 
+      - name: Instalar llama.cpp (tradução de legendas)
+        run: node scripts/install-llama.mjs 2>&1
+        timeout-minutes: 15
+
       - name: Verificar arquitetura do whisper-cli (arm64)
         run: |
           file vendor/whisper/whisper-cli
@@ -503,6 +517,10 @@ jobs:
         env:
           WHISPER_BINARY_ONLY: "1"
         timeout-minutes: 30
+
+      - name: Instalar llama.cpp (tradução de legendas)
+        run: node scripts/install-llama.mjs 2>&1
+        timeout-minutes: 15
 
       - name: Verificar arquitetura do whisper-cli (x86_64)
         run: |

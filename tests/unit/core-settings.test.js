@@ -31,6 +31,8 @@ test('DEFAULT_SETTINGS tem as chaves do plano (seção 22 + P6.2 + SPEC-01/02 + 
     'transcribeLang',
     'transcribeModel',
     'transcribeTimestamps',
+    'translateCharsPerSecond',
+    'translateModel',
     'turbo',
     'turboChunks',
     'tutorialCompleted',
@@ -52,6 +54,12 @@ test('normalizeSettings aplica clamps numericos', () => {
   assert.equal(normalizeSettings({ turboChunks: -5 }).turboChunks, 1);
   assert.equal(normalizeSettings({ historyRetentionDays: 5000 }).historyRetentionDays, 3650);
   assert.equal(normalizeSettings({ historyRetentionDays: -1 }).historyRetentionDays, 0);
+});
+
+test('normalizeSettings faz clamp de translateCharsPerSecond (10..40)', () => {
+  assert.equal(normalizeSettings({ translateCharsPerSecond: 9 }).translateCharsPerSecond, 10);
+  assert.equal(normalizeSettings({ translateCharsPerSecond: 41 }).translateCharsPerSecond, 40);
+  assert.equal(normalizeSettings({ translateCharsPerSecond: 17 }).translateCharsPerSecond, 17);
 });
 
 test('normalizeSettings coage tipos (NaN mantem default; string vira numero)', () => {

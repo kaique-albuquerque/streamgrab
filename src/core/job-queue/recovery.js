@@ -1,10 +1,12 @@
 /**
- * Crash recovery (carregar jobs persistidos) e descarte do gerenciador.
+ * Crash recovery (carregar jobs persistidos) e descarte da fila.
+ *
+ * O núcleo não conhece campos de domínio: um job persistido é apenas um
+ * objeto com `jobId` e `status`.
  */
 
 import { JOB_STATUS } from './constants.js';
 import { pump } from './engine.js';
-import { snapshot } from './storage.js';
 
 /**
  * Carrega jobs persistidos. Jobs 'running' (crash recovery) voltam
@@ -28,7 +30,7 @@ export function loadJobs(ctx) {
     };
     ctx.jobs.set(job.jobId, job);
     if (status === JOB_STATUS.QUEUED) ctx.order.push(job.jobId);
-    restored.push(snapshot(job));
+    restored.push(ctx.snapshotJob(job));
   }
   if (restored.length) {
     ctx.persist();

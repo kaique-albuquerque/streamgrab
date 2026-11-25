@@ -2,6 +2,7 @@
 
 import { createJobListRenderer } from '../panel-transcribe-jobs.js';
 import { createModelSection } from '../panel-transcribe-model.js';
+import { createTranslatePanel } from '../panel-translate.js';
 import { refreshEngineStatus } from './engine.js';
 import { createJobsController } from './jobs.js';
 import { createStartTranscription } from './start.js';
@@ -14,6 +15,7 @@ export function createTranscribePanel() {
   let wired = false;
 
   const modelSection = createModelSection();
+  const translatePanel = createTranslatePanel();
   const jobList = createJobListRenderer({
     onJobAction: (action, target) => handleJobAction(action, target),
   });
@@ -38,8 +40,13 @@ export function createTranscribePanel() {
       refreshEngineStatus().catch(() => {}),
       modelSection.refreshModels().catch(() => {}),
       refreshJobs().catch(() => {}),
+      translatePanel.refresh().catch(() => {}),
     ]);
   }
 
-  return { refreshTranscribePanel, handleTranscribeEvent };
+  return {
+    refreshTranscribePanel,
+    handleTranscribeEvent,
+    handleTranslateEvent: (type, data) => translatePanel.handleEvent(type, data),
+  };
 }

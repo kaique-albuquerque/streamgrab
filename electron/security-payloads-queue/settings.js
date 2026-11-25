@@ -4,6 +4,7 @@
 
 import { isSafeAbsolutePath } from '../security-primitives.js';
 import { isKnownModel } from '../../src/transcribe/model-manager.js';
+import { isKnownTranslateModel } from '../../src/translate/model-manager.js';
 
 const SETTINGS_KEYS = new Set([
   'defaultDir',
@@ -23,6 +24,8 @@ const SETTINGS_KEYS = new Set([
   'tutorialCompleted',
   'transcribeLang',
   'transcribeModel',
+  'translateModel',
+  'translateCharsPerSecond',
 ]);
 
 function isIntInRange(value, min, max) {
@@ -75,6 +78,13 @@ export function validateSettingsPayload(payload = {}) {
       const model = typeof value === 'string' ? value.trim().toLowerCase() : '';
       if (!isKnownModel(model)) return null;
       clean[key] = model;
+    } else if (key === 'translateModel') {
+      const model = typeof value === 'string' ? value.trim().toLowerCase() : '';
+      if (!isKnownTranslateModel(model)) return null;
+      clean[key] = model;
+    } else if (key === 'translateCharsPerSecond') {
+      if (!isIntInRange(value, 10, 40)) return null;
+      clean[key] = value;
     } else if (key === 'transcribeLang') {
       const lang = typeof value === 'string' ? value.trim().toLowerCase() : '';
       if (!/^(auto|[a-z]{2,3})$/.test(lang)) return null;

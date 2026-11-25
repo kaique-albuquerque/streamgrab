@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { DEFAULT_MODEL, getModelEntry, unknownModelError } from './catalog.js';
+import { DEFAULT_MODEL, MODEL_CATALOG, getModelEntry, unknownModelError } from './catalog.js';
 import { writeMarker } from './marker.js';
 import { getModelStatus } from './status.js';
 import { hashExisting, verifyIntegrity } from './integrity.js';
@@ -27,6 +27,7 @@ import { createProgressEmitter } from './progress.js';
  * @param {object} params
  * @param {string} params.modelsDir - Diretório de destino
  * @param {string} [params.model='small'] - Chave do catálogo
+ * @param {object} [params.catalog=MODEL_CATALOG] - Catálogo de modelos
  * @param {Function} [params.onProgress] - Callback de progresso
  * @param {AbortSignal} [params.signal] - Sinal de cancelamento
  * @param {typeof fetch} [params.fetchImpl] - fetch injetável (testes)
@@ -35,14 +36,15 @@ import { createProgressEmitter } from './progress.js';
 export async function downloadModel({
   modelsDir,
   model = DEFAULT_MODEL,
+  catalog = MODEL_CATALOG,
   onProgress,
   signal,
   fetchImpl = globalThis.fetch,
 } = {}) {
-  const info = getModelEntry(model);
-  if (!info) throw unknownModelError(model);
+  const info = getModelEntry(model, catalog);
+  if (!info) throw unknownModelError(model, catalog);
 
-  const status = getModelStatus(modelsDir, model);
+  const status = getModelStatus(modelsDir, model, { catalog });
   if (status.installed) return status;
 
   fs.mkdirSync(modelsDir, { recursive: true });
@@ -51,7 +53,7 @@ export async function downloadModel({
   const partPath = `${modelPath}.part`;
 
   // Retomada: se o .part já cobre o tamanho mínimo, só valida e renomeia.
-  const resumed = await finishFromExistingPart(modelsDir, model, info, status);
+  const resumed = await finishFromExistingPart(modelsDir, model, info, status, catalog);
   if (resumed) return resumed;
 
   let downloaded = status.partialSize;
@@ -98,7 +100,7 @@ export async function downloadModel({
   writeMarker(modelPath, info.sha256);
   onProgress?.({ stage: 'done', percent: 100, downloaded: finalSize, total: finalSize, model, file: info.fileName });
 
-  return getModelStatus(modelsDir, model);
+  return getModelStatus(modelsDir, model, { catalog });
 }
 
 /**
@@ -106,14 +108,14 @@ export async function downloadModel({
  *
  * @returns {Promise<ReturnType<typeof getModelStatus> | null>} Status final ou null
  */
-async function finishFromExistingPart(modelsDir, model, info, status) {
+async function finishFromExistingPart(modelsDir, model, info, status, catalog = MODEL_CATALOG) {
   if (status.partialSize < info.minSize) return null;
 
   const partPath = `${status.path}.part`;
   await verifyIntegrity(partPath, info, model);
   fs.renameSync(partPath, status.path);
   writeMarker(status.path, info.sha256);
-  return getModelStatus(modelsDir, model);
+  return getModelStatus(modelsDir, model, { catalog });
 }
 
 /** fetch real devolve web ReadableStream; aceita também Node Readable (testes). */

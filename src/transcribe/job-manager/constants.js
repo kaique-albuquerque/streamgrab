@@ -1,14 +1,9 @@
 /**
- * Estados de job e runner padrão do gerenciador de transcrição.
+ * Runner padrão do gerenciador de transcrição.
+ *
+ * `JOB_STATUS` vive no núcleo genérico (`src/core/job-queue/constants.js`) e é
+ * reexportado por `src/transcribe/job-manager.js`.
  */
-
-export const JOB_STATUS = {
-  QUEUED: 'queued',
-  RUNNING: 'running',
-  DONE: 'done',
-  ERROR: 'error',
-  CANCELLED: 'cancelled',
-};
 
 /** Runner padrão: transcribeVideo (import dinâmico para testabilidade). */
 export async function defaultRunner(params) {
