@@ -33,6 +33,7 @@ export function printSubcommandHelp(io) {
   io.log('  --chunks <n>                 Conexoes do turbo (padrao: 8)');
   io.log('  --concurrency <n>            Alias mais claro para --chunks');
   io.log('  --no-resume                  Desliga resume do turbo (descarta parcial)');
+  io.log('  --container <mp4|mkv>        Formato do arquivo final (padrao: segue as configuracoes)');
   io.log('  --cookies <arquivo>          cookies.txt (Netscape)');
   io.log('  --cookies-from-browser <b>   Extrai cookies do navegador');
   io.log('  --curl-impersonate           Forca o modo curl-impersonate para HLS');

@@ -18,6 +18,7 @@ export function parseDownloadFlags(rest = []) {
     outputDir: '',
     filename: '',
     format: '',
+    container: '',
     audioOnly: false,
     extractAudio: '',
     audioLanguage: '',
@@ -38,6 +39,11 @@ export function parseDownloadFlags(rest = []) {
     if (arg === '--output' || arg === '-o') flags.outputDir = rest[++i] || '';
     else if (arg === '--filename') flags.filename = rest[++i] || '';
     else if (arg === '--format' || arg === '-f') flags.format = rest[++i] || '';
+    else if (arg === '--container') {
+      // Allowlist própria: a camada de CLI não importa o módulo do engine.
+      const val = String(rest[++i] || '').trim().toLowerCase();
+      flags.container = ['mp4', 'mkv'].includes(val) ? val : '';
+    }
     else if (arg === '--audio-only') flags.audioOnly = true;
     else if (arg === '--extract-audio') {
       const val = (rest[i + 1] || '').toLowerCase();

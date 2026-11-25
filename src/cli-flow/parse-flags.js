@@ -38,6 +38,15 @@ export function parseCliFlags(argv, projectRoot, safeIo) {
   const audioLanguageIdx = argv.indexOf('--audio-lang');
   const audioLanguage = audioLanguageIdx !== -1 ? (argv[audioLanguageIdx + 1] || '') : '';
   const allAudio = argv.includes('--all-audio');
+
+  // SPEC-11: formato do arquivo final ('' = usa o setting)
+  const containerIdx = argv.indexOf('--container');
+  let container = '';
+  if (containerIdx !== -1) {
+    const raw = String(argv[containerIdx + 1] || '').trim().toLowerCase();
+    container = ['mp4', 'mkv'].includes(raw) ? raw : '';
+    if (container) safeIo.log(`[container] Formato do arquivo: ${container}`);
+  }
   const subsIdx = argv.indexOf('--subs');
   const subLanguages = subsIdx !== -1
     ? (argv[subsIdx + 1] === 'all' ? ['all'] : (argv[subsIdx + 1] || '').split(',').map((s) => s.trim()).filter(Boolean))
@@ -94,7 +103,7 @@ export function parseCliFlags(argv, projectRoot, safeIo) {
 
   return {
     useCurlFlag, forceYouTube, config, headers, legacyFlow, auth,
-    audioLanguage, allAudio, subLanguages, embedSubs, extractAudio,
+    audioLanguage, allAudio, subLanguages, embedSubs, extractAudio, container,
     turboEnabled, turboChunks, smartTurboEnabled, smartTurboFlag, resumeEnabled,
     transcribe, transcribeLang, transcribeTimestamps,
   };
