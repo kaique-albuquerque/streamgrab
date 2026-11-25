@@ -13,14 +13,16 @@
  * duplicada aqui — tudo delega para o FfmpegService.
  */
 
+import path from 'node:path';
 import { DEFAULT_USER_AGENT, normalizeHeaders } from '../utils.js';
+import { normalizeContainer, containerOutputArgs } from '../core/engine/lifecycle/container.js';
 import { FfmpegService, ffmpegService } from './service.js';
 
 /** Modos de extração do FFmpeg (fallbacks de compatibilidade). */
 export const MODES = [
   { name: 'copy', args: ['-c', 'copy'] },
   { name: 'copy-adtstoasc', args: ['-c', 'copy', '-bsf:a', 'aac_adtstoasc'] },
-  { name: 'aac', args: ['-c:v', 'copy', '-c:a', 'aac', '-movflags', '+faststart'] },
+  { name: 'aac', args: ['-c:v', 'copy', '-c:a', 'aac'] },
 ];
 
 /** Rótulos dos modos, na mesma ordem de MODES. */
@@ -56,7 +58,7 @@ function isLikelyLocalInput(value) {
  * pois são opções de entrada do demuxer HLS. `outputArgs` (ex.: ['-vn']) são
  * opções de saída e entram depois do -i, antes dos args do modo.
  */
-export function buildDownloadArgs({ url, output, headers = {}, modeIndex = 0, extraArgs = [], outputArgs = [] }) {
+export function buildDownloadArgs({ url, output, headers = {}, modeIndex = 0, extraArgs = [], outputArgs = [] } = {}) {
   const mode = MODES[modeIndex] || MODES[0];
   const isRemoteInput = !isLikelyLocalInput(url);
   const effectiveHeaders = normalizeHeaders(headers);
@@ -64,12 +66,20 @@ export function buildDownloadArgs({ url, output, headers = {}, modeIndex = 0, ex
   const headerStr = formatHeaders(effectiveHeaders);
   const args = ['-hide_banner', '-loglevel', 'error', '-nostats', '-y'];
   if (isRemoteInput && headerStr) args.push('-headers', headerStr);
-  args.push(...extraArgs, '-i', url, '-progress', 'pipe:1', ...outputArgs, ...mode.args, output);
+  args.push(...extraArgs, '-i', url, '-progress', 'pipe:1', ...outputArgs, ...mode.args);
+  // O modo 'aac' sempre usou -movflags +faststart; em MKV ele é inútil (o
+  // FFmpeg ignora e o log mente). Só esse modo recebe, e só em MP4.
+  if (mode.name === 'aac') {
+    const container = normalizeContainer(path.extname(String(output || '')).slice(1));
+    args.push(...containerOutputArgs(container));
+  }
+  args.push(output);
   return args;
 }
 
 /** Monta os args de mux vídeo + áudio (sempre copy). Puro — testável. */
 export function buildMuxArgs({ videoInput, audioInput, output }) {
+  const container = normalizeContainer(path.extname(String(output || '')).slice(1));
   return [
     '-hide_banner',
     '-loglevel', 'error',
@@ -82,7 +92,7 @@ export function buildMuxArgs({ videoInput, audioInput, output }) {
     '-map', '1:a:0',
     '-c:v', 'copy',
     '-c:a', 'copy',
-    '-movflags', '+faststart',
+    ...containerOutputArgs(container),
     output,
   ];
 }

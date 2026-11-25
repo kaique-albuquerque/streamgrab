@@ -9,6 +9,7 @@ import path from 'node:path';
 import { startMuxDownload } from '../../../ffmpeg.js';
 import { ffmpegService } from '../../../ffmpeg/service.js';
 import { abortOutcome, makeFfmpegProgress } from '../helpers.js';
+import { containerOutputArgs, normalizeContainer } from '../lifecycle/container.js';
 import { runStreamDownload } from './stream.js';
 
 /**
@@ -112,7 +113,8 @@ export async function runMuxMultiDownload(prepared, output, headers, signal, onP
       ffmpegArgs.push('-metadata:s:a:' + i, `language=${lang}`);
       if (label) ffmpegArgs.push('-metadata:s:a:' + i, `title=${label}`);
     }
-    ffmpegArgs.push('-movflags', '+faststart', output);
+    ffmpegArgs.push(...containerOutputArgs(normalizeContainer(path.extname(output).slice(1))));
+    ffmpegArgs.push(output);
 
     const { promise, stop } = ffmpegService.run({
       args: ffmpegArgs,
