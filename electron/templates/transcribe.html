@@ -72,4 +72,27 @@
         <!-- Lista de jobs -->
         <div id="transcribeList" class="queue-list"></div>
         <div id="transcribeEmpty" class="empty-state">Nenhuma transcrição ainda. Selecione um vídeo para começar.</div>
+
+        <!-- Tradução de legendas (SPEC-10) -->
+        <div class="card transcribe-new-card">
+          <strong>Traduzir legendas</strong>
+          <p class="hint-line">Arquivo .srt em inglês → legenda em português, 100% local.</p>
+          <div class="transcribe-options">
+            <label class="transcribe-field">
+              <span>Modelo</span>
+              <select id="translateModelSelect" class="sort-select"></select>
+            </label>
+          </div>
+          <button id="translateModelDownloadBtn" class="button button-ghost" type="button" hidden>
+            Baixar modelo
+          </button>
+          <button id="translateStartBtn" class="button button-primary" type="button">
+            🌐 Selecionar .srt e traduzir
+          </button>
+          <p class="hint-line" id="translateNewHint" hidden></p>
+        </div>
+
+        <!-- Lista de jobs de tradução -->
+        <div id="translateList" class="queue-list"></div>
+        <div id="translateEmpty" class="empty-state" hidden>Nenhuma tradução ainda.</div>
       </section>

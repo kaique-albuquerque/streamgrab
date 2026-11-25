@@ -34,3 +34,21 @@ export const TRANSCRIBE_STAGE_LABELS = {
   transcribing: 'Transcrevendo',
   done: 'Concluído',
 };
+
+/** Estados dos jobs de tradução (src/translate/job-manager.js). */
+export const TRANSLATE_STATE_LABELS = {
+  queued: 'Aguardando',
+  running: 'Traduzindo',
+  done: 'Traduzido',
+  error: 'Falhou',
+  cancelled: 'Cancelado',
+};
+
+export const TRANSLATE_STAGE_LABELS = {
+  queued: 'Aguardando',
+  starting: 'Iniciando',
+  translating: 'Traduzindo',
+  shortening: 'Encurtando legendas',
+  writing: 'Gravando',
+  done: 'Concluído',
+};
