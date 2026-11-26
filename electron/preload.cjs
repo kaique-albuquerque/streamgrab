@@ -84,4 +84,12 @@ contextBridge.exposeInMainWorld('api', {
   onTranscribeJobUpdated: (cb) => ipcRenderer.on('transcribe:job-updated', (_e, data) => cb(data)),
   onTranscribeRemoved: (cb) => ipcRenderer.on('transcribe:removed', (_e, data) => cb(data)),
   onTranscribeModelProgress: (cb) => ipcRenderer.on('transcribe:model-progress', (_e, data) => cb(data)),
+
+  // Conversão de vídeo local para MKV (src/convert).
+  convertStart: (payload) => ipcRenderer.invoke('convert:start', payload),
+  convertCancel: (jobId) => ipcRenderer.invoke('convert:cancel', { jobId }),
+  onConvertProgress: (cb) => ipcRenderer.on('convert:progress', (_e, data) => cb(data)),
+  onConvertLog: (cb) => ipcRenderer.on('convert:log', (_e, data) => cb(data)),
+  onConvertDone: (cb) => ipcRenderer.on('convert:done', (_e, data) => cb(data)),
+  onConvertError: (cb) => ipcRenderer.on('convert:error', (_e, data) => cb(data)),
 });

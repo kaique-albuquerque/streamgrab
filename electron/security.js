@@ -39,4 +39,6 @@ export {
   validateTranscribePayload,
   validateTranscribeJobPayload,
   validateModelPayload,
+  validateConvertPayload,
+  validateConvertJobPayload,
 } from './security-payloads.js';
