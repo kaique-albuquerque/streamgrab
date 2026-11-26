@@ -7,11 +7,7 @@
 
 import { createTranslateActions } from './panel-translate/start.js';
 import { createTranslateModelSection } from './panel-translate/model.js';
-
-/** Normaliza o percentual para 0..100. */
-function clampPercent(value) {
-  return Math.max(0, Math.min(100, Number(value) || 0));
-}
+import { clampPercent, renderTranslateItem } from './panel-translate/item.js';
 
 /**
  * Cria o painel de tradução.
@@ -21,7 +17,8 @@ function clampPercent(value) {
  * @param {object} [deps.doc] - Documento (default: document)
  */
 export function createTranslatePanel({ api, doc } = {}) {
-  const apiFn = api || (() => window.api);
+  // Aceita tanto a função `() => window.api` quanto o objeto direto.
+  const apiFn = typeof api === 'function' ? api : () => api || window.api;
   const docRef = doc || (typeof document !== 'undefined' ? document : null);
   const jobs = new Map();
   let wired = false;
@@ -32,21 +29,31 @@ export function createTranslatePanel({ api, doc } = {}) {
   function renderList() {
     const listEl = docRef?.getElementById('translateList');
     if (!listEl) return;
-    listEl.textContent = '';
-    for (const job of jobs.values()) {
-      const item = docRef.createElement('div');
-      item.className = 'queue-item';
-      item.dataset.jobId = job.jobId;
-      const title = docRef.createElement('div');
-      title.className = 'queue-item-title';
-      title.textContent = job.srtPath?.split(/[\\/]/).pop() || job.srtPath || 'Legenda';
-      const pill = docRef.createElement('span');
-      pill.className = 'job-state';
-      pill.dataset.state = job.status || 'queued';
-      pill.textContent = actions.labels[job.status] || job.status || '';
-      item.append(title, pill);
-      listEl.appendChild(item);
+    // `textContent = ''` não remove os filhos no DOM real; `replaceChildren`
+    // limpa e evita duplicar os itens a cada re-render.
+    if (typeof listEl.replaceChildren === 'function') listEl.replaceChildren();
+    else {
+      listEl.textContent = '';
+      if (listEl.children) listEl.children.length = 0;
     }
+    for (const job of jobs.values()) {
+      listEl.appendChild(renderTranslateItem(job, handleAction, docRef));
+    }
+    // Mostra o "nenhuma tradução" só quando a lista está vazia.
+    const emptyEl = docRef?.getElementById('translateEmpty');
+    if (emptyEl) emptyEl.hidden = jobs.size > 0;
+  }
+
+  /** Ações do item: cancelar / repetir / remover. */
+  async function handleAction(action, job) {
+    try {
+      if (action === 'cancel') await apiFn().translateCancel(job.jobId);
+      else if (action === 'retry') await apiFn().translateRetry(job.jobId);
+      else if (action === 'remove') await apiFn().translateRemove(job.jobId);
+    } catch {
+      /* best-effort: a lista é revalidada abaixo */
+    }
+    setTimeout(() => refreshJobs().catch(() => {}), 200);
   }
 
   function ensureWired() {
@@ -57,6 +64,9 @@ export function createTranslatePanel({ api, doc } = {}) {
     });
     docRef.getElementById('translateModelDownloadBtn')?.addEventListener('click', () => {
       actions.downloadModel().catch(() => {});
+    });
+    docRef.getElementById('translateModelDeleteBtn')?.addEventListener('click', () => {
+      actions.deleteModel().catch(() => {});
     });
   }
 
@@ -89,7 +99,8 @@ export function createTranslatePanel({ api, doc } = {}) {
       job.percent = 100;
       job.status = 'done';
       jobs.set(job.jobId, job);
-      updateProgressDom(job);
+      // Re-renderiza: a barra só existe em 'running' e precisa sair do DOM.
+      renderList();
       return;
     }
     if (type === 'job-updated' || type === 'error') {
@@ -104,7 +115,11 @@ export function createTranslatePanel({ api, doc } = {}) {
     const item = listEl && listEl.querySelector?.(`[data-job-id="${job.jobId}"]`);
     const label = item?.querySelector?.('.transcribe-progress-label');
     if (label) {
-      label.textContent = `${clampPercent(job.percent)}%`;
+      const pct = `${clampPercent(job.percent)}%`;
+      label.textContent = pct;
+      const bar = item.querySelector('.transcribe-progress-bar');
+      const fill = bar?.querySelector?.('span');
+      if (fill) fill.style.width = pct;
       return;
     }
     // Sem item no DOM (ex.: doc fake em teste): atualiza o elemento de

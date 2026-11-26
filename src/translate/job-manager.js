@@ -55,7 +55,16 @@ export async function defaultTranslateRunner({ srtPath, targetLang, model, chars
 
 /** Cria o runner de tradução (lê `ctx.runner` para permitir injeção em testes). */
 function makeTranslateRunner(ctx) {
-  return (params) => (ctx.runner || defaultTranslateRunner)(params);
+  return ({ job, signal, onProgress, onLog }) =>
+    (ctx.runner || defaultTranslateRunner)({
+      srtPath: job.srtPath,
+      targetLang: job.targetLang,
+      model: job.model,
+      charsPerSecond: job.charsPerSecond,
+      signal,
+      onProgress,
+      onLog,
+    });
 }
 
 /**

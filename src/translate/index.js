@@ -15,6 +15,7 @@ import { chatJson } from './llama-cpp/chat.js';
 import { parseSrt } from './srt/parse.js';
 import { translateSrt } from './pipeline.js';
 import { writeTranslatedSrt } from './write.js';
+import { waitForTranslateModel } from './wait-model.js';
 import {
   DEFAULT_TRANSLATE_MODEL,
   getTranslateModelStatus,
@@ -80,6 +81,21 @@ export async function translateSubtitle({
   const chat = deps.chat || chatJson;
   const check = deps.checkLlamaCpp || checkLlamaCpp;
   const statusOf = deps.getTranslateModelStatus || getTranslateModelStatus;
+  const wait = deps.waitForModel || waitForTranslateModel;
+
+  // Espera o download terminar em vez de falhar: o job pode ser enfileirado
+  // enquanto o modelo (2,4 GB) ainda baixa.
+  const modelReady = await wait({
+    model,
+    isInstalled: () => statusOf(model).installed,
+    signal,
+    onWaiting: ({ waitedMs }) => {
+      onProgress?.({ stage: 'waiting-model', percent: 0, waitedMs });
+    },
+  });
+  if (!modelReady.installed) {
+    throw new Error(modelReady.message);
+  }
 
   const modelStatus = statusOf(model);
   if (!modelStatus.installed) {

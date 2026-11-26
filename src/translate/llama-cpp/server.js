@@ -11,6 +11,8 @@
 
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { parsePortFromLog } from './log-parse.js';
+import { pingHealth } from './health.js';
 
 /** Timeout padrão para o servidor ficar saudável. */
 export const SERVER_START_TIMEOUT_MS = 120_000;
@@ -64,8 +66,8 @@ export async function startServer({
   let exitInfo = '';
 
   const portFrom = (chunk) => {
-    const match = /(?:listening|port)[^\d]*(\d{2,5})/i.exec(chunk);
-    if (match) port = Number(match[1]);
+    const parsed = parsePortFromLog(chunk);
+    if (parsed > 0) port = parsed;
   };
 
   child.stdout?.on('data', (d) => {
@@ -134,17 +136,5 @@ export async function startServer({
     );
   } finally {
     signal?.removeEventListener('abort', onAbort);
-  }
-}
-
-/** GET /health com a api-key; true quando responde 200. */
-async function pingHealth(fetchImpl, port, apiKey) {
-  try {
-    const res = await fetchImpl(`http://127.0.0.1:${port}/health`, {
-      headers: { authorization: `Bearer ${apiKey}` },
-    });
-    return res.status === 200;
-  } catch {
-    return false;
   }
 }
