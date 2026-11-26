@@ -10,14 +10,15 @@ import {
   parseDownloadFlags,
   runAnalyzeCommand,
   runDownloadCommand,
+  runConvertCommand,
+  parseConvertFlags,
 } from './cli/commands.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 
-export async function main(argv = process.argv.slice(2)) {
-  const { command, url, rest } = parseCliCommand(argv);
-
+/** Subcomandos não-interativos: dispatch por nome. */
+async function runSubcommand(command, url, rest) {
   if (command === 'help') {
     printSubcommandHelp(console);
     return 0;
@@ -42,6 +43,25 @@ export async function main(argv = process.argv.slice(2)) {
     const result = await runDownloadCommand({ url, projectRoot: PROJECT_ROOT, io: console, options: flags });
     return result?.code ?? 1;
   }
+
+  if (command === 'convert') {
+    if (rest.includes('--help') || rest.includes('-h') || url.startsWith('-')) {
+      printSubcommandHelp(console);
+      return 0;
+    }
+    const flags = parseConvertFlags(rest);
+    const result = await runConvertCommand({ srtPath: url, io: console, flags });
+    return result?.code ?? 1;
+  }
+
+  return null;
+}
+
+export async function main(argv = process.argv.slice(2)) {
+  const { command, url, rest } = parseCliCommand(argv);
+
+  const subcommandCode = await runSubcommand(command, url, rest);
+  if (subcommandCode !== null) return subcommandCode;
 
   const prompter = createPrompter();
   const result = await runCliSession({

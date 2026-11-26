@@ -4,7 +4,7 @@
 
 export function parseCliCommand(argv = []) {
   const first = argv[0];
-  if (first === 'analyze' || first === 'download') {
+  if (first === 'analyze' || first === 'download' || first === 'convert') {
     return { command: first, url: argv[1] || '', rest: argv.slice(2) };
   }
   if (first === 'help') {
