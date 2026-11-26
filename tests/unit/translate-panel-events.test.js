@@ -213,3 +213,19 @@ test('clicar em Remover chama api.translateRemove', async () => {
   await new Promise((r) => setTimeout(r, 20));
   assert.ok(api.calls.some((c) => c.name === 'translateRemove'), 'translateRemove nao chamado');
 });
+
+test('re-render nao duplica itens (replaceChildren)', () => {
+  const doc = fakeDoc();
+  const panel = createTranslatePanel({ api: fakeApi(), doc });
+  panel.handleEvent('job-updated', { jobId: 'tl_1', srtPath: '/tmp/a.srt', status: 'queued', percent: 0 });
+  panel.handleEvent('job-updated', { jobId: 'tl_1', srtPath: '/tmp/a.srt', status: 'running', percent: 10 });
+  panel.handleEvent('job-updated', { jobId: 'tl_1', srtPath: '/tmp/a.srt', status: 'done', percent: 100 });
+  assert.equal(doc.getElementById('translateList').children.length, 1);
+});
+
+test('lista vazia mostra translateEmpty', () => {
+  const doc = fakeDoc();
+  const panel = createTranslatePanel({ api: fakeApi(), doc });
+  panel.renderList();
+  assert.equal(doc.getElementById('translateEmpty').hidden, false);
+});

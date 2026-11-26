@@ -29,11 +29,19 @@ export function createTranslatePanel({ api, doc } = {}) {
   function renderList() {
     const listEl = docRef?.getElementById('translateList');
     if (!listEl) return;
-    listEl.textContent = '';
-    if (listEl.children) listEl.children.length = 0;
+    // `textContent = ''` não remove os filhos no DOM real; `replaceChildren`
+    // limpa e evita duplicar os itens a cada re-render.
+    if (typeof listEl.replaceChildren === 'function') listEl.replaceChildren();
+    else {
+      listEl.textContent = '';
+      if (listEl.children) listEl.children.length = 0;
+    }
     for (const job of jobs.values()) {
       listEl.appendChild(renderTranslateItem(job, handleAction, docRef));
     }
+    // Mostra o "nenhuma tradução" só quando a lista está vazia.
+    const emptyEl = docRef?.getElementById('translateEmpty');
+    if (emptyEl) emptyEl.hidden = jobs.size > 0;
   }
 
   /** Ações do item: cancelar / repetir / remover. */
