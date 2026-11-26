@@ -123,8 +123,10 @@ test('evento progress atualiza percentual do job', () => {
 test('evento done marca 100%', () => {
   const doc = fakeDoc();
   const panel = createTranslatePanel({ api: fakeApi(), doc });
+  panel.handleEvent('job-updated', { jobId: 'tl_1', srtPath: '/tmp/a.srt', status: 'running', percent: 0 });
   panel.handleEvent('done', { jobId: 'tl_1', files: [] });
-  assert.equal(doc.percentText(), '100%');
+  const item = doc.getElementById('translateList').children[0];
+  assert.equal(item.querySelector('.job-state').textContent, 'Traduzido');
 });
 
 test('modelo nao baixado: botao Baixar aparece', async () => {
@@ -228,4 +230,18 @@ test('lista vazia mostra translateEmpty', () => {
   const panel = createTranslatePanel({ api: fakeApi(), doc });
   panel.renderList();
   assert.equal(doc.getElementById('translateEmpty').hidden, false);
+});
+
+test('done remove a barra de progresso (nao fica em 100%)', () => {
+  const doc = fakeDoc();
+  const panel = createTranslatePanel({ api: fakeApi(), doc });
+  panel.handleEvent('job-updated', { jobId: 'tl_1', srtPath: '/tmp/a.srt', status: 'running', percent: 0 });
+  panel.handleEvent('progress', { jobId: 'tl_1', percent: 55, stage: 'translating' });
+  const list = doc.getElementById('translateList');
+  assert.ok(list.children[0].querySelector('.transcribe-progress-bar'), 'barra existe durante running');
+
+  panel.handleEvent('done', { jobId: 'tl_1', files: [{ path: '/tmp/a.pt.srt' }] });
+  const item = list.children[0];
+  assert.equal(item.querySelector('.transcribe-progress-bar'), null, 'barra deve sumir no done');
+  assert.equal(item.querySelector('.job-state').textContent, 'Traduzido');
 });

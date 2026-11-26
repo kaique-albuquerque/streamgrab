@@ -96,7 +96,8 @@ export function createTranslatePanel({ api, doc } = {}) {
       job.percent = 100;
       job.status = 'done';
       jobs.set(job.jobId, job);
-      updateProgressDom(job);
+      // Re-renderiza: a barra só existe em 'running' e precisa sair do DOM.
+      renderList();
       return;
     }
     if (type === 'job-updated' || type === 'error') {
