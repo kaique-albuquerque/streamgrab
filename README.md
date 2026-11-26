@@ -580,6 +580,21 @@ streamgrab download <url> --container mkv
 streamgrab download <url> --container mp4   # explicit
 ```
 
+### 🔄 Converting a video you already have
+
+Got an MP4 and need MKV (for a selectable subtitle track)? Use **Transcrever → Converter vídeo para MKV**, pick the file, and the app writes `<name>.mkv` next to it.
+
+It is a **remux** (`-c copy`): no re-encode, no quality loss, ~1-2 s per hour of video. The original file is never touched, and an existing `.mkv` is never overwritten (`video (1).mkv` is used instead).
+
+CLI:
+
+```bash
+streamgrab convert video.mp4
+streamgrab convert video.mp4 --output /tmp
+```
+
+> If the source codec is not Matroska-compatible, the conversion fails with a clear message instead of producing a broken file.
+
 ### 🎙️ Video transcription (Whisper)
 
 StreamGrab can **transcribe videos to text** using [whisper.cpp](https://github.com/ggerganov/whisper.cpp) — the same files you download can be converted into `.txt`, `.md` (with timestamps) or `.srt` subtitles.

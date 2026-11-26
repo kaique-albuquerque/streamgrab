@@ -1,7 +1,7 @@
 # Spec: Converter Vídeo Local para MKV
 
 > **ID:** SPEC-12
-> **Status:** Rascunho aprovado para planejamento
+> **Status:** Implementado
 > **Prioridade:** Baixa
 > **Impacto:** 🔥
 > **Esforço:** Baixo
