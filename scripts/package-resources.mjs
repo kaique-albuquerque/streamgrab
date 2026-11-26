@@ -76,6 +76,20 @@ export function buildResourcePlan({ projectRoot = PROJECT_ROOT, listTools = fs.r
       to: `whisper-cli${BIN_EXT}`,
       required: false,
     },
+    {
+      // Binário de tradução (src/translate/llama-cpp/detect.js). Opcional:
+      // presente apenas se `npm run llama:install` rodou. `llama-server` é um
+      // stub fino — copia também as bibliotecas da mesma pasta (llama, ggml,
+      // libomp, ggml-cpu-*.dll), senão o processo falha com DLL_NOT_FOUND.
+      // O modelo GGUF NÃO é empacotado — o app o baixa em runtime para
+      // userData (src/translate/model-manager.js).
+      id: 'llama-server',
+      label: 'llama-server (vendor/llama)',
+      from: path.join(projectRoot, 'vendor', 'llama', `llama-server${BIN_EXT}`),
+      to: `llama-server${BIN_EXT}`,
+      required: false,
+      depsDir: path.join(projectRoot, 'vendor', 'llama'),
+    },
   ];
 
   let batProfiles = [];

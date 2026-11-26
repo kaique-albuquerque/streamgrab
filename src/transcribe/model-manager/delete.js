@@ -4,7 +4,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { getModelEntry, unknownModelError } from './catalog.js';
+import { MODEL_CATALOG, getModelEntry, unknownModelError } from './catalog.js';
 import { markerPath } from './marker.js';
 import { getModelStatus } from './status.js';
 
@@ -16,11 +16,13 @@ import { getModelStatus } from './status.js';
  *
  * @param {string} modelsDir - Diretório dos modelos
  * @param {string} model - Chave do catálogo
+ * @param {object} [options]
+ * @param {object} [options.catalog=MODEL_CATALOG] - Catálogo de modelos
  * @returns {{ model: string, removed: string[], status: ReturnType<typeof getModelStatus> }}
  */
-export function deleteModel(modelsDir, model) {
-  const info = getModelEntry(model);
-  if (!info) throw unknownModelError(model);
+export function deleteModel(modelsDir, model, { catalog = MODEL_CATALOG } = {}) {
+  const info = getModelEntry(model, catalog);
+  if (!info) throw unknownModelError(model, catalog);
 
   const modelPath = path.join(modelsDir, info.fileName);
   const removed = [];
@@ -35,5 +37,5 @@ export function deleteModel(modelsDir, model) {
     }
   }
 
-  return { model, removed, status: getModelStatus(modelsDir, model) };
+  return { model, removed, status: getModelStatus(modelsDir, model, { catalog }) };
 }

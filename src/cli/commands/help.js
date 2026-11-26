@@ -11,6 +11,11 @@ export function printSubcommandHelp(io) {
   io.log('  streamgrab analyze <url> [--json]   Analisa a URL sem interacao');
   io.log('  streamgrab download <url> [opcoes]  Baixa a URL sem interacao');
   io.log('  streamgrab convert <arquivo>        Converte video local para MKV');
+  io.log('  streamgrab translate <arquivo.srt>  Traduz legenda EN->PT (100% local)');
+  io.log('');
+  io.log('Opcoes do translate:');
+  io.log('  --model <id>                 Modelo GGUF (padrao: qwen3-4b)');
+  io.log('  --target-lang <code>         Idioma de destino (padrao: pt)');
   io.log('');
   io.log('Opcoes do analyze:');
   io.log('  --json                       Saida em JSON (machine-readable)');

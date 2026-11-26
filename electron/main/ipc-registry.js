@@ -9,6 +9,7 @@ import { registerPreviewHandlers } from '../ipc/preview-handlers.js';
 import { registerHistoryHandlers, registerSettingsHandlers } from '../ipc/history-handlers.js';
 import { registerTranscribeHandlers } from '../ipc/transcribe-handlers.js';
 import { registerConvertStartHandler, registerConvertCancelHandler } from '../ipc/convert-handlers.js';
+import { registerTranslateHandlers } from '../ipc/translate-handlers.js';
 
 /** Registra todos os handlers IPC de uma vez. */
 export function registerAllHandlers(clipboardWatcher) {
@@ -21,4 +22,5 @@ export function registerAllHandlers(clipboardWatcher) {
   registerTranscribeHandlers();
   registerConvertStartHandler();
   registerConvertCancelHandler();
+  registerTranslateHandlers();
 }

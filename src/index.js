@@ -8,14 +8,19 @@ import {
   printSubcommandHelp,
   parseAnalyzeFlags,
   parseDownloadFlags,
+  parseTranslateFlags,
   runAnalyzeCommand,
   runDownloadCommand,
   runConvertCommand,
   parseConvertFlags,
+  runTranslateCommand,
 } from './cli/commands.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
+
+/** Prompter da sessão interativa (módulo-level: os handlers de sinal o leem). */
+export let prompter = null;
 
 /** Subcomandos não-interativos: dispatch por nome. */
 async function runSubcommand(command, url, rest) {
@@ -54,6 +59,16 @@ async function runSubcommand(command, url, rest) {
     return result?.code ?? 1;
   }
 
+  if (command === 'translate') {
+    if (rest.includes('--help') || rest.includes('-h') || url.startsWith('-')) {
+      printSubcommandHelp(console);
+      return 0;
+    }
+    const flags = parseTranslateFlags(rest);
+    const result = await runTranslateCommand({ srtPath: url, io: console, flags });
+    return result?.code ?? 1;
+  }
+
   return null;
 }
 
@@ -63,7 +78,7 @@ export async function main(argv = process.argv.slice(2)) {
   const subcommandCode = await runSubcommand(command, url, rest);
   if (subcommandCode !== null) return subcommandCode;
 
-  const prompter = createPrompter();
+  prompter = createPrompter();
   const result = await runCliSession({
     argv,
     projectRoot: PROJECT_ROOT,

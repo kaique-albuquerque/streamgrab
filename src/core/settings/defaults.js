@@ -26,6 +26,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
   transcribeLang: 'pt',
   transcribeModel: 'small',
   transcribeTimestamps: true,
+  // SPEC-10: Tradução local de legendas
+  translateModel: 'qwen3-4b',
+  translateCharsPerSecond: 17,
 });
 
 /** Tipo e limites de cada chave conhecida. */
@@ -50,4 +53,7 @@ export const SCHEMA = {
   transcribeLang: { type: 'string', clamp: null },
   transcribeModel: { type: 'string', clamp: null },
   transcribeTimestamps: { type: 'boolean', clamp: null },
+  // SPEC-10: Tradução local de legendas
+  translateModel: { type: 'string', clamp: null },
+  translateCharsPerSecond: { type: 'number', clamp: [10, 40] },
 };

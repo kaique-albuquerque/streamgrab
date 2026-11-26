@@ -4,7 +4,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { DEFAULT_MODEL, getModelEntry, listModelIds } from './catalog.js';
+import { DEFAULT_MODEL, MODEL_CATALOG, getModelEntry } from './catalog.js';
 import { findInstalledIn, modelSearchDirs } from './models-dir.js';
 import { readMarker } from './marker.js';
 
@@ -18,7 +18,7 @@ function sizeOf(p) {
 }
 
 /** Status de um modelo desconhecido (nunca instalado). */
-function unknownModelStatus(model) {
+function unknownModelStatus(model, catalog = MODEL_CATALOG) {
   return {
     installed: false,
     model,
@@ -34,7 +34,7 @@ function unknownModelStatus(model) {
     note: '',
     heavy: false,
     hashVerified: false,
-    error: `Modelo desconhecido: ${model}. Opções: ${listModelIds().join(', ')}`,
+    error: `Modelo desconhecido: ${model}. Opções: ${Object.keys(catalog).join(', ')}`,
   };
 }
 
@@ -46,14 +46,15 @@ function unknownModelStatus(model) {
  * @param {object} [options]
  * @param {string[]} [options.extraDirs] - Diretórios só-leitura a consultar
  *   quando o modelo não está em `modelsDir` (instalações do whisper.cpp).
+ * @param {object} [options.catalog=MODEL_CATALOG] - Catálogo de modelos
  * @returns {{ installed: boolean, model: string, label: string, fileName: string,
  *             path: string, dir: string, externalDir: string, size: number,
  *             expectedSize: number, percent: number, partialSize: number,
  *             note: string, heavy: boolean, hashVerified: boolean }}
  */
-export function getModelStatus(modelsDir, model = DEFAULT_MODEL, { extraDirs = [] } = {}) {
-  const info = getModelEntry(model);
-  if (!info) return unknownModelStatus(model);
+export function getModelStatus(modelsDir, model = DEFAULT_MODEL, { extraDirs = [], catalog = MODEL_CATALOG } = {}) {
+  const info = getModelEntry(model, catalog);
+  if (!info) return unknownModelStatus(model, catalog);
 
   const modelPath = path.join(modelsDir, info.fileName);
   const partialSize = sizeOf(`${modelPath}.part`);
@@ -95,10 +96,11 @@ export function getModelStatus(modelsDir, model = DEFAULT_MODEL, { extraDirs = [
  * @param {string} modelsDir - Diretório gravável dos modelos
  * @param {object} [options]
  * @param {string[]} [options.extraDirs] - Diretórios só-leitura de fallback
+ * @param {object} [options.catalog=MODEL_CATALOG] - Catálogo de modelos
  * @returns {Array<ReturnType<typeof getModelStatus>>}
  */
-export function listModels(modelsDir, { extraDirs = [] } = {}) {
-  return listModelIds().map((model) => getModelStatus(modelsDir, model, { extraDirs }));
+export function listModels(modelsDir, { extraDirs = [], catalog = MODEL_CATALOG } = {}) {
+  return Object.keys(catalog).map((model) => getModelStatus(modelsDir, model, { extraDirs, catalog }));
 }
 
 /**

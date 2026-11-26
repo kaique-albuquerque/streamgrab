@@ -13,3 +13,4 @@ export { runAnalyzeCommand } from './commands/analyze.js';
 export { runDownloadCommand, createNonInteractiveAnswers, buildDownloadArgv } from './commands/download.js';
 export { resolveQualityChoice } from './commands/quality.js';
 export { parseConvertFlags, runConvertCommand } from './commands/convert.js';
+export { parseTranslateFlags, runTranslateCommand } from './commands/translate.js';

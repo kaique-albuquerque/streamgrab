@@ -74,8 +74,8 @@ export const MODEL_CATALOG = {
 };
 
 /** Ids do catálogo, na ordem de exibição (menor → maior). */
-export function listModelIds() {
-  return Object.keys(MODEL_CATALOG);
+export function listModelIds(catalog = MODEL_CATALOG) {
+  return Object.keys(catalog);
 }
 
 /**
@@ -83,9 +83,12 @@ export function listModelIds() {
  *
  * Usa `hasOwnProperty` de propósito: um id como 'constructor' ou '__proto__'
  * não deve herdar nada de Object.prototype.
+ *
+ * @param {string} model - Chave do catálogo
+ * @param {object} [catalog=MODEL_CATALOG] - Catálogo a consultar
  */
-export function isKnownModel(model) {
-  return typeof model === 'string' && Object.prototype.hasOwnProperty.call(MODEL_CATALOG, model);
+export function isKnownModel(model, catalog = MODEL_CATALOG) {
+  return typeof model === 'string' && Object.prototype.hasOwnProperty.call(catalog, model);
 }
 
 /**
@@ -93,12 +96,15 @@ export function isKnownModel(model) {
  *
  * Use esta função em vez de indexar MODEL_CATALOG direto, para nunca
  * resolver propriedades herdadas de Object.prototype.
+ *
+ * @param {string} model - Chave do catálogo
+ * @param {object} [catalog=MODEL_CATALOG] - Catálogo a consultar
  */
-export function getModelEntry(model) {
-  return isKnownModel(model) ? MODEL_CATALOG[model] : null;
+export function getModelEntry(model, catalog = MODEL_CATALOG) {
+  return isKnownModel(model, catalog) ? catalog[model] : null;
 }
 
 /** Erro padrão para ids fora do catálogo. */
-export function unknownModelError(model) {
-  return new Error(`Modelo desconhecido: ${model}. Opções: ${listModelIds().join(', ')}`);
+export function unknownModelError(model, catalog = MODEL_CATALOG) {
+  return new Error(`Modelo desconhecido: ${model}. Opções: ${listModelIds(catalog).join(', ')}`);
 }
