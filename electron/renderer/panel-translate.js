@@ -21,7 +21,8 @@ function clampPercent(value) {
  * @param {object} [deps.doc] - Documento (default: document)
  */
 export function createTranslatePanel({ api, doc } = {}) {
-  const apiFn = api || (() => window.api);
+  // Aceita tanto a função `() => window.api` quanto o objeto direto.
+  const apiFn = typeof api === 'function' ? api : () => api || window.api;
   const docRef = doc || (typeof document !== 'undefined' ? document : null);
   const jobs = new Map();
   let wired = false;

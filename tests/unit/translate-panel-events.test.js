@@ -11,12 +11,15 @@ import { createTranslatePanel } from '../../electron/renderer/panel-translate.js
 function fakeDoc() {
   const els = new Map();
   const get = (id) => {
-    if (!els.has(id)) els.set(id, { textContent: '', hidden: true, style: {} });
+    if (!els.has(id)) {
+      els.set(id, { textContent: '', hidden: true, style: {}, addEventListener() {}, value: '', appendChild() {} });
+    }
     return els.get(id);
   };
   return {
     percentText: () => get('translatePercent').textContent,
     getElementById: get,
+    createElement: () => ({ value: '', textContent: '' }),
   };
 }
 
@@ -54,4 +57,30 @@ test('evento done marca 100%', () => {
   const panel = createTranslatePanel({ api: fakeApi(), doc });
   panel.handleEvent('done', { jobId: 'tl_1', files: [] });
   assert.equal(doc.percentText(), '100%');
+});
+
+test('modelo nao baixado: botao Baixar aparece', async () => {
+  const doc = fakeDoc();
+  const api = fakeApi();
+  api.translateModels = async () => ({
+    ok: true,
+    defaultModel: 'qwen3-4b',
+    models: [{ model: 'qwen3-4b', label: 'Qwen3-4B', installed: false }],
+  });
+  const panel = createTranslatePanel({ api, doc });
+  await panel.refresh();
+  assert.equal(doc.getElementById('translateModelDownloadBtn').hidden, false);
+});
+
+test('modelo baixado: botao Baixar fica oculto', async () => {
+  const doc = fakeDoc();
+  const api = fakeApi();
+  api.translateModels = async () => ({
+    ok: true,
+    defaultModel: 'qwen3-4b',
+    models: [{ model: 'qwen3-4b', label: 'Qwen3-4B', installed: true }],
+  });
+  const panel = createTranslatePanel({ api, doc });
+  await panel.refresh();
+  assert.equal(doc.getElementById('translateModelDownloadBtn').hidden, true);
 });
