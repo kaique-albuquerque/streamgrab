@@ -6,6 +6,7 @@ import {
   prepare as _prepare,
   resolveOutput as _resolveOutput,
   downloadLoop as _downloadLoop,
+  reconcileContainer as _reconcileContainer,
   processSubtitles,
   processTranscription,
   processAudioExtract,
@@ -56,6 +57,18 @@ export async function runJob(engine, job, {
     job.meta.output = outputPath;
     job._reservedOutput = outputPath;
     await _downloadLoop(engine, job, adapter, prepared, { headers, mode, turbo, turboChunks });
+
+    // SPEC-11: o container pedido pode divergir do que a fonte entregou
+    // (URL direta apontando para MP4 com o setting em MKV). Mantém a extensão
+    // real e avisa, em vez de criar um .mkv que na verdade é MP4.
+    const requested = job.meta?.container || engine.settings?.get?.('videoContainer') || '';
+    const reconciled = _reconcileContainer({ filePath: job.meta.output, requested });
+    if (reconciled.changed) {
+      job.meta.output = reconciled.filePath;
+      job._reservedOutput = reconciled.filePath;
+      engine._emit('log', { jobId: job.id, message: `[container] ${reconciled.message}` });
+    }
+
     await processSubtitles(engine, job, prepared, { subtitleLanguages, embedSubs, headers });
     await processTranscription(engine, job, {
       transcribe, transcribeLang, transcribeTimestamps,
