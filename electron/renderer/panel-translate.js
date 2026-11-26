@@ -7,11 +7,7 @@
 
 import { createTranslateActions } from './panel-translate/start.js';
 import { createTranslateModelSection } from './panel-translate/model.js';
-
-/** Normaliza o percentual para 0..100. */
-function clampPercent(value) {
-  return Math.max(0, Math.min(100, Number(value) || 0));
-}
+import { clampPercent, renderTranslateItem } from './panel-translate/item.js';
 
 /**
  * Cria o painel de tradução.
@@ -34,20 +30,22 @@ export function createTranslatePanel({ api, doc } = {}) {
     const listEl = docRef?.getElementById('translateList');
     if (!listEl) return;
     listEl.textContent = '';
+    if (listEl.children) listEl.children.length = 0;
     for (const job of jobs.values()) {
-      const item = docRef.createElement('div');
-      item.className = 'queue-item';
-      item.dataset.jobId = job.jobId;
-      const title = docRef.createElement('div');
-      title.className = 'queue-item-title';
-      title.textContent = job.srtPath?.split(/[\\/]/).pop() || job.srtPath || 'Legenda';
-      const pill = docRef.createElement('span');
-      pill.className = 'job-state';
-      pill.dataset.state = job.status || 'queued';
-      pill.textContent = actions.labels[job.status] || job.status || '';
-      item.append(title, pill);
-      listEl.appendChild(item);
+      listEl.appendChild(renderTranslateItem(job, handleAction, docRef));
     }
+  }
+
+  /** Ações do item: cancelar / repetir / remover. */
+  async function handleAction(action, job) {
+    try {
+      if (action === 'cancel') await apiFn().translateCancel(job.jobId);
+      else if (action === 'retry') await apiFn().translateRetry(job.jobId);
+      else if (action === 'remove') await apiFn().translateRemove(job.jobId);
+    } catch {
+      /* best-effort: a lista é revalidada abaixo */
+    }
+    setTimeout(() => refreshJobs().catch(() => {}), 200);
   }
 
   function ensureWired() {
@@ -105,7 +103,11 @@ export function createTranslatePanel({ api, doc } = {}) {
     const item = listEl && listEl.querySelector?.(`[data-job-id="${job.jobId}"]`);
     const label = item?.querySelector?.('.transcribe-progress-label');
     if (label) {
-      label.textContent = `${clampPercent(job.percent)}%`;
+      const pct = `${clampPercent(job.percent)}%`;
+      label.textContent = pct;
+      const bar = item.querySelector('.transcribe-progress-bar');
+      const fill = bar?.querySelector?.('span');
+      if (fill) fill.style.width = pct;
       return;
     }
     // Sem item no DOM (ex.: doc fake em teste): atualiza o elemento de
