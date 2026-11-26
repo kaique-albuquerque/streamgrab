@@ -12,6 +12,13 @@ export function setupTranscribeEvents(getPanels) {
   window.api.onTranscribeRemoved(handle('removed'));
   window.api.onTranscribeModelProgress(handle('model-progress'));
 
+  // SPEC-12: conversão de vídeo para MKV
+  const handleConvert = (type) => (data) => getPanels()?.handleConvertEvent?.(type, data);
+  window.api.onConvertProgress?.(handleConvert('progress'));
+  window.api.onConvertLog?.(() => {});
+  window.api.onConvertDone?.(handleConvert('done'));
+  window.api.onConvertError?.(handleConvert('error'));
+
   // SPEC-10: tradução local de legendas
   window.api.onTranslateProgress?.(handleTranslate('progress'));
   window.api.onTranslateLog?.(() => {});

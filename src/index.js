@@ -11,6 +11,8 @@ import {
   parseTranslateFlags,
   runAnalyzeCommand,
   runDownloadCommand,
+  runConvertCommand,
+  parseConvertFlags,
   runTranslateCommand,
 } from './cli/commands.js';
 
@@ -20,9 +22,8 @@ const PROJECT_ROOT = path.resolve(__dirname, '..');
 /** Prompter da sessão interativa (módulo-level: os handlers de sinal o leem). */
 export let prompter = null;
 
-export async function main(argv = process.argv.slice(2)) {
-  const { command, url, rest } = parseCliCommand(argv);
-
+/** Subcomandos não-interativos: dispatch por nome. */
+async function runSubcommand(command, url, rest) {
   if (command === 'help') {
     printSubcommandHelp(console);
     return 0;
@@ -48,6 +49,16 @@ export async function main(argv = process.argv.slice(2)) {
     return result?.code ?? 1;
   }
 
+  if (command === 'convert') {
+    if (rest.includes('--help') || rest.includes('-h') || url.startsWith('-')) {
+      printSubcommandHelp(console);
+      return 0;
+    }
+    const flags = parseConvertFlags(rest);
+    const result = await runConvertCommand({ srtPath: url, io: console, flags });
+    return result?.code ?? 1;
+  }
+
   if (command === 'translate') {
     if (rest.includes('--help') || rest.includes('-h') || url.startsWith('-')) {
       printSubcommandHelp(console);
@@ -57,6 +68,15 @@ export async function main(argv = process.argv.slice(2)) {
     const result = await runTranslateCommand({ srtPath: url, io: console, flags });
     return result?.code ?? 1;
   }
+
+  return null;
+}
+
+export async function main(argv = process.argv.slice(2)) {
+  const { command, url, rest } = parseCliCommand(argv);
+
+  const subcommandCode = await runSubcommand(command, url, rest);
+  if (subcommandCode !== null) return subcommandCode;
 
   prompter = createPrompter();
   const result = await runCliSession({

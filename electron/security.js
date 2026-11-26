@@ -39,6 +39,8 @@ export {
   validateTranscribePayload,
   validateTranscribeJobPayload,
   validateModelPayload,
+  validateConvertPayload,
+  validateConvertJobPayload,
   validateTranslateStartPayload,
   validateTranslateJobPayload,
   validateTranslateModelPayload,

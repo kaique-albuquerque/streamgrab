@@ -8,6 +8,10 @@ import { DEFAULT_CONTAINER, extensionForContainer } from './container.js';
 const MEDIA_EXTENSIONS = [
   'mp4', 'mkv', 'webm', 'mov', 'm4v', 'ts', 'm4a', 'mp3', 'aac',
   'flac', 'opus', 'wav', 'ogg', 'avi', 'flv', 'wmv', 'mpg', 'mpeg', '3gp',
+  // Fontes que entregam binários sem extensão reconhecível (ex.: URLs de
+  // download que terminam em `.bin`). Sem isso, "video.bin" + container MKV
+  // virava "video.bin.mkv".
+  'bin',
 ];
 const MEDIA_EXT_RE = new RegExp(`\\.(${MEDIA_EXTENSIONS.join('|')})$`, 'i');
 

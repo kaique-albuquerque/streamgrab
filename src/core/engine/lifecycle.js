@@ -12,6 +12,7 @@ export { analyze } from './lifecycle/analyze.js';
 export { prepare } from './lifecycle/prepare.js';
 export { resolveOutput } from './lifecycle/output.js';
 export { downloadLoop } from './lifecycle/download-loop.js';
+export { reconcileContainer } from './lifecycle/container-reconcile.js';
 export { processSubtitles } from './lifecycle/subtitles.js';
 export { processTranscription } from './lifecycle/transcription.js';
 export { processAudioExtract } from './lifecycle/audio-extract.js';

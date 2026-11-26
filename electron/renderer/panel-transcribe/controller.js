@@ -2,6 +2,7 @@
 
 import { createJobListRenderer } from '../panel-transcribe-jobs.js';
 import { createModelSection } from '../panel-transcribe-model.js';
+import { createConvertPanel } from '../panel-convert.js';
 import { createTranslatePanel } from '../panel-translate.js';
 import { refreshEngineStatus } from './engine.js';
 import { createJobsController } from './jobs.js';
@@ -15,6 +16,7 @@ export function createTranscribePanel() {
   let wired = false;
 
   const modelSection = createModelSection();
+  const convertPanel = createConvertPanel();
   const translatePanel = createTranslatePanel();
   const jobList = createJobListRenderer({
     onJobAction: (action, target) => handleJobAction(action, target),
@@ -30,6 +32,12 @@ export function createTranscribePanel() {
     document.getElementById('transcribeRefreshBtn')?.addEventListener('click', () => refreshTranscribePanel());
     document.getElementById('transcribeStartBtn')?.addEventListener('click', () => {
       startTranscription().catch(() => {});
+    });
+    document.getElementById('convertStartBtn')?.addEventListener('click', () => {
+      convertPanel.start().catch(() => {});
+    });
+    document.getElementById('convertCancelBtn')?.addEventListener('click', () => {
+      convertPanel.cancel().catch(() => {});
     });
     modelSection.bind();
   }
@@ -47,6 +55,7 @@ export function createTranscribePanel() {
   return {
     refreshTranscribePanel,
     handleTranscribeEvent,
+    handleConvertEvent: (type, data) => convertPanel.handleEvent(type, data),
     handleTranslateEvent: (type, data) => translatePanel.handleEvent(type, data),
   };
 }

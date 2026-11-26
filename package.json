@@ -89,7 +89,8 @@
     "speech-to-text",
     "notebooklm",
     "mkv",
-    "container"
+    "container",
+    "convert"
   ],
   "license": "MIT",
   "devDependencies": {

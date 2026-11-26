@@ -85,6 +85,14 @@ contextBridge.exposeInMainWorld('api', {
   onTranscribeRemoved: (cb) => ipcRenderer.on('transcribe:removed', (_e, data) => cb(data)),
   onTranscribeModelProgress: (cb) => ipcRenderer.on('transcribe:model-progress', (_e, data) => cb(data)),
 
+  // Conversão de vídeo local para MKV (src/convert).
+  convertStart: (payload) => ipcRenderer.invoke('convert:start', payload),
+  convertCancel: (jobId) => ipcRenderer.invoke('convert:cancel', { jobId }),
+  onConvertProgress: (cb) => ipcRenderer.on('convert:progress', (_e, data) => cb(data)),
+  onConvertLog: (cb) => ipcRenderer.on('convert:log', (_e, data) => cb(data)),
+  onConvertDone: (cb) => ipcRenderer.on('convert:done', (_e, data) => cb(data)),
+  onConvertError: (cb) => ipcRenderer.on('convert:error', (_e, data) => cb(data)),
+
   // Tradução local de legendas (src/translate).
   pickSubtitleFile: () => ipcRenderer.invoke('app:pick-subtitle-file'),
   translateStart: (payload) => ipcRenderer.invoke('translate:start', payload),
