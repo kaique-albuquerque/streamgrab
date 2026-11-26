@@ -97,5 +97,6 @@ export function createPanelsController({ dom, tabsController }) {
     refreshTranscribePanel: () => transcribePanel.refreshTranscribePanel(),
     handleQueueEvent: (event, payload) => queuePanel.handleQueueEvent(event, payload),
     handleTranscribeEvent: (channel, data) => transcribePanel.handleTranscribeEvent(channel, data),
+    handleConvertEvent: (type, data) => transcribePanel.handleConvertEvent(type, data),
   };
 }
