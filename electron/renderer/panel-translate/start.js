@@ -39,5 +39,15 @@ export function createTranslateActions({ api, doc, jobs, renderList }) {
     else hint('');
   }
 
-  return { start, downloadModel, hint, labels: TRANSLATE_STATE_LABELS };
+  async function deleteModel() {
+    const model = doc.getElementById('translateModelSelect')?.value || 'qwen3-4b';
+    const res = await api().translateModelDelete({ model });
+    if (!res?.ok) {
+      hint(res?.error?.message || 'Falha ao excluir o modelo.', true);
+      return;
+    }
+    hint(`Modelo "${model}" excluído.`);
+  }
+
+  return { start, downloadModel, deleteModel, hint, labels: TRANSLATE_STATE_LABELS };
 }

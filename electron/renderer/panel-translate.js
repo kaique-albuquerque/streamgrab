@@ -65,6 +65,9 @@ export function createTranslatePanel({ api, doc } = {}) {
     docRef.getElementById('translateModelDownloadBtn')?.addEventListener('click', () => {
       actions.downloadModel().catch(() => {});
     });
+    docRef.getElementById('translateModelDeleteBtn')?.addEventListener('click', () => {
+      actions.deleteModel().catch(() => {});
+    });
   }
 
   async function refresh() {

@@ -101,6 +101,7 @@ function fakeApi() {
     translateCancel: wrap('translateCancel', async () => ({ ok: true })),
     translateRemove: wrap('translateRemove', async () => ({ ok: true })),
     translateRetry: wrap('translateRetry', async () => ({ ok: true })),
+    translateModelDelete: wrap('translateModelDelete', async () => ({ ok: true })),
   };
 }
 
@@ -230,6 +231,47 @@ test('lista vazia mostra translateEmpty', () => {
   const panel = createTranslatePanel({ api: fakeApi(), doc });
   panel.renderList();
   assert.equal(doc.getElementById('translateEmpty').hidden, false);
+});
+
+test('modelo instalado: botao Excluir aparece', async () => {
+  const doc = fakeDoc();
+  const api = fakeApi();
+  api.translateModels = async () => ({
+    ok: true,
+    defaultModel: 'qwen3-4b',
+    models: [{ model: 'qwen3-4b', label: 'Qwen3-4B', installed: true }],
+  });
+  const panel = createTranslatePanel({ api, doc });
+  await panel.refresh();
+  assert.equal(doc.getElementById('translateModelDeleteBtn').hidden, false);
+});
+
+test('modelo nao instalado: botao Excluir fica oculto', async () => {
+  const doc = fakeDoc();
+  const api = fakeApi();
+  api.translateModels = async () => ({
+    ok: true,
+    defaultModel: 'qwen3-4b',
+    models: [{ model: 'qwen3-4b', label: 'Qwen3-4B', installed: false }],
+  });
+  const panel = createTranslatePanel({ api, doc });
+  await panel.refresh();
+  assert.equal(doc.getElementById('translateModelDeleteBtn').hidden, true);
+});
+
+test('clicar em Excluir chama api.translateModelDelete', async () => {
+  const doc = fakeDoc();
+  const api = fakeApi();
+  api.translateModels = async () => ({
+    ok: true,
+    defaultModel: 'qwen3-4b',
+    models: [{ model: 'qwen3-4b', label: 'Qwen3-4B', installed: true }],
+  });
+  const panel = createTranslatePanel({ api, doc });
+  await panel.refresh();
+  doc.getElementById('translateModelDeleteBtn').dispatchEvent({ type: 'click' });
+  await new Promise((r) => setTimeout(r, 20));
+  assert.ok(api.calls.some((c) => c.name === 'translateModelDelete'), 'translateModelDelete nao chamado');
 });
 
 test('done remove a barra de progresso (nao fica em 100%)', () => {

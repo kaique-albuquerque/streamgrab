@@ -34,6 +34,14 @@ export function createTranslateModelSection({ api, doc }) {
     // cai no default — o botão nunca deve ficar oculto por causa disso.
     const selected = models.get(selectValue()) || models.get(defaultModel) || null;
     btn.hidden = Boolean(selected?.installed);
+    renderDeleteButton(selected);
+  }
+
+  /** Mostra o botão "Excluir" só quando o modelo selecionado está instalado. */
+  function renderDeleteButton(selected) {
+    const btn = doc.getElementById('translateModelDeleteBtn');
+    if (!btn) return;
+    btn.hidden = !selected?.installed;
   }
 
   /** Modelo selecionado no <select> (ou o default). */
