@@ -20,6 +20,7 @@ export function createTranslateModelSection({ api, doc }) {
       select.appendChild(option);
     }
     select.value = models.has(defaultModel) ? defaultModel : [...models.keys()][0] || '';
+    bindSelect();
     renderDownloadButton();
   }
 
@@ -48,6 +49,14 @@ export function createTranslateModelSection({ api, doc }) {
   function selectValue() {
     const select = doc.getElementById('translateModelSelect');
     return select?.value || defaultModel;
+  }
+
+  /** Listener de troca do <select>: atualiza os botões. */
+  function bindSelect() {
+    const select = doc.getElementById('translateModelSelect');
+    if (!select || select.dataset?.wired === '1') return;
+    if (select.dataset) select.dataset.wired = '1';
+    select.addEventListener?.('change', () => renderDownloadButton());
   }
 
   async function refresh() {
