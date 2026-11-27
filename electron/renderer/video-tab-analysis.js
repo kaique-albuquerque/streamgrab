@@ -73,6 +73,7 @@ export function createTabAnalysis({ appState }) {
         setActiveStep(state, 'variant');
         markAllPreviousAsDone(state, 'variant');
         const title = info.title ? ` para "${info.title}"` : '';
+        state.fields.modeLabel.textContent = 'Formatos encontrados';
         setStatus(state, `Formatos encontrados${title}. Se nada for escolhido, a melhor disponivel sera usada.`);
         appendLog(state, `Formatos encontrados: ${info.variants.length}`);
       } else if (info.kind === 'dash') {
@@ -88,6 +89,7 @@ export function createTabAnalysis({ appState }) {
         );
         setActiveStep(state, 'file');
         markAllPreviousAsDone(state, 'file');
+        state.fields.modeLabel.textContent = 'Manifesto DASH pronto';
         setStatus(state, 'Manifesto DASH pronto para download.');
         appendLog(state, `Representacoes DASH: ${info.videoRepresentations?.length || 0}`);
       } else {
@@ -103,6 +105,7 @@ export function createTabAnalysis({ appState }) {
         );
         setActiveStep(state, 'file');
         markAllPreviousAsDone(state, 'file');
+        state.fields.modeLabel.textContent = info.kind === 'direct' ? 'Arquivo direto pronto' : 'Playlist pronta';
         setStatus(state, info.kind === 'direct' ? 'Arquivo direto pronto para download.' : 'Playlist pronta para download.');
         appendLog(state, info.kind === 'direct' ? 'Arquivo direto detectado.' : 'Playlist unica detectada.');
       }

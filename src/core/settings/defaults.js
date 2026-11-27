@@ -29,6 +29,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
   // SPEC-10: Tradução local de legendas
   translateModel: 'qwen3-4b',
   translateCharsPerSecond: 17,
+  // Backends segmentados (HLS/DASH). Ligados por padrao: sem eles o DASH
+  // cai no FFmpeg direto, que nao monta init+media sozinho.
+  features: { hlsSegments: true, dashSegments: true },
 });
 
 /** Tipo e limites de cada chave conhecida. */
@@ -56,4 +59,5 @@ export const SCHEMA = {
   // SPEC-10: Tradução local de legendas
   translateModel: { type: 'string', clamp: null },
   translateCharsPerSecond: { type: 'number', clamp: [10, 40] },
+  features: { type: 'json', clamp: null },
 };

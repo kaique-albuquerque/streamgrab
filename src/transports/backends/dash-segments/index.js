@@ -8,7 +8,7 @@ import path from 'node:path';
 
 import { fetchDashManifestText, parseDashManifest } from '../../../dash.js';
 import { createAdaptiveController, normalizeAdaptiveControllerOptions } from '../../adaptive-controller.js';
-import { inspectDashSegmentSupport, resolveAbsolute } from './helpers.js';
+import { inspectDashSegmentSupport, isInitSegment } from './helpers.js';
 import { buildCheckpointIds, createCheckpointEmitter, restoreFromCheckpoint } from './checkpoint.js';
 import { createWorkerLoop, createSpawnManager, flushAdaptiveWindow } from './worker.js';
 
@@ -74,6 +74,7 @@ export async function prepareDashSegmentDownloadToLocal({
 
     const state = {
       signal, manifestBase, headers, workDir, videoRep, audioRep,
+      totalSeconds: parsed.durationSeconds || 0,
       completedSegmentIds, representationStatuses, results: restored,
       pendingQueue, cursor: 0, running: 0, desired: 0,
       totalBytes: restoredBytes, done: restoredDone, total,
@@ -105,11 +106,31 @@ export async function prepareDashSegmentDownloadToLocal({
     const video = state.results.get('video');
     const audio = state.results.get('audio') || null;
 
+    // SegmentTemplate: init e media sao arquivos distintos e precisam ser
+    // unidos antes de virar o arquivo final. BaseURL+SegmentBase: o arquivo
+    // unico pode ser um init (ftyp/moov, sem mdat) — nesse caso tambem
+    // precisa ser unido ao media.
+    const videoTemplate = video?.initPath
+      ? { initPath: video.initPath, mediaPath: video.mediaPath }
+      : null;
+    const videoBuffer = video && !videoTemplate ? fs.readFileSync(video.localPath || video.mediaPath) : null;
+    const videoIsInitOnly = Boolean(videoBuffer && isInitSegment(videoBuffer));
+    const initPath = videoTemplate?.initPath || (videoIsInitOnly ? video.localPath : '');
+    const videoPath = videoTemplate?.mediaPath || video?.localPath || '';
+    const audioTemplate = audio?.initPath
+      ? { initPath: audio.initPath, mediaPath: audio.mediaPath }
+      : null;
+    const audioIsInitOnly = Boolean(audio && !audioTemplate && isInitSegment(fs.readFileSync(audio.localPath)));
+    const audioPath = audioTemplate?.mediaPath || audio?.localPath || '';
+    const audioInitPath = audioTemplate?.initPath || (audioIsInitOnly ? audio.localPath : '');
+
     return {
       ok: true,
-      mode: audio ? 'mux' : 'single',
-      videoPath: video.localPath,
-      audioPath: audio?.localPath || '',
+      mode: audioPath ? 'mux' : 'single',
+      videoPath,
+      audioPath,
+      initPath,
+      audioInitPath,
       totalBytes: state.totalBytes,
       checkpoint: emitCheckpoint({ taskState: 'downloaded', diagnostics: {
         videoRepresentationId: videoRep.id || '',

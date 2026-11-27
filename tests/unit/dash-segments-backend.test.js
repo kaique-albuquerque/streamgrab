@@ -251,3 +251,99 @@ test('dash-segments backend: reaproveita checkpoint anterior e pula trilha ja ba
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
+
+test('dash-segments backend: isInitSegment detecta ftyp+moov sem mdat', async () => {
+  const { isInitSegment } = await import('../../src/transports/backends/dash-segments/helpers.js');
+  const box = (type, body = '') => {
+    const payload = Buffer.from(body, 'latin1');
+    const head = Buffer.alloc(8);
+    head.writeUInt32BE(8 + payload.length, 0);
+    head.write(type, 4, 'latin1');
+    return Buffer.concat([head, payload]);
+  };
+  const init = Buffer.concat([box('ftyp', 'isom'), box('moov')]);
+  const media = Buffer.concat([box('styp', 'msdh'), box('moof'), box('mdat')]);
+  const notMp4 = Buffer.from('hello world not mp4');
+  assert.equal(isInitSegment(init), true);
+  assert.equal(isInitSegment(media), false);
+  assert.equal(isInitSegment(notMp4), false);
+  assert.equal(isInitSegment(Buffer.alloc(0)), false);
+});
+
+test('dash-segments backend: SegmentTemplate baixa init+media e retorna ambos', async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sg-dash-segments-tpl-'));
+  const mpd = `<?xml version="1.0" encoding="UTF-8"?>
+  <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" mediaPresentationDuration="PT30S">
+    <Period>
+      <AdaptationSet mimeType="video/mp4" contentType="video">
+        <SegmentTemplate timescale="90000" duration="2700000" startNumber="1"
+          initialization="init-$RepresentationID$.mp4"
+          media="seg-$RepresentationID$-$Number%09d$.mp4"/>
+        <Representation id="v1" bandwidth="1500000" width="640" height="360"/>
+      </AdaptationSet>
+    </Period>
+  </MPD>`;
+  const server = await startServer({
+    '/manifest.mpd': { headers: { 'Content-Type': 'application/dash+xml' }, body: mpd },
+    '/init-v1.mp4': { body: Buffer.from('init-data') },
+    '/seg-v1-000000001.mp4': { body: Buffer.from('media-data') },
+  });
+  try {
+    const port = server.address().port;
+    const result = await prepareDashSegmentDownloadToLocal({
+      url: `http://127.0.0.1:${port}/manifest.mpd`,
+      tmpDir,
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.mode, 'single');
+    assert.ok(result.initPath, 'initPath deve apontar para o init baixado');
+    assert.ok(result.videoPath, 'videoPath deve apontar para o media baixado');
+    assert.notEqual(result.initPath, result.videoPath);
+    assert.equal(fs.readFileSync(result.initPath, 'utf8'), 'init-data');
+    assert.equal(fs.readFileSync(result.videoPath, 'utf8'), 'media-data');
+  } finally {
+    await stopServer(server);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('dash-segments backend: SegmentTemplate baixa todos os segmentos (1..N)', async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sg-dash-segments-multi-'));
+  const mpd = `<?xml version="1.0" encoding="UTF-8"?>
+  <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" mediaPresentationDuration="PT60S">
+    <Period>
+      <AdaptationSet mimeType="video/mp4" contentType="video">
+        <SegmentTemplate timescale="1000" duration="10000" startNumber="1"
+          initialization="init-$RepresentationID$.mp4"
+          media="seg-$RepresentationID$-$Number%09d$.mp4"/>
+        <Representation id="v1" bandwidth="1500000" width="640" height="360"/>
+      </AdaptationSet>
+    </Period>
+  </MPD>`;
+  const routes = {
+    '/manifest.mpd': { headers: { 'Content-Type': 'application/dash+xml' }, body: mpd },
+    '/init-v1.mp4': { body: Buffer.from('init-data') },
+  };
+  const hits = [];
+  for (let i = 1; i <= 6; i++) {
+    const name = `/seg-v1-${String(i).padStart(9, '0')}.mp4`;
+    routes[name] = { body: Buffer.from(`media-${i}`) };
+    hits.push(name);
+  }
+  const server = await startServer(routes);
+  try {
+    const port = server.address().port;
+    const result = await prepareDashSegmentDownloadToLocal({
+      url: `http://127.0.0.1:${port}/manifest.mpd`,
+      tmpDir,
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.mode, 'single');
+    // 60s / 10s = 6 segmentos concatenados no media
+    assert.equal(fs.readFileSync(result.videoPath, 'utf8'), hits.map((_, i) => `media-${i + 1}`).join(''));
+    assert.equal(fs.readFileSync(result.initPath, 'utf8'), 'init-data');
+  } finally {
+    await stopServer(server);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
