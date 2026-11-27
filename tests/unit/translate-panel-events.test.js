@@ -274,6 +274,29 @@ test('clicar em Excluir chama api.translateModelDelete', async () => {
   assert.ok(api.calls.some((c) => c.name === 'translateModelDelete'), 'translateModelDelete nao chamado');
 });
 
+test('trocar o select atualiza os botoes Baixar/Excluir', async () => {
+  const doc = fakeDoc();
+  const api = fakeApi();
+  api.translateModels = async () => ({
+    ok: true,
+    defaultModel: 'qwen3-4b',
+    models: [
+      { model: 'qwen3-4b', label: 'Qwen3-4B', installed: true },
+      { model: 'qwen2.5-7b', label: 'Qwen2.5-7B', installed: false },
+    ],
+  });
+  const panel = createTranslatePanel({ api, doc });
+  await panel.refresh();
+
+  // Seleciona o modelo NAO instalado.
+  const select = doc.getElementById('translateModelSelect');
+  select.value = 'qwen2.5-7b';
+  select.dispatchEvent({ type: 'change' });
+
+  assert.equal(doc.getElementById('translateModelDownloadBtn').hidden, false, 'Baixar deve aparecer');
+  assert.equal(doc.getElementById('translateModelDeleteBtn').hidden, true, 'Excluir deve sumir');
+});
+
 test('done remove a barra de progresso (nao fica em 100%)', () => {
   const doc = fakeDoc();
   const panel = createTranslatePanel({ api: fakeApi(), doc });
