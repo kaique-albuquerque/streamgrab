@@ -97,6 +97,26 @@ export function restoreFromCheckpoint(queue, checkpointCompletedIds, manifestBas
     const localPath = path.join(workDir, `${item.kind}${ext}`);
     item.localPath = localPath;
 
+    // SegmentTemplate: init e media sao arquivos separados.
+    const tpl = item.rep.segmentTemplate;
+    if (tpl?.initialization && tpl?.media) {
+      const mediaExt = path.extname(new URL(tpl.media).pathname) || '.mp4';
+      const initLocal = path.join(workDir, `${item.kind}-init${mediaExt}`);
+      const mediaLocal = path.join(workDir, `${item.kind}${mediaExt}`);
+      item.localPath = mediaLocal;
+      if (checkpointCompletedIds.has(item.checkpointId) && fs.existsSync(initLocal) && fs.existsSync(mediaLocal)) {
+        const bytes = fs.statSync(initLocal).size + fs.statSync(mediaLocal).size;
+        restored.set(item.kind, {
+          initPath: initLocal, mediaPath: mediaLocal, localPath: mediaLocal, bytes, absoluteUrl: tpl.media,
+        });
+        totalBytes += bytes;
+        done += 1;
+        continue;
+      }
+      pendingQueue.push(item);
+      continue;
+    }
+
     if (checkpointCompletedIds.has(item.checkpointId) && fs.existsSync(localPath)) {
       const bytes = fs.statSync(localPath).size;
       restored.set(item.kind, { localPath, bytes, absoluteUrl: absolute });

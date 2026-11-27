@@ -40,18 +40,19 @@ export function extractFfmpegError(stderr) {
 }
 
 /** Executa o FFmpeg para extrair o trecho (args estruturados, sem shell). */
-export function runFfmpegPreview({ inputUrl, outputPath, ffmpegPath, headers }) {
+export function runFfmpegPreview({ inputUrl, outputPath, ffmpegPath, headers, isRemote = true }) {
   return new Promise((resolve, reject) => {
     let settled = false;
     let stderr = '';
 
     const args = buildPreviewArgs({ inputUrl, outputPath });
     // Garante User-Agent padrão se nenhum foi fornecido (evita 403 em servidores).
+    // `-headers` e opcao do protocolo HTTP: em arquivo local o FFmpeg falha.
     let headerStr = String(headers || '');
     if (!headerStr.includes('User-Agent:')) {
       headerStr += `User-Agent: ${DEFAULT_USER_AGENT}\r\n`;
     }
-    if (headerStr.trim()) args.splice(args.indexOf('-i'), 0, '-headers', headerStr);
+    if (isRemote && headerStr.trim()) args.splice(args.indexOf('-i'), 0, '-headers', headerStr);
 
     const proc = spawn(ffmpegPath, args, { windowsHide: true });
 

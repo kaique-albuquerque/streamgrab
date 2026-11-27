@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { canPreview, getPreviewDir, needsYtDlp } from './eligibility.js';
 import { runFfmpegPreview } from './ffmpeg.js';
+import { runDashPreview, dashPreviewHeaders } from './dash.js';
 import { runYtDlpPreview } from './ytdlp.js';
 import { clearPreview } from './cache.js';
 
@@ -72,6 +73,23 @@ async function createPreviewFile({ url, quality, sourceType, outputPath, ffmpegP
       return { ok: false, error: 'Preview para YouTube/redes sociais requer yt-dlp. Instale-o para habilitar esta funcionalidade.' };
     }
   } else {
+    // DASH: o FFmpeg pode nao ter o demuxer `dash` (ex.: builds do Homebrew).
+    // Nesse caso baixamos init + primeiros segmentos e remuxamos o trecho.
+    if (String(sourceType || '').toLowerCase() === 'dash') {
+      try {
+        await runDashPreview({ url, outputPath, ffmpegPath, headers: dashPreviewHeaders(headers) });
+        return null;
+      } catch (err) {
+        if (err?.status === 403 || err?.status === 404) {
+          clearPreview(outputPath);
+          return { ok: false, error: err.status === 403
+            ? 'A URL expirou ou foi recusada (403). Copie uma URL nova no DevTools.'
+            : 'O trecho nao foi encontrado no servidor (404).' };
+        }
+        // outros erros: tenta o caminho direto abaixo (pode funcionar em
+        // builds com demuxer `dash`).
+      }
+    }
     try {
       await runFfmpegPreview({ inputUrl, outputPath, ffmpegPath, headers });
     } catch (err) {

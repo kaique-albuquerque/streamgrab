@@ -21,6 +21,7 @@ test('DEFAULT_SETTINGS tem as chaves do plano (seção 22 + P6.2 + SPEC-01/02 + 
     'clipboardWatch',
     'defaultDir',
     'defaultQuality',
+    'features',
     'historyRetentionDays',
     'maxConcurrentDownloads',
     'notifications',

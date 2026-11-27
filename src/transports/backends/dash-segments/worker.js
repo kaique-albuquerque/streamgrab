@@ -2,7 +2,7 @@
  * DASH segments — worker loop and adaptive scheduling.
  */
 
-import { downloadRepresentation } from './helpers.js';
+import { downloadRepresentation, downloadTemplateRepresentation } from './helpers.js';
 
 /**
  * Creates the worker loop function for downloading representations.
@@ -21,11 +21,19 @@ export function createWorkerLoop(state) {
         const checkpointId = current.checkpointId;
         state.representationStatuses.set(checkpointId, 'downloading');
         try {
-          const download = await downloadRepresentation(
-            current.rep, state.manifestBase, state.headers,
-            state.workDir, current.kind, state.signal
-          );
-          state.results.set(current.kind, download);
+          const download = current.rep.segmentTemplate?.initialization && current.rep.segmentTemplate?.media
+            ? await downloadTemplateRepresentation(
+                current.rep, state.headers, state.workDir, current.kind, state.signal,
+                state.totalSeconds
+              )
+            : await downloadRepresentation(
+                current.rep, state.manifestBase, state.headers,
+                state.workDir, current.kind, state.signal
+              );
+          state.results.set(current.kind, {
+            ...download,
+            localPath: download.mediaPath || download.localPath,
+          });
           state.totalBytes += download.bytes;
           state.completedSegmentIds.add(checkpointId);
           state.representationStatuses.set(checkpointId, 'completed');

@@ -177,3 +177,18 @@ test('generatePreview com ffmpeg inexistente devolve erro amigável (sem lançar
   assert.equal(result.ok, false);
   assert.ok(result.error);
 });
+
+// ---------------------------------------------------------------------------
+// DASH preview (init + primeiros segmentos)
+// ---------------------------------------------------------------------------
+
+test('dashPreviewHeaders garante User-Agent unico', async () => {
+  const { dashPreviewHeaders } = await import('../../src/preview/dash.js');
+  const empty = dashPreviewHeaders('');
+  assert.match(empty, /User-Agent: .+/);
+  const custom = dashPreviewHeaders('Referer: https://x/\r\n');
+  assert.match(custom, /Referer: https:\/\/x\//);
+  assert.match(custom, /User-Agent: .+/);
+  const kept = dashPreviewHeaders('User-Agent: MeuUA\r\n');
+  assert.equal(kept, 'User-Agent: MeuUA\r\n');
+});

@@ -1,5 +1,8 @@
 /**
- * DASH segments — orchestrator and barrel re-export.
+ * DASH segments — orquestrador e barrel re-export.
+ *
+ * A montagem do estado/resultado esta em ./result.js; aqui fica apenas o
+ * fluxo: buscar MPD, montar fila, baixar com workers e devolver o payload.
  */
 
 import fs from 'node:fs';
@@ -7,10 +10,14 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { fetchDashManifestText, parseDashManifest } from '../../../dash.js';
-import { createAdaptiveController, normalizeAdaptiveControllerOptions } from '../../adaptive-controller.js';
-import { inspectDashSegmentSupport, resolveAbsolute } from './helpers.js';
+import { normalizeAdaptiveControllerOptions } from '../../adaptive-controller.js';
+import { inspectDashSegmentSupport } from './helpers.js';
 import { buildCheckpointIds, createCheckpointEmitter, restoreFromCheckpoint } from './checkpoint.js';
 import { createWorkerLoop, createSpawnManager, flushAdaptiveWindow } from './worker.js';
+import {
+  buildQueue, completedIdsFrom, createAdaptive, resolveTrackPaths,
+  buildSuccessResult, buildFailureResult,
+} from './result.js';
 
 export { inspectDashSegmentSupport } from './helpers.js';
 
@@ -29,7 +36,6 @@ export async function prepareDashSegmentDownloadToLocal({
     const videoRep = parsed.videoRepresentations[0];
     const audioRep = parsed.audioRepresentations[0] || null;
     const manifestBase = parsed.baseUrl || manifest.url || url;
-    const total = audioRep ? 2 : 1;
 
     const { videoCheckpointId, audioCheckpointId } = buildCheckpointIds(videoRep, audioRep);
     const { emitCheckpoint, completedSegmentIds, representationStatuses } = createCheckpointEmitter({
@@ -37,18 +43,9 @@ export async function prepareDashSegmentDownloadToLocal({
       videoCheckpointId, audioCheckpointId, onCheckpoint,
     });
 
-    const queue = [
-      { rep: videoRep, kind: 'video', checkpointId: videoCheckpointId },
-      ...(audioRep ? [{ rep: audioRep, kind: 'audio', checkpointId: audioCheckpointId }] : []),
-    ];
-
-    const checkpointCompletedIds = new Set(
-      Array.isArray(checkpoint?.completedSegmentIds)
-        ? checkpoint.completedSegmentIds.map((v) => String(v || '')).filter(Boolean)
-        : []
-    );
+    const queue = buildQueue(videoRep, audioRep, videoCheckpointId, audioCheckpointId);
     const { restored, pendingQueue, totalBytes: restoredBytes, done: restoredDone } =
-      restoreFromCheckpoint(queue, checkpointCompletedIds, manifestBase, workDir);
+      restoreFromCheckpoint(queue, completedIdsFrom(checkpoint), manifestBase, workDir);
 
     for (const item of queue) {
       if (restored.has(item.kind)) {
@@ -62,21 +59,13 @@ export async function prepareDashSegmentDownloadToLocal({
       audioRepresentationId: audioRep?.id || '',
     }});
 
-    const adaptiveOptions = normalizeAdaptiveControllerOptions(adaptive);
-    const controller = adaptiveOptions && queue.length >= 2
-      ? createAdaptiveController({
-          ...adaptiveOptions,
-          min: Math.min(adaptiveOptions.min, queue.length),
-          max: Math.min(adaptiveOptions.max, queue.length),
-          initial: Math.min(adaptiveOptions.initial, queue.length),
-        })
-      : null;
-
+    const controller = createAdaptive(normalizeAdaptiveControllerOptions(adaptive), queue.length);
     const state = {
       signal, manifestBase, headers, workDir, videoRep, audioRep,
+      totalSeconds: parsed.durationSeconds || 0,
       completedSegmentIds, representationStatuses, results: restored,
       pendingQueue, cursor: 0, running: 0, desired: 0,
-      totalBytes: restoredBytes, done: restoredDone, total,
+      totalBytes: restoredBytes, done: restoredDone, total: audioRep ? 2 : 1,
       queueLength: queue.length,
       windowBytes: 0, windowErrors: 0, windowLatencyMs: 0,
       windowRequests: 0, windowStart: Date.now(),
@@ -84,8 +73,7 @@ export async function prepareDashSegmentDownloadToLocal({
     };
 
     state.desired = controller ? controller.getConcurrency() : pendingQueue.length || queue.length;
-    const workerLoop = createWorkerLoop(state);
-    state.workerLoop = workerLoop;
+    state.workerLoop = createWorkerLoop(state);
     const { workers, spawnAvailable } = createSpawnManager(state);
 
     const adaptiveTimer = controller
@@ -102,42 +90,12 @@ export async function prepareDashSegmentDownloadToLocal({
     clearInterval(adaptiveTimer);
     flushAdaptiveWindow(state, controller, onAdaptiveDecision, onProgress);
 
-    const video = state.results.get('video');
-    const audio = state.results.get('audio') || null;
-
-    return {
-      ok: true,
-      mode: audio ? 'mux' : 'single',
-      videoPath: video.localPath,
-      audioPath: audio?.localPath || '',
-      totalBytes: state.totalBytes,
-      checkpoint: emitCheckpoint({ taskState: 'downloaded', diagnostics: {
-        videoRepresentationId: videoRep.id || '',
-        audioRepresentationId: audioRep?.id || '',
-        totalBytes: state.totalBytes,
-      }}),
-      diagnostics: {
-        videoRepresentationId: videoRep.id || '',
-        audioRepresentationId: audioRep?.id || '',
-        resumedSegmentCount: completedSegmentIds.size,
-        workDir,
-        adaptive: controller
-          ? { enabled: true, finalConcurrency: controller.getConcurrency() }
-          : { enabled: false },
-      },
-      cleanup: ownsTmpDir ? () => fs.rmSync(workDir, { recursive: true, force: true }) : () => {},
-    };
+    return buildSuccessResult({
+      state, videoRep, audioRep, workDir, ownsTmpDir, controller, emitCheckpoint,
+      paths: resolveTrackPaths(state.results),
+    });
   } catch (err) {
-    if (ownsTmpDir) {
-      try { fs.rmSync(workDir, { recursive: true, force: true }); } catch { /* ok */ }
-    }
-    return {
-      ok: false,
-      code: err?.code || 'DASH_SEGMENTS_FAILED',
-      error: err?.message || 'Falha ao preparar DASH segmentado.',
-      status: err?.status || 0,
-      fallback: 'ffmpeg',
-    };
+    return buildFailureResult(err, workDir, ownsTmpDir);
   }
 }
 
